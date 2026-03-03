@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Aether - Flagship POS System
 
 A modern, enterprise-grade Point of Sale (POS) application built with cutting-edge web technologies. Designed to handle high-volume retail operations with intuitive UI, robust backend, and comprehensive analytics.
@@ -302,3 +303,20 @@ For issues, questions, or feature requests, please contact the development team.
 **Version**: 1.0.0-alpha  
 **Status**: Active Development
 
+=======
+# aether
+
+Point-of-Sale (POS) web app — project scaffold for "aether".
+
+Monorepo layout:
+- packages/backend — Fastify + TypeScript + Prisma
+- packages/frontend — React + TypeScript + Vite
+- infra — docker-compose for local dev
+
+Stack: React + TypeScript, Node.js (Fastify), Prisma, PostgreSQL, Redis, Docker
+
+Workflows:
+- pnpm install
+- pnpm dev (runs dev for all packages)
+# aethercore
+>>>>>>> ba3670fdb957c57066c8d48cd04e850291572a85

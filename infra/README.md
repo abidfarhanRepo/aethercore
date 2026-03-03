@@ -11,7 +11,11 @@ What is included
 - k6 load test in k6/
 
 How to run
+<<<<<<< HEAD
 1. From the infra directory, build and start services:
+=======
+1. From /home/user/.openclaw/workspace/infra, build and start services:
+>>>>>>> ba3670fdb957c57066c8d48cd04e850291572a85
    docker compose up --build
 
 2. This will start the nginx app, then run k6 (it will run immediately) and the playwright-runner will run the npm test command and exit.
