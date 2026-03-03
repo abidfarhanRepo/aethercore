@@ -1,0 +1,551 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  password            String
+  firstName           String?
+  lastName            String?
+  phone               String?
+  department          String?
+  manager             User?     @relation("ManagerRelation", fields: [managerId], references: [id], onDelete: SetNull)
+  managerId           String?
+  subordinates        User[]    @relation("ManagerRelation")
+  role                Role      @default(CASHIER)
+  isActive            Boolean   @default(true)
+  lastLogin           DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedAt            DateTime?
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  refreshTokens  RefreshToken[]
+  sales          Sale[]
+  purchaseOrders PurchaseOrder[]
+  auditLogs      AuditLog[]
+  userRoles      UserRole[]
+  permissionLog  PermissionLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([department])
+  @@index([isActive])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER
+  STOCK_CLERK
+  SUPERVISOR
+}
+
+model CustomRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions Json // Array of permission strings
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles UserRole[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model UserRole {
+  id           String     @id @default(cuid())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  customRole   CustomRole @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+  customRoleId String
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, customRoleId])
+  @@index([userId])
+  @@index([customRoleId])
+}
+
+model PermissionLog {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  action     String // GRANT, REVOKE, DENY, ATTEMPT
+  resource   String // PRODUCTS, SALES, INVENTORY, USERS, REPORTS, etc.
+  permission String
+  granted    Boolean  @default(false)
+  ipAddress  String?
+  details    String?
+  timestamp  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  sku               String   @unique
+  barcode           String?  @unique
+  name              String
+  description       String?
+  category          String?
+  subcategory       String?
+  priceCents        Int
+  costCents         Int?
+  profitMarginCents Int?
+  imageUrl          String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  inventoryLocations    InventoryLocation[]
+  inventoryTransactions InventoryTransaction[]
+  saleItems             SaleItem[]
+  purchaseOrderItems    PurchaseOrderItem[]
+
+  @@index([sku])
+  @@index([barcode])
+  @@index([category])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventoryLocations    InventoryLocation[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model InventoryLocation {
+  id            String    @id @default(cuid())
+  product       Product   @relation(fields: [productId], references: [id])
+  productId     String
+  warehouse     Warehouse @relation(fields: [warehouseId], references: [id])
+  warehouseId   String
+  qty           Int       @default(0)
+  minThreshold  Int       @default(10)
+  maxThreshold  Int       @default(1000)
+  reorderPoint  Int       @default(50)
+  lastCountedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([productId, warehouseId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([qty])
+}
+
+model InventoryTransaction {
+  id           String    @id @default(cuid())
+  product      Product   @relation(fields: [productId], references: [id])
+  productId    String
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id])
+  warehouseId  String
+  qtyDelta     Int
+  qtyBefore    Int?
+  qtyAfter     Int?
+  type         String // PURCHASE, SALE, ADJUSTMENT, RETURN, TRANSFER, RECOUNT
+  reason       String? // DAMAGE, THEFT, RECOUNT, ADJUSTMENT, SHRINKAGE, etc.
+  reference    String? // e.g., sale ID, purchase order ID
+  fromLocation String? // for TRANSFER type
+  toLocation   String? // for TRANSFER type
+  createdBy    String?
+  notes        String?
+  costPerUnit  Int? // for COGS calculation
+  createdAt    DateTime  @default(now())
+
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([type])
+  @@index([reason])
+  @@index([createdAt])
+  @@index([reference])
+}
+
+model InventoryAdjustmentSession {
+  id          String    @id @default(cuid())
+  warehouseId String
+  sessionName String
+  status      String    @default("in_progress") // in_progress, completed, cancelled
+  adjustedBy  String?
+  completedAt DateTime?
+  totalItems  Int       @default(0)
+  variance    Int       @default(0) // difference between expected and counted
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([warehouseId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Sale {
+  id            String    @id @default(cuid())
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  customerId    String?
+  subtotalCents Int       @default(0)
+  totalCents    Int
+  discountCents Int       @default(0)
+  taxCents      Int       @default(0)
+  paymentMethod String    @default("CASH")
+  status        String    @default("completed") // completed, voided, returned
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items          SaleItem[]
+  payments       SalePayment[]
+  paymentRecords Payment[]
+  discounts      SaleDiscount[]
+  returns        SaleReturn[]
+
+  @@index([userId])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model SaleItem {
+  id            String   @id @default(cuid())
+  sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId        String
+  product       Product  @relation(fields: [productId], references: [id])
+  productId     String
+  qty           Int
+  unitPrice     Int
+  discountCents Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  returns SaleReturn[]
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model SalePayment {
+  id          String   @id @default(cuid())
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId      String
+  method      String // CASH, CARD, CHECK, GIFT_CARD, LOYALTY_POINTS, STORE_CREDIT
+  amountCents Int
+  reference   String? // e.g., card last 4, check number, gift card ID
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([saleId])
+  @@index([method])
+}
+
+model SaleDiscount {
+  id          String   @id @default(cuid())
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId      String
+  reason      String // COUPON, LOYALTY, BULK, PERCENTAGE, FIXED, LOYALTY_POINTS, EMPLOYEE
+  type        String // FIXED_AMOUNT, PERCENTAGE
+  amountCents Int
+  percentage  Int      @default(0)
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([saleId])
+  @@index([reason])
+}
+
+model SaleReturn {
+  id                String   @id @default(cuid())
+  sale              Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId            String
+  item              SaleItem @relation(fields: [itemId], references: [id])
+  itemId            String
+  qty               Int
+  reason            String // DEFECTIVE, CHANGE_MIND, WRONG_ITEM, DAMAGE
+  notes             String?
+  refundAmountCents Int
+  createdAt         DateTime @default(now())
+
+  refund Refund? @relation("SaleReturnRefund")
+
+  @@index([saleId])
+  @@index([itemId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actor      User?    @relation(fields: [actorId], references: [id])
+  actorId    String?
+  action     String
+  resource   String? // USER, PRODUCT, SALE, etc.
+  resourceId String?
+  details    String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([resource])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?  @unique
+  phone        String?
+  address      String?
+  city         String?
+  country      String?
+  paymentTerms String?
+  rating       Int      @default(5)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([name])
+  @@index([email])
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?  @unique
+  phone         String?
+  address       String?
+  city          String?
+  country       String?
+  loyaltyPoints Int      @default(0)
+  creditBalance Int      @default(0)
+  segment       String? // REGULAR, VIP, WHOLESALE
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sales         Sale[]
+  paymentTokens PaymentToken[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([segment])
+}
+
+model PurchaseOrder {
+  id               String    @id @default(cuid())
+  poNumber         String    @unique
+  user             User      @relation(fields: [userId], references: [id])
+  userId           String
+  supplier         Supplier  @relation(fields: [supplierId], references: [id])
+  supplierId       String
+  totalCents       Int
+  status           String    @default("pending") // PENDING, CONFIRMED, RECEIVED, CANCELLED
+  notes            String?
+  expectedDelivery DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  items PurchaseOrderItem[]
+
+  @@index([userId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  purchaseOrderId String
+  product         Product       @relation(fields: [productId], references: [id])
+  productId       String
+  qty             Int
+  qtyReceived     Int           @default(0)
+  unitPrice       Int
+  createdAt       DateTime      @default(now())
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+model PaymentProcessor {
+  id            String   @id @default(cuid())
+  name          String   @unique // STRIPE, SQUARE, PAYPAL
+  displayName   String
+  apiKey        String   @db.Text // encrypted
+  secretKey     String?  @db.Text // encrypted
+  webhookSecret String?  @db.Text // encrypted
+  webhookUrl    String?
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  payments      Payment[]
+  paymentTokens PaymentToken[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model PaymentToken {
+  id             String           @id @default(cuid())
+  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId     String?
+  processor      PaymentProcessor @relation(fields: [processorId], references: [id], onDelete: Cascade)
+  processorId    String
+  tokenValue     String           @db.Text // encrypted - token from payment processor
+  cardLast4      String // last 4 digits only
+  cardBrand      String? // VISA, MASTERCARD, AMEX, DISCOVER
+  expiryMonth    Int?
+  expiryYear     Int?
+  cardholderName String?
+  isDefault      Boolean          @default(false)
+  isSaved        Boolean          @default(true)
+  status         String           @default("active") // ACTIVE, EXPIRED, DELETED
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  payments Payment[]
+
+  @@unique([processorId, tokenValue])
+  @@index([customerId])
+  @@index([processorId])
+  @@index([status])
+}
+
+model Payment {
+  id             String           @id @default(cuid())
+  sale           Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId         String
+  processor      PaymentProcessor @relation(fields: [processorId], references: [id])
+  processorId    String
+  paymentToken   PaymentToken?    @relation(fields: [paymentTokenId], references: [id], onDelete: SetNull)
+  paymentTokenId String?
+
+  // Payment details
+  amountCents Int
+  currency    String @default("USD")
+  status      String @default("processing") // PROCESSING, AUTHORIZED, CAPTURED, DECLINED, FAILED, REFUNDED
+
+  // Processor references
+  transactionId   String  @unique // Stripe charge ID, Square transaction ID, PayPal transaction ID
+  paymentIntentId String? // Stripe payment_intent_id
+  idempotencyKey  String  @unique // For idempotency
+
+  // Payment method details
+  cardLast4 String?
+  cardBrand String?
+  avsResult String? // AVS verification result
+  cvvMatch  Boolean? // CVV match result
+
+  // 3D Secure / SCA
+  requiresAction Boolean @default(false)
+  actionUrl      String? // URL for 3D Secure challenge
+  clientSecret   String? @db.Text // Stripe client secret
+
+  // Refund info
+  refundedCents Int      @default(0)
+  refunds       Refund[]
+
+  // Metadata
+  metadata      Json? // Additional data
+  errorCode     String?
+  errorMessage  String?
+  fraudDetected Boolean @default(false)
+
+  // Audit
+  createdBy   String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([saleId])
+  @@index([processorId])
+  @@index([status])
+  @@index([transactionId])
+  @@index([createdAt])
+  @@index([fraudDetected])
+}
+
+model Refund {
+  id           String      @id @default(cuid())
+  payment      Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentId    String
+  saleReturn   SaleReturn? @relation("SaleReturnRefund", fields: [saleReturnId], references: [id], onDelete: SetNull)
+  saleReturnId String?     @unique
+
+  amountCents Int
+  reason      String @default("CUSTOMER_REQUEST") // CUSTOMER_REQUEST, DUPLICATE, FRAUDULENT, RETURN_MERCHANDISE, OTHER
+  status      String @default("pending") // PENDING, PROCESSING, COMPLETED, FAILED, REJECTED
+
+  // Processor references
+  refundId     String?   @unique // Stripe refund ID, Square refund ID, PayPal refund ID
+  requestedAt  DateTime  @default(now())
+  processedAt  DateTime?
+  errorCode    String?
+  errorMessage String?
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PaymentWebhookEvent {
+  id           String    @id @default(cuid())
+  processor    String // STRIPE, SQUARE, PAYPAL
+  eventId      String // External event ID
+  eventType    String // payment_intent.succeeded, charge.refunded, etc.
+  payload      String    @db.Text
+  signature    String // Signature for verification
+  status       String    @default("received") // RECEIVED, VERIFIED, PROCESSED, FAILED
+  errorMessage String?
+  processedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([processor, eventId])
+  @@index([processor])
+  @@index([eventType])
+  @@index([status])
+  @@index([createdAt])
+}

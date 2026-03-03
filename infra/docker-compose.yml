@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app-under-test:
+    image: nginx:stable-alpine
+    container_name: app-under-test
+    networks:
+      - e2e-net
+    ports:
+      - "8080:80"
+    volumes:
+      - ./example-site:/usr/share/nginx/html:ro
+
+  playwright-runner:
+    build: .
+    container_name: playwright-runner
+    networks:
+      - e2e-net
+    depends_on:
+      - app-under-test
+    environment:
+      - BASE_URL=http://app-under-test
+    # Allow access to host.docker.internal on Linux via extra_hosts if needed
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./:/usr/src/app
+    # Keep it ephemeral; by default it runs tests and exits
+
+  k6:
+    image: loadimpact/k6:latest
+    container_name: k6-runner
+    networks:
+      - e2e-net
+    depends_on:
+      - app-under-test
+    volumes:
+      - ./k6:/scripts
+    entrypoint: ["k6", "run", "/scripts/load-test.js"]
+
+networks:
+  e2e-net:
+    driver: bridge
