@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { loadStripe, Stripe } from '@stripe/js'
+import { loadStripe, Stripe } from '@stripe/stripe-js'
 import {
   Elements,
   CardElement,

@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import bcrypt from 'bcryptjs'
+const bcrypt = require('bcryptjs')
 import crypto from 'crypto'
 import { prisma } from '../utils/db'
 import { requireAuth, requireRole, requirePermission } from '../plugins/authMiddleware'

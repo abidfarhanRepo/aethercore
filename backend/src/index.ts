@@ -1,3 +1,7 @@
+// Load environment variables FIRST, before anything else
+import dotenv from 'dotenv'
+dotenv.config()
+
 import Fastify from 'fastify'
 import { prisma } from './utils/db'
 import authRoutes from './routes/auth'

@@ -119,6 +119,10 @@ export function verifyRefreshToken(token: string): Record<string, any> | null {
  */
 export async function revokeToken(token: string, expiresIn: number = 900): Promise<void> {
   try {
+    if (!redis) {
+      console.warn('Redis not available - token revocation skipped')
+      return
+    }
     const jti = `revoked:${token}`
     await redis.setex(jti, expiresIn, '1')
   } catch (error) {
@@ -132,6 +136,9 @@ export async function revokeToken(token: string, expiresIn: number = 900): Promi
  */
 export async function isTokenRevoked(token: string): Promise<boolean> {
   try {
+    if (!redis) {
+      return false // Redis unavailable, assume token not revoked
+    }
     const jti = `revoked:${token}`
     const revoked = await redis.get(jti)
     return revoked !== null
