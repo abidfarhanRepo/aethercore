@@ -32,7 +32,7 @@ async function syncRoutes(fastify: FastifyInstance) {
     Body: {
       operations: SyncOperation[]
     }
-  }>('/sync/batch', async (request: FastifyRequest, reply: FastifyReply) => {
+  }>('/api/sync/batch', async (request: FastifyRequest, reply: FastifyReply) => {
     const { operations } = request.body as {
       operations: SyncOperation[]
     }

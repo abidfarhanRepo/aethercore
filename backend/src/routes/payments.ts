@@ -95,7 +95,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   await initializeProcessors()
 
   /**
-   * POST /payments/process
+   * POST /api/payments/process
    * Process payment (generic endpoint that selects processor)
    */
   fastify.post<{
@@ -112,7 +112,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       cardholderName?: string
       saveCard?: boolean
     }
-  }>('/payments/process', async (req, reply) => {
+  }>('/api/payments/process', async (req, reply) => {
     try {
       await req.jwtVerify()
       const user = req.user as any
@@ -327,7 +327,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/stripe
+   * POST /api/payments/stripe
    * Process Stripe payment (convenience endpoint)
    */
   fastify.post<{
@@ -337,7 +337,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       amount: number
       save?: boolean
     }
-  }>('/payments/stripe', async (req, reply) => {
+  }>('/api/payments/stripe', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -346,7 +346,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       // Reuse main endpoint
       await req.server.inject({
         method: 'POST',
-        url: '/payments/process',
+        url: '/api/payments/process',
         payload: {
           saleId,
           processor: 'STRIPE',
@@ -363,7 +363,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/square
+   * POST /api/payments/square
    * Process Square payment
    */
   fastify.post<{
@@ -372,7 +372,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       sourceId: string
       amount: number
     }
-  }>('/payments/square', async (req, reply) => {
+  }>('/api/payments/square', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -387,7 +387,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/paypal
+   * POST /api/payments/paypal
    * Process PayPal payment
    */
   fastify.post<{
@@ -395,7 +395,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       saleId: string
       orderId: string
     }
-  }>('/payments/paypal', async (req, reply) => {
+  }>('/api/payments/paypal', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -456,7 +456,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * GET /payments/methods
+   * GET /api/payments/methods
    * List payment methods on file for a customer
    */
   fastify.get<{
@@ -464,7 +464,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       customerId: string
       processor?: string
     }
-  }>('/payments/methods', async (req, reply) => {
+  }>('/api/payments/methods', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -503,7 +503,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/:id/refund
+   * POST /api/payments/:id/refund
    * Process refund for a payment
    */
   fastify.post<{
@@ -514,7 +514,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       amount?: number
       reason?: string
     }
-  }>('/payments/:id/refund', async (req, reply) => {
+  }>('/api/payments/:id/refund', async (req, reply) => {
     try {
       await req.jwtVerify()
       const user = req.user as any
@@ -620,7 +620,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/:id/receipt
+   * POST /api/payments/:id/receipt
    * Email receipt
    */
   fastify.post<{
@@ -630,7 +630,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
     Body: {
       recipientEmail: string
     }
-  }>('/payments/:id/receipt', async (req, reply) => {
+  }>('/api/payments/:id/receipt', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -689,7 +689,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/settings
+   * POST /api/payments/settings
    * Update payment processor configuration (ADMIN only)
    */
   fastify.post<{
@@ -701,7 +701,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       webhookSecret?: string
       isActive: boolean
     }
-  }>('/payments/settings', async (req, reply) => {
+  }>('/api/payments/settings', async (req, reply) => {
     try {
       await authPaymentAdmin(req, reply)
 
@@ -771,12 +771,12 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/webhooks/stripe
+   * POST /api/payments/webhooks/stripe
    * Stripe webhook handler
    */
   fastify.post<{
     Body: any
-  }>('/payments/webhooks/stripe', async (req, reply) => {
+  }>('/api/payments/webhooks/stripe', async (req, reply) => {
     try {
       const signature = req.headers['stripe-signature'] as string
       const body = JSON.stringify(req.body)
@@ -835,12 +835,12 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/webhooks/square
+   * POST /api/payments/webhooks/square
    * Square webhook handler
    */
   fastify.post<{
     Body: any
-  }>('/payments/webhooks/square', async (req, reply) => {
+  }>('/api/payments/webhooks/square', async (req, reply) => {
     try {
       const signature = req.headers['x-square-hmac-sha256'] as string
       const body = JSON.stringify(req.body)
@@ -878,12 +878,12 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /payments/webhooks/paypal
+   * POST /api/payments/webhooks/paypal
    * PayPal webhook handler
    */
   fastify.post<{
     Body: any
-  }>('/payments/webhooks/paypal', async (req, reply) => {
+  }>('/api/payments/webhooks/paypal', async (req, reply) => {
     try {
       const transmissionId = req.headers['paypal-transmission-id'] as string
       const transmissionTime = req.headers['paypal-transmission-time'] as string
