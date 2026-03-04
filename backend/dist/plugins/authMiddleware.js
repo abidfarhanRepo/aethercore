@@ -106,7 +106,7 @@ async function requireAuth(req, reply) {
         const payload = jsonwebtoken_1.default.verify(token, JWT_ACCESS_SECRET);
         // Fetch full user data
         const user = await db_1.prisma.user.findUnique({
-            where: { id: payload.sub },
+            where: { id: payload.id },
             select: {
                 id: true,
                 email: true,

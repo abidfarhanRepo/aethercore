@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Search, Plus, Edit2, Trash2, TrendingUp } from 'lucide-react'
+import CreateProductModal from '@/components/CreateProductModal'
+import EditProductModal from '@/components/EditProductModal'
 
 interface Product {
   id: string
@@ -24,6 +26,8 @@ export function ProductManagement() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     fetchProducts()
@@ -43,6 +47,28 @@ export function ProductManagement() {
     }
   }
 
+  const handleProductCreated = () => {
+    setShowCreateModal(false)
+    fetchProducts()
+  }
+
+  const handleProductUpdated = () => {
+    setEditingProduct(null)
+    fetchProducts()
+  }
+
+  const handleDelete = async (productId: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return
+
+    try {
+      await productsAPI.delete(productId)
+      fetchProducts()
+    } catch (error) {
+      console.error('Failed to delete product:', error)
+      alert('Failed to delete product')
+    }
+  }
+
   const filteredProducts = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                        p.sku.toLowerCase().includes(search.toLowerCase()) ||
@@ -58,7 +84,7 @@ export function ProductManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Products</h1>
-        <Button className="gap-2">
+        <Button onClick={() => setShowCreateModal(true)} className="gap-2">
           <Plus className="h-4 w-4" />
           Add Product
         </Button>
@@ -189,10 +215,16 @@ export function ProductManagement() {
                         </td>
                         <td className="px-4 py-3 text-sm text-center">
                           <div className="flex gap-2 justify-center">
-                            <button className="text-blue-600 hover:text-blue-800">
+                            <button 
+                              onClick={() => setEditingProduct(product)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
                               <Edit2 className="h-4 w-4" />
                             </button>
-                            <button className="text-red-600 hover:text-red-800">
+                            <button 
+                              onClick={() => handleDelete(product.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
@@ -206,6 +238,23 @@ export function ProductManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Product Modal */}
+      {showCreateModal && (
+        <CreateProductModal
+          onClose={() => setShowCreateModal(false)}
+          onProductCreated={handleProductCreated}
+        />
+      )}
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onProductUpdated={handleProductUpdated}
+        />
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom'
 import { setupAxiosInterceptors, useAuthStore } from '@/lib/auth'
-import { authAPI } from '@/lib/api'
+import { authAPI, api } from '@/lib/api'
 import ProductManagement from '@/pages/ProductManagement'
 import POSCheckout from '@/pages/POSCheckout'
 import Dashboard from '@/pages/Dashboard'
@@ -42,7 +42,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const [showSyncModal, setShowSyncModal] = useState(false)
 
   useEffect(() => {
-    setupAxiosInterceptors()
+    setupAxiosInterceptors(api)
     
     // Check if user is already logged in
     if (useAuthStore.getState().accessToken) {

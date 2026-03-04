@@ -107,7 +107,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
     const payload: any = jwt.verify(token, JWT_ACCESS_SECRET)
     // Fetch full user data
     const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
+      where: { id: payload.id },
       select: {
         id: true,
         email: true,

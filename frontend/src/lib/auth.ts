@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import axios from 'axios'
 
 export interface User {
   id: string
@@ -55,8 +54,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
 }))
 
 // Configure axios to include auth token
-export function setupAxiosInterceptors() {
-  axios.interceptors.request.use((config) => {
+export function setupAxiosInterceptors(apiInstance: any) {
+  apiInstance.interceptors.request.use((config: any) => {
     const token = useAuthStore.getState().accessToken
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -64,20 +63,20 @@ export function setupAxiosInterceptors() {
     return config
   })
 
-  axios.interceptors.response.use(
-    (response) => response,
-    async (error) => {
+  apiInstance.interceptors.response.use(
+    (response: any) => response,
+    async (error: any) => {
       const originalRequest = error.config
       const { refreshToken } = useAuthStore.getState()
 
       if (error.response?.status === 401 && refreshToken && !originalRequest._retry) {
         originalRequest._retry = true
         try {
-          const response = await axios.post('/api/auth/refresh', { refreshToken })
+          const response = await apiInstance.post('/api/auth/refresh', { refreshToken })
           const { accessToken, refreshToken: newRefreshToken } = response.data
           useAuthStore.getState().setTokens(accessToken, newRefreshToken)
           originalRequest.headers.Authorization = `Bearer ${accessToken}`
-          return axios(originalRequest)
+          return apiInstance(originalRequest)
         } catch {
           useAuthStore.getState().logout()
           window.location.href = '/login'
