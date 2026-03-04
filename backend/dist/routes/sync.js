@@ -45,7 +45,7 @@ async function syncRoutes(fastify) {
      * GET /api/sync/status
      * Get sync status and queue information
      */
-    fastify.get('/sync/status', async (request, reply) => {
+    fastify.get('/api/sync/status', async (request, reply) => {
         // Return sync status information
         return reply.status(200).send({
             status: 'ready',

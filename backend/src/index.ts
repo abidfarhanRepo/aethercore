@@ -10,6 +10,7 @@ import userRoutes from './routes/users'
 import roleRoutes from './routes/roles'
 import reportsRoutes from './routes/reports'
 import paymentRoutes from './routes/payments'
+import settingsRoutes from './routes/settings'
 import syncRoutes from './routes/sync'
 import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
@@ -65,6 +66,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(roleRoutes)
   server.register(reportsRoutes)
   server.register(paymentRoutes)
+  server.register(settingsRoutes)
   server.register(syncRoutes)
   
   // Security audit endpoint (admin only)

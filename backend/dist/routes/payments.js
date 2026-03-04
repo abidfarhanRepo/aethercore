@@ -494,7 +494,7 @@ async function paymentRoutes(fastify) {
      * GET /payments/settings
      * Get payment processor configuration (ADMIN only)
      */
-    fastify.get('/payments/settings', async (req, reply) => {
+    fastify.get('/api/payments/settings', async (req, reply) => {
         try {
             await authPaymentAdmin(req, reply);
             const processors = await db_1.prisma.paymentProcessor.findMany({

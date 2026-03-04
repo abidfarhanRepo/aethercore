@@ -150,9 +150,9 @@ export function RefundModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl max-h-96 overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between sticky top-0 bg-background">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
           <CardTitle>Process Refund</CardTitle>
           <button
             onClick={handleClose}
@@ -161,7 +161,7 @@ export function RefundModal({
             <X className="h-5 w-5" />
           </button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 overflow-y-auto flex-1">
           {loading && !items.length ? (
             <div className="text-center py-8">Loading sale details...</div>
           ) : (

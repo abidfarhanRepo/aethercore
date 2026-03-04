@@ -663,7 +663,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * GET /payments/settings
    * Get payment processor configuration (ADMIN only)
    */
-  fastify.get('/payments/settings', async (req, reply) => {
+  fastify.get('/api/payments/settings', async (req, reply) => {
     try {
       await authPaymentAdmin(req, reply)
 

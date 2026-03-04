@@ -79,8 +79,8 @@ export function DiscountModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Add Discount</CardTitle>
           <button
@@ -90,7 +90,7 @@ export function DiscountModal({
             <X className="h-5 w-5" />
           </button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 overflow-y-auto flex-1">
           {/* Discount Type */}
           <div>
             <label className="text-sm font-medium">Discount Type</label>

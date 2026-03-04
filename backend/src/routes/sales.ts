@@ -17,7 +17,7 @@ import {
 
 export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales - Create Sale ============
-  fastify.post('/sales', async (req, reply) => {
+  fastify.post('/api/sales', async (req, reply) => {
     const body = req.body as any
 
     try {
@@ -233,14 +233,43 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
       return reply.code(201).send(result)
     } catch (e: any) {
-      fastify.log.error(e)
-      return reply.status(400).send({ error: e.message || 'Failed to create sale' })
+      fastify.log.error('Sale creation error:', e)
+      
+      // Differentiate error types for better debugging
+      if (e.message.includes('not found')) {
+        return reply.status(404).send({ 
+          error: e.message, 
+          code: 'PRODUCT_NOT_FOUND',
+          statusCode: 404
+        })
+      }
+      if (e.message.includes('Discounts exceed')) {
+        return reply.status(422).send({ 
+          error: e.message, 
+          code: 'INVALID_DISCOUNT',
+          statusCode: 422
+        })
+      }
+      if (e.message.includes('Payment')) {
+        return reply.status(422).send({ 
+          error: e.message, 
+          code: 'PAYMENT_MISMATCH',
+          statusCode: 422
+        })
+      }
+      
+      // Generic validation error
+      return reply.status(400).send({ 
+        error: e.message || 'Failed to create sale',
+        code: 'VALIDATION_ERROR',
+        statusCode: 400
+      })
     }
   })
 
   // ============ GET /sales - List Sales ============
   fastify.get(
-    '/sales',
+    '/api/sales',
     async (req, reply) => {
       const query = req.query as any
 
@@ -297,7 +326,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ GET /sales/:id - Get Sale Details ============
   fastify.get(
-    '/sales/:id',
+    '/api/sales/:id',
     async (req, reply) => {
       const { id } = req.params as any
 
@@ -332,7 +361,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ POST /sales/:id/refund - Process Refund ============
   fastify.post(
-    '/sales/:id/refund',
+    '/api/sales/:id/refund',
     async (req, reply) => {
       const { id } = req.params as any
       const body = req.body as any
@@ -435,7 +464,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ POST /sales/:id/return - Process Return ============
   fastify.post(
-    '/sales/:id/return',
+    '/api/sales/:id/return',
     async (req, reply) => {
       const { id } = req.params as any
       const body = req.body as any
@@ -487,7 +516,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ POST /sales/:id/void - Void Sale ============
   fastify.post(
-    '/sales/:id/void',
+    '/api/sales/:id/void',
     async (req, reply) => {
       const { id } = req.params as any
       const body = req.body as any
@@ -551,7 +580,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ GET /sales/analytics/summary - Sales Analytics ============
   fastify.get(
-    '/sales/analytics/summary',
+    '/api/sales/analytics/summary',
     async (req, reply) => {
       const query = req.query as any
       const period = query.period || 'daily' // daily, weekly, monthly

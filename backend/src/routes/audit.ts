@@ -3,7 +3,7 @@ import { prisma } from '../utils/db'
 import { auditLog } from '../utils/audit'
 
 export default async function auditRoutes(fastify: FastifyInstance){
-  fastify.get('/audits', async () => {
+  fastify.get('/api/audits', async () => {
     const audits = await prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
     return audits
   })

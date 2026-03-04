@@ -7,9 +7,10 @@ import POSCheckout from '@/pages/POSCheckout'
 import Dashboard from '@/pages/Dashboard'
 import UserManagement from '@/pages/UserManagement'
 import RoleManagement from '@/pages/RoleManagement'
+import SettingsPage from '@/pages/Settings'
 import ActivityLog from '@/components/ActivityLog'
 import { Button } from '@/components/ui/Button'
-import { LogOut, Home, ShoppingCart, BarChart3, Package, Users, Lock, Eye } from 'lucide-react'
+import { LogOut, Home, ShoppingCart, BarChart3, Package, Users, Lock, Eye, Settings } from 'lucide-react'
 import './styles.css'
 
 // Import offline components
@@ -34,6 +35,7 @@ const MENU_ITEMS: MenuItem[] = [
   { label: 'Users', icon: <Users className="h-4 w-4" />, path: '/users', allowedRoles: ['ADMIN', 'MANAGER'] },
   { label: 'Roles', icon: <Lock className="h-4 w-4" />, path: '/roles', allowedRoles: ['ADMIN'] },
   { label: 'Activity Log', icon: <Eye className="h-4 w-4" />, path: '/activity', allowedRoles: ['ADMIN', 'MANAGER'] },
+  { label: 'Settings', icon: <Settings className="h-4 w-4" />, path: '/settings', allowedRoles: ['ADMIN', 'MANAGER'] },
 ]
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -45,18 +47,32 @@ function Layout({ children }: { children: React.ReactNode }) {
     setupAxiosInterceptors(api)
     
     // Check if user is already logged in
-    if (useAuthStore.getState().accessToken) {
-      authAPI
-        .getMe()
-        .then((res) => {
-          useAuthStore.getState().setUser(res.data)
-        })
-        .catch(() => {
-          logout()
-        })
-        .finally(() => {
-          setIsLoading(false)
-        })
+    const token = useAuthStore.getState().accessToken
+    if (token) {
+      // FIX: Validate token before calling getMe to avoid unnecessary 401 errors
+      // Check if token looks valid (jwt format: 3 parts separated by dots)
+      const isValidJWTFormat = token.split('.').length === 3
+      
+      if (isValidJWTFormat) {
+        authAPI
+          .getMe()
+          .then((res) => {
+            useAuthStore.getState().setUser(res.data)
+          })
+          .catch((error) => {
+            console.error('Failed to fetch user info:', error.response?.status)
+            // Clear tokens on auth failure
+            logout()
+          })
+          .finally(() => {
+            setIsLoading(false)
+          })
+      } else {
+        // Token format is invalid, clear it
+        console.warn('Invalid token format detected, clearing authentication')
+        logout()
+        setIsLoading(false)
+      }
     } else {
       setIsLoading(false)
     }
@@ -150,6 +166,7 @@ function AppContent() {
           <Route path="/users" element={hasPermission(['ADMIN', 'MANAGER']) ? <UserManagement /> : <Navigate to="/" replace />} />
           <Route path="/roles" element={hasPermission(['ADMIN']) ? <RoleManagement /> : <Navigate to="/" replace />} />
           <Route path="/activity" element={hasPermission(['ADMIN', 'MANAGER']) ? <ActivityLog /> : <Navigate to="/" replace />} />
+          <Route path="/settings" element={hasPermission(['ADMIN', 'MANAGER']) ? <SettingsPage /> : <Navigate to="/" replace />} />
           <Route path="/" element={<Navigate to="/checkout" replace />} />
         </>
       ) : (

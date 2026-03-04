@@ -32,7 +32,7 @@ async function authRoutes(fastify) {
         }
     };
     // Register with enhanced security
-    fastify.post('/auth/register', { schema: registerSchema }, async (req, reply) => {
+    fastify.post('/api/auth/register', { schema: registerSchema }, async (req, reply) => {
         try {
             const { email: rawEmail, password: rawPassword } = req.body;
             // Input validation and sanitization
@@ -86,7 +86,7 @@ async function authRoutes(fastify) {
         }
     });
     // Login with enhanced security
-    fastify.post('/auth/login', { schema: loginSchema }, async (req, reply) => {
+    fastify.post('/api/auth/login', { schema: loginSchema }, async (req, reply) => {
         try {
             const { email: rawEmail, password } = req.body;
             if (!rawEmail || !password) {
@@ -193,11 +193,17 @@ async function authRoutes(fastify) {
         }
     });
     // Refresh token with rotation
-    fastify.post('/auth/refresh', async (req, reply) => {
+    fastify.post('/api/auth/refresh', async (req, reply) => {
         try {
             const { refreshToken } = req.body;
             if (!refreshToken) {
                 return reply.status(400).send({ error: 'Refresh token required' });
+            }
+            // Verify refresh token structure before rotation
+            const refreshPayload = (0, jwt_1.verifyRefreshToken)(refreshToken);
+            if (!refreshPayload || !refreshPayload.id) {
+                console.warn('Invalid refresh token attempt:', { hasPayload: !!refreshPayload });
+                return reply.status(401).send({ error: 'Invalid or expired refresh token' });
             }
             // Verify and rotate token
             const newTokens = await (0, jwt_1.rotateRefreshToken)(refreshToken);
@@ -211,11 +217,12 @@ async function authRoutes(fastify) {
                 where: { token: refreshToken },
                 data: { revoked: true }
             });
-            // Store new refresh token
+            // Store new refresh token with correct userId from the decoded token
+            const userId = refreshPayload.id;
             await db_1.prisma.refreshToken.create({
                 data: {
                     token: newTokens.refreshToken,
-                    userId: '', // Will be set from JWT payload
+                    userId: userId, // FIX: Use actual userId from token payload
                     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 },
             });
@@ -231,7 +238,7 @@ async function authRoutes(fastify) {
         }
     });
     // Logout with token revocation
-    fastify.post('/auth/logout', async (req, reply) => {
+    fastify.post('/api/auth/logout', async (req, reply) => {
         try {
             const { refreshToken } = req.body;
             if (!refreshToken) {
@@ -259,7 +266,7 @@ async function authRoutes(fastify) {
         }
     });
     // Get current user info
-    fastify.get('/auth/me', async (req, reply) => {
+    fastify.get('/api/auth/me', async (req, reply) => {
         try {
             const auth = req.headers.authorization;
             if (!auth) {
@@ -269,11 +276,17 @@ async function authRoutes(fastify) {
             if (!token) {
                 return reply.status(401).send({ error: 'Invalid authorization format' });
             }
-            // Verify token - would use verifyAccessToken here in full implementation
-            const payload = require('jsonwebtoken').verify(token, process.env.JWT_ACCESS_SECRET || 'default_access_secret_change_me');
+            // Use proper JWT verification function with error handling
+            const payload = (0, jwt_1.verifyAccessToken)(token);
+            if (!payload || !payload.id) {
+                return reply.status(401).send({ error: 'Invalid or expired token' });
+            }
             const user = await db_1.prisma.user.findUnique({ where: { id: payload.id } });
             if (!user) {
                 return reply.status(404).send({ error: 'User not found' });
+            }
+            if (!user.isActive) {
+                return reply.status(403).send({ error: 'User account is inactive' });
             }
             return {
                 id: user.id,
@@ -285,7 +298,7 @@ async function authRoutes(fastify) {
         }
         catch (error) {
             console.error('Auth me error:', error);
-            return reply.status(401).send({ error: 'Invalid token' });
+            return reply.status(401).send({ error: 'Token verification failed' });
         }
     });
 }

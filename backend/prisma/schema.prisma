@@ -549,3 +549,51 @@ model PaymentWebhookEvent {
   @@index([status])
   @@index([createdAt])
 }
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  category  String // tax, store, receipt, payment, inventory, user, system
+  type      String   @default("string") // string, number, boolean, json
+  label     String? // Human-readable label
+  description String? // Detailed description
+  isEncrypted Boolean @default(false) // For sensitive data like API keys
+  updatedBy String? // User ID who last updated
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([key])
+  @@index([updatedAt])
+}
+
+model TaxRate {
+  id          String   @id @default(cuid())
+  name        String // Sales Tax, VAT, etc.
+  rate        Float // 0-100 (percentage)
+  location    String? // Optional location/state code
+  description String?
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([location])
+  @@index([isActive])
+  @@index([isDefault])
+}
+
+model TaxExemption {
+  id        String   @id @default(cuid())
+  category  String? // Product category (optional)
+  productId String? // Specific product (optional)
+  reason    String // MEDICAL, FOOD, GOVERNMENT, NONPROFIT, etc.
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([productId])
+  @@index([isActive])
+}

@@ -48,6 +48,7 @@ const users_1 = __importDefault(require("./routes/users"));
 const roles_1 = __importDefault(require("./routes/roles"));
 const reports_1 = __importDefault(require("./routes/reports"));
 const payments_1 = __importDefault(require("./routes/payments"));
+const settings_1 = __importDefault(require("./routes/settings"));
 const sync_1 = __importDefault(require("./routes/sync"));
 const rateLimit_1 = __importDefault(require("./plugins/rateLimit"));
 const securityPlugin_1 = require("./plugins/securityPlugin");
@@ -96,6 +97,7 @@ const initializeSecurityAndRoutes = async () => {
     server.register(roles_1.default);
     server.register(reports_1.default);
     server.register(payments_1.default);
+    server.register(settings_1.default);
     server.register(sync_1.default);
     // Security audit endpoint (admin only)
     server.get('/api/security/audit-summary', async (req, reply) => {

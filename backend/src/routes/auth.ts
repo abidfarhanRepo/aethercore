@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../utils/db'
-import { generateTokenPair, rotateRefreshToken, revokeToken } from '../lib/jwt'
+import { generateTokenPair, rotateRefreshToken, revokeToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt'
 import { sanitizeEmail, sanitizeString, validatePasswordStrength, removeSQLInjectionPatterns, containsXSSPatterns } from '../utils/sanitizer'
 import { onLoginSuccess, onLoginFailure } from '../middleware/brute-force'
 import { logAuthEvent } from '../utils/audit'
@@ -31,7 +31,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   }
 
   // Register with enhanced security
-  fastify.post('/auth/register', { schema: registerSchema }, async (req, reply) => {
+  fastify.post('/api/auth/register', { schema: registerSchema }, async (req, reply) => {
     try {
       const { email: rawEmail, password: rawPassword } = req.body as any
       
@@ -95,7 +95,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Login with enhanced security
-  fastify.post('/auth/login', { schema: loginSchema }, async (req, reply) => {
+  fastify.post('/api/auth/login', { schema: loginSchema }, async (req, reply) => {
     try {
       const { email: rawEmail, password } = req.body as any
       
@@ -220,12 +220,19 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Refresh token with rotation
-  fastify.post('/auth/refresh', async (req, reply) => {
+  fastify.post('/api/auth/refresh', async (req, reply) => {
     try {
       const { refreshToken } = req.body as any
       
       if (!refreshToken) {
         return reply.status(400).send({ error: 'Refresh token required' })
+      }
+      
+      // Verify refresh token structure before rotation
+      const refreshPayload = verifyRefreshToken(refreshToken)
+      if (!refreshPayload || !refreshPayload.id) {
+        console.warn('Invalid refresh token attempt:', { hasPayload: !!refreshPayload })
+        return reply.status(401).send({ error: 'Invalid or expired refresh token' })
       }
       
       // Verify and rotate token
@@ -244,11 +251,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
         data: { revoked: true }
       })
       
-      // Store new refresh token
+      // Store new refresh token with correct userId from the decoded token
+      const userId = refreshPayload.id
       await prisma.refreshToken.create({
         data: {
           token: newTokens.refreshToken,
-          userId: '', // Will be set from JWT payload
+          userId: userId,  // FIX: Use actual userId from token payload
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       })
@@ -265,7 +273,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Logout with token revocation
-  fastify.post('/auth/logout', async (req, reply) => {
+  fastify.post('/api/auth/logout', async (req, reply) => {
     try {
       const { refreshToken } = req.body as any
       
@@ -298,7 +306,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Get current user info
-  fastify.get('/auth/me', async (req, reply) => {
+  fastify.get('/api/auth/me', async (req, reply) => {
     try {
       const auth = req.headers.authorization
       if (!auth) {
@@ -310,16 +318,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Invalid authorization format' })
       }
       
-      // Verify token - would use verifyAccessToken here in full implementation
-      const payload: any = require('jsonwebtoken').verify(
-        token,
-        process.env.JWT_ACCESS_SECRET || 'default_access_secret_change_me'
-      )
+      // Use proper JWT verification function with error handling
+      const payload = verifyAccessToken(token)
+      if (!payload || !payload.id) {
+        return reply.status(401).send({ error: 'Invalid or expired token' })
+      }
       
       const user = await prisma.user.findUnique({ where: { id: payload.id } })
       
       if (!user) {
         return reply.status(404).send({ error: 'User not found' })
+      }
+      
+      if (!user.isActive) {
+        return reply.status(403).send({ error: 'User account is inactive' })
       }
       
       return {
@@ -331,7 +343,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
     } catch (error) {
       console.error('Auth me error:', error)
-      return reply.status(401).send({ error: 'Invalid token' })
+      return reply.status(401).send({ error: 'Token verification failed' })
     }
   })
 }

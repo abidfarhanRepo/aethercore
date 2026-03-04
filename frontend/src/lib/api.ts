@@ -3,8 +3,8 @@ import { networkMonitor } from './offline/network'
 import { syncEngine } from './offline/sync'
 import { offlineDB } from './offline/db'
 
-// Use relative path in dev to leverage Vite proxy
-const API_BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE_URL as string || 'http://localhost:4000')
+// Use explicit backend URL - don't rely on Vite proxy which is unreliable
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -199,7 +199,7 @@ export const authAPI = {
   refresh: (refreshToken: string) =>
     api.post('/api/auth/refresh', { refreshToken }),
   revoke: (refreshToken: string) =>
-    api.post('/api/auth/revoke', { refreshToken }),
+    api.post('/api/auth/logout', { refreshToken }),
   getMe: () => api.get('/api/auth/me'),
 }
 

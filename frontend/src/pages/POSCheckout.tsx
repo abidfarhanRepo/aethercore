@@ -160,8 +160,40 @@ export function POSCheckout() {
   }
 
   const proceedWithCheckout = async (payments: AppliedPayment[]) => {
+    // Validate cart is not empty
     if (cart.length === 0) {
       setError('Cart is empty')
+      return
+    }
+
+    // Validate all products exist
+    if (cart.some(item => !item.productId)) {
+      setError('Invalid product in cart')
+      return
+    }
+
+    // Calculate subtotal
+    const subtotal = cart.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0)
+    
+    // Calculate total discount amount (from applied discounts)
+    const totalDiscount = appliedDiscounts.reduce((sum, d) => sum + d.amountCents, 0)
+    
+    // Validate discounts don't exceed 50% of subtotal
+    if (totalDiscount > subtotal * 0.5) {
+      setError('Discounts cannot exceed 50% of subtotal')
+      return
+    }
+    
+    // FIX: Calculate tax on the DISCOUNTED subtotal (to match backend calculation)
+    const taxRatePercent = 10  // Match backend assumption
+    const taxableAmount = subtotal - totalDiscount
+    const taxAmount = Math.floor((taxableAmount * taxRatePercent) / 100)
+    const expectedTotal = taxableAmount + taxAmount
+
+    // Validate payment amount matches total (with small tolerance for rounding)
+    const totalPayment = payments.reduce((sum, p) => sum + p.amountCents, 0)
+    if (Math.abs(totalPayment - expectedTotal) > 5) {  // Allow 5 cents tolerance
+      setError(`Payment mismatch: Expected $${(expectedTotal/100).toFixed(2)}, got $${(totalPayment/100).toFixed(2)}`)
       return
     }
 

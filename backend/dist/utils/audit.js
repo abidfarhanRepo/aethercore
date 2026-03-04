@@ -37,8 +37,9 @@ async function logAudit(entry, request) {
     try {
         const log = await db_1.prisma.auditLog.create({
             data: {
-                // Only set actorId if provided; omit for failed login attempts before user identification
-                ...(entry.actorId && { actorId: entry.actorId }),
+                // FIX: actorId is optional (can be null). Don't set it if undefined.
+                // This allows logging events that happen before user identification (like failed logins)
+                ...(entry.actorId ? { actorId: entry.actorId } : {}),
                 action: entry.action,
                 resource: entry.resource,
                 resourceId: entry.resourceId,

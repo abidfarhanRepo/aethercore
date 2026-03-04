@@ -115,8 +115,8 @@ export function PaymentModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Payment Method</CardTitle>
           <button
@@ -126,7 +126,7 @@ export function PaymentModal({
             <X className="h-5 w-5" />
           </button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 overflow-y-auto flex-1">
           {/* Payment Method Selection */}
           <div>
             <label className="text-sm font-medium">Select Payment Method</label>
