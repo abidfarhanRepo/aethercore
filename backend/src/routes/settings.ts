@@ -8,6 +8,11 @@ interface SettingsRequest extends FastifyRequest {
 
 interface SettingUpdateRequest {
   value: string | number | boolean | object
+  category?: string
+  type?: 'string' | 'number' | 'boolean' | 'json'
+  label?: string
+  description?: string
+  isEncrypted?: boolean
 }
 
 interface BatchSettingsUpdateRequest {
@@ -65,7 +70,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       })
 
       if (!setting) {
-        return { error: 'Setting not found' }
+        return reply.code(404).send({ error: 'Setting not found' })
       }
 
       return {
@@ -111,52 +116,82 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
           type: 'object',
           required: ['value'],
           properties: {
-            value: { oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+            value: { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+            category: { type: 'string' },
+            type: { type: 'string', enum: ['string', 'number', 'boolean', 'json'] },
+            label: { type: 'string' },
+            description: { type: 'string' },
+            isEncrypted: { type: 'boolean' },
           },
         },
       },
     },
     async (request: SettingsRequest, reply: FastifyReply) => {
       const { key } = request.params as { key: string }
-      const { value } = request.body as SettingUpdateRequest
+      const {
+        value,
+        category,
+        type,
+        label,
+        description,
+        isEncrypted,
+      } = request.body as SettingUpdateRequest
 
       // Check if setting exists
       const existing = await prisma.settings.findUnique({
         where: { key },
       })
 
-      if (!existing) {
-        return { error: 'Setting not found' }
-      }
+      const inferredType: 'string' | 'number' | 'boolean' | 'json' =
+        type ||
+        (typeof value === 'boolean'
+          ? 'boolean'
+          : typeof value === 'number'
+            ? 'number'
+            : 'string')
 
       // Validate value based on type
       let finalValue = String(value)
 
-      if (existing.type === 'number') {
+      if (inferredType === 'number') {
         const num = Number(value)
         if (isNaN(num)) {
-          return { error: `Invalid value for number type: ${value}` }
+          return reply.code(400).send({ error: `Invalid value for number type: ${value}` })
         }
         finalValue = String(num)
-      } else if (existing.type === 'boolean') {
+      } else if (inferredType === 'boolean') {
         if (typeof value !== 'boolean') {
-          return { error: 'Invalid value for boolean type' }
+          return reply.code(400).send({ error: 'Invalid value for boolean type' })
         }
         finalValue = String(value)
       }
 
-      const updated = await prisma.settings.update({
-        where: { key },
-        data: {
-          value: finalValue,
-          updatedBy: request.user?.id,
-        },
-      })
+      const data = {
+        value: finalValue,
+        category: category || existing?.category || 'system',
+        type: existing?.type || inferredType,
+        label: label || existing?.label,
+        description: description || existing?.description,
+        isEncrypted: typeof isEncrypted === 'boolean' ? isEncrypted : existing?.isEncrypted || false,
+        updatedBy: request.user?.id,
+      }
 
-      return {
+      const updated = existing
+        ? await prisma.settings.update({
+            where: { key },
+            data,
+          })
+        : await prisma.settings.create({
+            data: {
+              key,
+              ...data,
+            },
+          })
+
+      return reply.code(existing ? 200 : 201).send({
         ...updated,
         value: updated.isEncrypted ? '***ENCRYPTED***' : updated.value,
-      }
+      })
     }
   )
 
@@ -177,7 +212,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
                 required: ['key', 'value'],
                 properties: {
                   key: { type: 'string' },
-                  value: { oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+                  value: { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
                 },
               },
             },
@@ -269,7 +304,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
           required: ['key', 'value', 'category'],
           properties: {
             key: { type: 'string' },
-            value: { oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+            value: { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
             category: { type: 'string' },
             type: { type: 'string', enum: ['string', 'number', 'boolean', 'json'] },
             label: { type: 'string' },
@@ -288,7 +323,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       })
 
       if (existing) {
-        return { error: 'Setting with this key already exists' }
+        return reply.code(409).send({ error: 'Setting with this key already exists' })
       }
 
       const setting = await prisma.settings.create({

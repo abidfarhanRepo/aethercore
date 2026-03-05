@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../utils/db'
+import { requireAuth, requirePermission } from '../plugins/authMiddleware'
 import { createWriteStream } from 'fs'
 import { join } from 'path'
 
@@ -22,6 +23,9 @@ function getCache(key: string) {
 }
 
 export default async function reportsRoutes(fastify: FastifyInstance) {
+  fastify.addHook('preHandler', requireAuth)
+  fastify.addHook('preHandler', requirePermission('reports.view'))
+
   // ============ Sales Summary by Day/Week/Month ============
   fastify.get('/api/reports/sales-summary', async (req, reply) => {
     const { dateFrom, dateTo, groupBy } = req.query as Record<string, string>
@@ -642,7 +646,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ CSV Export ============
-  fastify.get('/api/reports/export/csv', async (req, reply) => {
+  fastify.get('/api/reports/export/csv', { preHandler: [requirePermission('reports.export')] }, async (req, reply) => {
     const { type, dateFrom, dateTo } = req.query as Record<string, string>
 
     if (type === 'sales-summary') {

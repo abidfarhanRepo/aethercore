@@ -292,6 +292,12 @@ export const reportsAPI = {
   taxSummary: (query?: any) => api.get('/api/reports/tax-summary', { params: query }),
   hourlySales: (query?: any) => api.get('/api/reports/hourly-sales', { params: query }),
   inventoryAdjustments: (query?: any) => api.get('/api/reports/inventory-adjustments', { params: query }),
+  visibleSales: (query?: any) => api.get('/api/reports/sales/visible', { params: query }),
+  visibleSaleById: (id: string) => api.get(`/api/reports/sales/${id}/visible`),
+  visiblePurchases: (query?: any) => api.get('/api/reports/purchases/visible', { params: query }),
+  visiblePurchaseById: (id: string) => api.get(`/api/reports/purchases/${id}/visible`),
+  purchaseRecommendations: (query?: any) => api.get('/api/reports/intelligence/purchase-recommendations', { params: query }),
+  intelligenceKpis: (query?: any) => api.get('/api/reports/intelligence/kpis', { params: query }),
   exportCSV: (type: string, query?: any) => api.get(`/api/reports/export/csv?type=${type}`, { params: query, responseType: 'blob' }),
 }
 

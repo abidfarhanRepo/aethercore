@@ -427,13 +427,119 @@ Exit criteria:
 - Performance and accessibility budgets pass for checkout-critical paths.
 
 ### Phase 7 - Reporting and Intelligence (2 weeks)
-Tasks:
-- KPI packs by vertical
-- Drill-down analytics and exports
-- Operational insights (shrinkage, expiry, payment failures)
+Objective:
+- Deliver production-safe reporting and intelligence endpoints with strict role-based visibility and deterministic, explainable recommendation logic.
+
+RBAC data-visibility rules (non-negotiable):
+- `ADMIN`, `MANAGER`, `SUPERVISOR`:
+  - Can access combined sales + purchase reporting and intelligence endpoints.
+  - Can view sales detail across all operators in allowed date range.
+  - Can view purchase recommendations and combined operational KPI packs.
+- `CASHIER`:
+  - Can access only role-scoped sales visibility (`own sales only`).
+  - Cannot access purchase intelligence endpoints.
+  - Cannot access cross-operator sales drill-down.
+- `STOCK_CLERK`:
+  - Can access purchase intelligence and stock-focused KPI packs.
+  - Cannot access sales detail endpoints.
+  - May only receive aggregate stock/supply metrics (no cashier-level sales detail payloads).
+- Export hard gate:
+  - Report export endpoints must require `reports.export` permission (role alone is insufficient).
+
+Phase 7 API contract (backend):
+- Existing reporting routes in `backend/src/routes/reports.ts` must be authenticated and permission-gated.
+- `GET /api/reports/sales/visible`
+  - Returns role-scoped sale list.
+  - Response shape:
+    - `{ scope: 'OWN_SALES_ONLY' | 'COMBINED_SALES', count: number, items: Sale[] }`
+- `GET /api/reports/sales/:id/visible`
+  - Returns one sale if visible under caller role scope.
+  - Response shape:
+    - `{ scope: 'OWN_SALE_ONLY' | 'COMBINED_SALE', sale: Sale }`
+- `GET /api/reports/purchases/visible`
+  - Returns role-scoped purchase order list.
+  - Response shape:
+    - `{ scope: 'OWN_PURCHASES_ONLY' | 'COMBINED_PURCHASES', count: number, items: PurchaseOrder[] }`
+- `GET /api/reports/purchases/:id/visible`
+  - Returns one purchase order if visible under caller role scope.
+  - Response shape:
+    - `{ scope: 'OWN_PURCHASE_ONLY' | 'COMBINED_PURCHASE', purchase: PurchaseOrder }`
+- `GET /api/reports/intelligence/purchase-recommendations`
+  - Returns deterministic recommendations with explainability metadata.
+  - Response shape:
+    - `{ scope: Role, generatedAt: ISODate, config: {...}, recommendations: Recommendation[] }`
+- `GET /api/reports/intelligence/kpis`
+  - Returns role-scoped KPI pack with formulas.
+  - Response shape:
+    - `{ meta: {...}, permissions: {...}, kpis: Array<{ key, label, value, formula }> }`
+
+KPI packs by vertical (required formulas + output contract):
+- Output contract (all verticals):
+  - `meta.scope`, `meta.vertical`, `meta.from`, `meta.to`, `meta.unit`
+  - `permissions.canViewSalesDetail`, `permissions.canViewPurchaseIntelligence`
+  - `kpis[]` entries with explicit deterministic formula string
+- Core KPIs (all combined roles):
+  - Revenue: `sum(sale.totalCents)`
+  - Transactions: `count(completed sales)`
+  - Average Ticket: `Revenue / max(Transactions, 1)`
+  - Gross Margin %: `((Revenue - EstimatedCOGS) / max(Revenue, 1)) * 100`
+  - Purchase Spend: `sum(purchaseOrder.totalCents where status != CANCELLED)`
+  - Low Stock SKU Count: `count(inventoryLocation where qty <= minThreshold)`
+- Supermarket pack additions:
+  - Basket Size: `sum(saleItem.qty) / max(count(completed sales), 1)`
+- Restaurant pack additions:
+  - Card Payment Share %: `(sum(card payment amount) / max(total revenue, 1)) * 100`
+- Pharmacy pack additions:
+  - Pharmacy Category Unit Mix %: `(sum(units where category contains 'pharma') / max(total units sold, 1)) * 100`
+- Cashier pack restrictions:
+  - `My Revenue`, `My Transactions`, `My Average Ticket` only (scoped to `sale.userId = currentUser`)
+- Stock clerk pack restrictions:
+  - `Low Stock SKUs`, `Total On-Hand Units`, `Purchase Spend`, `Stock Turnover` only
+
+Purchase recommendation engine requirements (deterministic + explainable):
+- Deterministic inputs:
+  - `windowDays`, `leadTimeDays`, `serviceLevelDays`, inventory on-hand, reorder/min thresholds, sales units in window.
+- Deterministic formula (required in payload):
+  - `recommendedQty = max(ceil(dailyDemand*leadTimeDays) + max(ceil(dailyDemand*serviceLevelDays), reorderPoint-onHandQty, minThreshold) - onHandQty, 0)`
+  - where `dailyDemand = unitsSoldWindow / windowDays`
+- Explainability metadata (required per recommendation):
+  - `model`, `inputs`, `formula`, `confidenceScore`, `confidenceReasons`
+- Confidence rules must be static and inspectable (no stochastic/LLM behavior).
+- Recommendation ordering must be deterministic (`priorityScore desc`, stable tie-break by product id where needed).
+
+Testing requirements (integration + contract):
+- RBAC tests must validate:
+  - Cashier sees only own sales on `sales/visible`
+  - Cashier denied on `purchases/visible`
+  - Cashier denied on purchase recommendations
+  - Manager/supervisor/admin can view combined purchase visibility endpoints
+  - Stock clerk is scoped to own purchases on purchase visibility endpoints
+  - Stock clerk denied on sales detail endpoints
+  - Stock clerk allowed on purchase recommendations and stock KPI pack
+  - Export endpoint denied without `reports.export`
+- Contract tests must validate presence of:
+  - `scope` fields for visibility endpoints
+  - `meta/permissions/kpis[].formula` for KPI endpoint
+  - `explainability.inputs/formula/confidence*` for recommendation endpoint
+
+Rollout plan:
+- Step 1: Deploy backend routes + RBAC guards dark-launched behind frontend usage toggle.
+- Step 2: Enable dashboard calls for manager/supervisor/admin paths; monitor 403/500 rate and latency.
+- Step 3: Enable stock-clerk KPI/recommendation tiles.
+- Step 4: Enable cashier scoped sales visibility card.
+
+Operational checks:
+- Audit and permission-denial logs reviewed daily in first rollout week.
+- Endpoint SLO targets:
+  - P95 < 400ms for KPI endpoint on standard dataset.
+  - P95 < 700ms for recommendations endpoint on standard dataset.
 
 Exit criteria:
-- Managers can answer core operational questions from dashboards
+- RBAC behavior is test-covered and enforced for all new reporting/intelligence endpoints.
+- CSV export is blocked unless `reports.export` is granted.
+- KPI packs return role-scoped and vertical-scoped formula-bearing payloads.
+- Recommendation endpoint returns deterministic recommendations with explainability metadata.
+- Integration tests for Phase 7 reporting RBAC/intelligence pass in CI.
 
 ### Phase 8 - Security, Compliance, Ops (2 weeks)
 Tasks:

@@ -36,13 +36,22 @@ export interface TaxExemption {
   updatedAt: string
 }
 
+export interface SettingUpdatePayload {
+  value: string | number | boolean
+  category?: string
+  type?: 'string' | 'number' | 'boolean' | 'json'
+  label?: string
+  description?: string
+  isEncrypted?: boolean
+}
+
 export const settingsAPI = {
   // Settings
   getAll: () => api.get<Record<string, Setting[]>>('/api/settings'),
   getByKey: (key: string) => api.get<Setting>(`/api/settings/${key}`),
   getByCategory: (category: string) => api.get<Setting[]>(`/api/settings/category/${category}`),
-  update: (key: string, value: string | number | boolean) =>
-    api.put<Setting>(`/api/settings/${key}`, { value }),
+  update: (key: string, payload: SettingUpdatePayload) =>
+    api.put<Setting>(`/api/settings/${key}`, payload),
   batchUpdate: (settings: Array<{ key: string; value: string | number | boolean }>) =>
     api.post<{ results: Array<{ key: string; success: boolean; data?: Setting; error?: string }> }>(
       '/api/settings/batch',

@@ -14,6 +14,7 @@ import inventoryRoutes from './routes/inventory'
 import userRoutes from './routes/users'
 import roleRoutes from './routes/roles'
 import reportsRoutes from './routes/reports'
+import reportingIntelligenceRoutes from './routes/reportingIntelligence'
 import paymentRoutes from './routes/payments'
 import settingsRoutes from './routes/settings'
 import syncRoutes from './routes/sync'
@@ -74,6 +75,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(userRoutes)
   server.register(roleRoutes)
   server.register(reportsRoutes)
+  server.register(reportingIntelligenceRoutes)
   server.register(paymentRoutes)
   server.register(settingsRoutes)
   server.register(syncRoutes)

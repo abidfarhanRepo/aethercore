@@ -36,6 +36,27 @@ export default function SettingsPage() {
     loadSettings()
   }, [])
 
+  const inferCategoryFromKey = (key: string): SettingMeta['category'] => {
+    if (key.startsWith('tax_')) return 'tax'
+    if (key.startsWith('store_') || key === 'business_registration') return 'store'
+    if (key.startsWith('payment_') || key.includes('refund') || key.includes('accepted_payment')) return 'payment'
+    if (key.startsWith('low_stock') || key.startsWith('auto_reorder') || key.startsWith('default_supplier')) return 'inventory'
+    if (key.startsWith('default_user') || key.startsWith('session_timeout') || key.startsWith('require_password')) return 'user'
+    if (key.startsWith('feature_') || key.startsWith('industry_') || key.startsWith('checkout_')) return 'system'
+
+    const byTab: Record<Tab, SettingMeta['category']> = {
+      tax: 'tax',
+      store: 'store',
+      payment: 'payment',
+      system: 'system',
+      inventory: 'inventory',
+      user: 'user',
+      industry: 'system',
+    }
+
+    return byTab[activeTab]
+  }
+
   const loadSettings = async () => {
     try {
       setLoading(true)
@@ -62,30 +83,18 @@ export default function SettingsPage() {
   ) => {
     try {
       setError(null)
-      try {
-        await settingsAPI.update(key, value)
-      } catch (updateErr: any) {
-        const statusCode = updateErr?.response?.status
-        const message = String(updateErr?.response?.data?.error || updateErr?.message || '').toLowerCase()
-        const shouldCreate = statusCode === 404 || message.includes('not found') || message.includes('missing')
 
-        if (!shouldCreate) {
-          throw updateErr
-        }
+      const inferredType: SettingMeta['type'] =
+        typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string'
 
-        const inferredType: SettingMeta['type'] =
-          typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string'
-
-        await settingsAPI.create({
-          key,
-          value: String(value),
-          category: meta?.category || 'system',
-          type: meta?.type || inferredType,
-          label: meta?.label,
-          description: meta?.description,
-          isEncrypted: false,
-        })
-      }
+      await settingsAPI.update(key, {
+        value,
+        category: meta?.category || inferCategoryFromKey(key),
+        type: meta?.type || inferredType,
+        label: meta?.label,
+        description: meta?.description,
+        isEncrypted: false,
+      })
 
       setSuccess('Setting saved successfully')
       setTimeout(() => setSuccess(null), 3000)
