@@ -17,12 +17,12 @@ CREATE INDEX idx_sale_created_status ON "Sale"("createdAt" DESC, "status");
 
 CREATE INDEX idx_product_active_created ON "Product"("isActive", "createdAt" DESC);
 
-CREATE INDEX idx_inventory_location ON "InventoryLocation"("locationId", "productId");
+CREATE INDEX idx_inventory_location ON "InventoryLocation"("warehouseId", "productId");
 
 -- Index for audit logs
 CREATE INDEX idx_audit_log_created ON "AuditLog"("createdAt" DESC);
 
-CREATE INDEX idx_audit_log_user ON "AuditLog"("userId", "createdAt" DESC);
+CREATE INDEX idx_audit_log_user ON "AuditLog"("actorId", "createdAt" DESC);
 
 -- Index for purchase orders
 CREATE INDEX idx_purchase_order_created ON "PurchaseOrder"("createdAt" DESC);

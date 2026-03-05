@@ -8,9 +8,28 @@ import Dashboard from '@/pages/Dashboard'
 import UserManagement from '@/pages/UserManagement'
 import RoleManagement from '@/pages/RoleManagement'
 import SettingsPage from '@/pages/Settings'
+import ExpiryLots from '@/pages/ExpiryLots'
+import RestaurantTables from '@/pages/RestaurantTables'
+import KitchenBoard from '@/pages/KitchenBoard'
+import PharmacyConsole from '@/pages/PharmacyConsole'
+import ReceivingCenter from '@/pages/ReceivingCenter'
 import ActivityLog from '@/components/ActivityLog'
 import { Button } from '@/components/ui/Button'
-import { LogOut, Home, ShoppingCart, BarChart3, Package, Users, Lock, Eye, Settings } from 'lucide-react'
+import {
+  LogOut,
+  ShoppingCart,
+  BarChart3,
+  Package,
+  Users,
+  Lock,
+  Eye,
+  Settings,
+  CalendarClock,
+  UtensilsCrossed,
+  ClipboardList,
+  Pill,
+  Truck,
+} from 'lucide-react'
 import './styles.css'
 
 // Import offline components
@@ -35,6 +54,11 @@ const MENU_ITEMS: MenuItem[] = [
   { label: 'Users', icon: <Users className="h-4 w-4" />, path: '/users', allowedRoles: ['ADMIN', 'MANAGER'] },
   { label: 'Roles', icon: <Lock className="h-4 w-4" />, path: '/roles', allowedRoles: ['ADMIN'] },
   { label: 'Activity Log', icon: <Eye className="h-4 w-4" />, path: '/activity', allowedRoles: ['ADMIN', 'MANAGER'] },
+  { label: 'Expiry/Lots', icon: <CalendarClock className="h-4 w-4" />, path: '/expiry-lots', allowedRoles: ['ADMIN', 'MANAGER', 'STOCK_CLERK'] },
+  { label: 'Restaurant', icon: <UtensilsCrossed className="h-4 w-4" />, path: '/restaurant/tables', allowedRoles: ['ADMIN', 'MANAGER', 'CASHIER'] },
+  { label: 'Kitchen', icon: <ClipboardList className="h-4 w-4" />, path: '/kitchen', allowedRoles: ['ADMIN', 'MANAGER', 'CASHIER'] },
+  { label: 'Pharmacy', icon: <Pill className="h-4 w-4" />, path: '/pharmacy', allowedRoles: ['ADMIN', 'MANAGER', 'SUPERVISOR'] },
+  { label: 'Receiving', icon: <Truck className="h-4 w-4" />, path: '/receiving', allowedRoles: ['ADMIN', 'MANAGER', 'STOCK_CLERK'] },
   { label: 'Settings', icon: <Settings className="h-4 w-4" />, path: '/settings', allowedRoles: ['ADMIN', 'MANAGER'] },
 ]
 
@@ -166,6 +190,11 @@ function AppContent() {
           <Route path="/users" element={hasPermission(['ADMIN', 'MANAGER']) ? <UserManagement /> : <Navigate to="/" replace />} />
           <Route path="/roles" element={hasPermission(['ADMIN']) ? <RoleManagement /> : <Navigate to="/" replace />} />
           <Route path="/activity" element={hasPermission(['ADMIN', 'MANAGER']) ? <ActivityLog /> : <Navigate to="/" replace />} />
+          <Route path="/expiry-lots" element={hasPermission(['ADMIN', 'MANAGER', 'STOCK_CLERK']) ? <ExpiryLots /> : <Navigate to="/" replace />} />
+          <Route path="/restaurant/tables" element={hasPermission(['ADMIN', 'MANAGER', 'CASHIER']) ? <RestaurantTables /> : <Navigate to="/" replace />} />
+          <Route path="/kitchen" element={hasPermission(['ADMIN', 'MANAGER', 'CASHIER']) ? <KitchenBoard /> : <Navigate to="/" replace />} />
+          <Route path="/pharmacy" element={hasPermission(['ADMIN', 'MANAGER', 'SUPERVISOR']) ? <PharmacyConsole /> : <Navigate to="/" replace />} />
+          <Route path="/receiving" element={hasPermission(['ADMIN', 'MANAGER', 'STOCK_CLERK']) ? <ReceivingCenter /> : <Navigate to="/" replace />} />
           <Route path="/settings" element={hasPermission(['ADMIN', 'MANAGER']) ? <SettingsPage /> : <Navigate to="/" replace />} />
           <Route path="/" element={<Navigate to="/checkout" replace />} />
         </>
@@ -177,8 +206,6 @@ function AppContent() {
 }
 
 export default function App() {
-  const user = useAuthStore((state) => state.user)
-
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Layout>

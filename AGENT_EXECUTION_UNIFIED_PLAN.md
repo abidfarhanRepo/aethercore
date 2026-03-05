@@ -195,16 +195,80 @@ Tasks:
 Exit criteria:
 - Per-tenant feature toggles work without redeploy
 - Disabled capability blocks both API and UI usage
+- Plugin runtime contract is implemented (`registerRoutes`, `registerHooks`, `registerUIExtensions`, `healthCheck`)
+- Event hook bus is operational for all core hooks in section 6.4
+- Vertical profile seeds exist for supermarket, restaurant, and pharmacy
 
-### Phase 3 - Vertical Plugin Pack (3 weeks)
+### Phase 3 - Vertical Plugin Pack (4-5 weeks)
+Dependency gate:
+- Phase 2 must be complete before Phase 3 starts (plugin registry, capability middleware, feature flags, and hook bus are required foundations).
+
+#### Phase 3.1 - Expiry and Lot Plugin with FEFO (1-1.5 weeks)
 Tasks:
-- Expiry/lot plugin with FEFO behavior
-- Restaurant table + kitchen flow plugin
-- Pharmacy prescription + controlled substance controls
-- Procurement/supplier receiving plugin
+- Add lot and expiry entities in Prisma (`LotBatch` or equivalent) and link them to `InventoryLocation` and `InventoryTransaction`
+- Add inventory endpoints for lot creation, lot transfer, and expiring-soon reporting
+- Implement FEFO allocation logic during stock deduction
+- Add expiry and lot handling to receiving flows
+- Add frontend inventory views for lot/expiry visibility and near-expiry alerts
+- Add integration and E2E tests for FEFO selection and expiry alerts
+
+Exit criteria:
+- Inventory is tracked by lot and expiry where capability is enabled
+- Checkout/inventory deduction uses FEFO consistently
+- Expiring-soon data is exposed in API and visible in UI
+
+#### Phase 3.2 - Restaurant Table and Kitchen Flow Plugin (1.5-2 weeks)
+Tasks:
+- Add restaurant entities (`RestaurantTable`, `RestaurantOrder`, `KitchenTicket`, modifier support)
+- Implement table lifecycle and order state machine (`open -> preparing -> ready -> served -> closed`)
+- Add backend routes for table operations and kitchen ticket queue updates
+- Add real-time kitchen updates (WebSocket or polling contract)
+- Add frontend pages for table management and kitchen display
+- Add tests for table transitions, ticket routing, and kitchen completion flow
+
+Exit criteria:
+- Orders can be created and tracked by table
+- Kitchen receives and updates ticket status in near real-time
+- Restaurant workflow is fully role-gated and capability-gated
+
+#### Phase 3.3 - Pharmacy Prescription and Controlled Substance Plugin (1-1.5 weeks)
+Tasks:
+- Add pharmacy entities (`Prescription`, `PrescriptionItem`, `DrugInteraction`, pharmacist override log)
+- Extend product metadata for controlled-substance and prescription requirements
+- Add prescription validation and fill endpoints
+- Add interaction-check endpoint and enforcement hooks before sale finalization
+- Add pharmacist verification/override flow in checkout UI
+- Add tests for prescription validity, refill limits, controlled-substance checks, and override auditing
+
+Exit criteria:
+- Prescription-required sales are blocked without valid prescription
+- Controlled-substance constraints are enforced and auditable
+- Interaction warnings/blocks work as configured
+
+#### Phase 3.4 - Procurement and Supplier Receiving Plugin (1 week)
+Tasks:
+- Extend purchase receiving with receiving sessions and discrepancy tracking
+- Capture per-line lot/expiry data during receiving
+- Add discrepancy resolution paths (short/over/damaged)
+- Link receiving completion to inventory updates and audit logging
+- Add UI for receiving workflow and discrepancy handling
+- Add integration tests for receiving, variance, and lot assignment
+
+Exit criteria:
+- PO receiving supports lot/expiry assignment and discrepancy logging
+- Inventory updates reflect receiving outcomes deterministically
+- Receiving workflows are capability-gated and test-covered
+
+#### Phase 3.5 - Profile Integration and Rollout Validation (0.5 week, parallel where possible)
+Tasks:
+- Wire supermarket, restaurant, and pharmacy profiles to tenant capability bundles
+- Ensure all Phase 3 APIs/UI are fail-closed when capability disabled
+- Add profile-specific smoke/E2E suites for critical workflows
 
 Exit criteria:
 - All 3 profiles run with profile-specific workflows
+- Feature disablement blocks both API usage and UI entry points
+- Profile test matrix passes in CI
 
 ### Phase 4 - Payments, Receipts, Hardware (2 weeks)
 Tasks:

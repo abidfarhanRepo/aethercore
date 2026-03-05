@@ -34,6 +34,7 @@ model User {
   auditLogs      AuditLog[]
   userRoles      UserRole[]
   permissionLog  PermissionLog[]
+  pharmacistOverrides PharmacistOverride[]
 
   @@index([email])
   @@index([role])
@@ -114,6 +115,11 @@ model Product {
   inventoryTransactions InventoryTransaction[]
   saleItems             SaleItem[]
   purchaseOrderItems    PurchaseOrderItem[]
+  lotBatches            LotBatch[]
+  prescriptions         Prescription[]
+  prescriptionItems     PrescriptionItem[]
+  interactionsAsSource  DrugInteraction[] @relation("InteractionProduct1")
+  interactionsAsTarget  DrugInteraction[] @relation("InteractionProduct2")
 
   @@index([sku])
   @@index([barcode])
@@ -133,6 +139,7 @@ model Warehouse {
 
   inventoryLocations    InventoryLocation[]
   inventoryTransactions InventoryTransaction[]
+  lotBatches            LotBatch[]
 
   @@index([name])
   @@index([isActive])
@@ -224,6 +231,7 @@ model Sale {
   paymentRecords Payment[]
   discounts      SaleDiscount[]
   returns        SaleReturn[]
+  kitchenTickets KitchenTicket[]
 
   @@index([userId])
   @@index([customerId])
@@ -362,6 +370,7 @@ model Customer {
 
   sales         Sale[]
   paymentTokens PaymentToken[]
+  prescriptions Prescription[]
 
   @@index([email])
   @@index([phone])
@@ -383,6 +392,7 @@ model PurchaseOrder {
   updatedAt        DateTime  @updatedAt
 
   items PurchaseOrderItem[]
+  receivingSessions ReceivingSession[]
 
   @@index([userId])
   @@index([supplierId])
@@ -400,6 +410,7 @@ model PurchaseOrderItem {
   qtyReceived     Int           @default(0)
   unitPrice       Int
   createdAt       DateTime      @default(now())
+  receivingDiscrepancies ReceivingDiscrepancy[]
 
   @@index([purchaseOrderId])
   @@index([productId])
@@ -596,4 +607,172 @@ model TaxExemption {
   @@index([category])
   @@index([productId])
   @@index([isActive])
+}
+
+model LotBatch {
+  id           String    @id @default(cuid())
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId     String
+  warehouse     Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  warehouseId   String
+  batchNumber   String
+  expiryDate    DateTime
+  qtyAvailable  Int       @default(0)
+  qtyReserved   Int       @default(0)
+  costPerUnit   Int?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([warehouseId, productId, batchNumber])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([expiryDate])
+}
+
+model RestaurantTable {
+  id          String   @id @default(cuid())
+  tableNumber Int
+  seats       Int      @default(2)
+  zone        String?
+  status      String   @default("AVAILABLE")
+  isActive    Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tickets KitchenTicket[]
+
+  @@unique([tableNumber])
+  @@index([status])
+}
+
+model KitchenTicket {
+  id           String           @id @default(cuid())
+  sale         Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId       String
+  table        RestaurantTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  tableId      String?
+  status       String           @default("NEW")
+  ticketNumber Int?
+  printedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?
+  createdAt    DateTime         @default(now())
+
+  @@index([saleId])
+  @@index([status])
+}
+
+model Prescriber {
+  id            String   @id @default(cuid())
+  name          String
+  npiNumber     String   @unique
+  phone         String?
+  email         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  prescriptions Prescription[]
+
+  @@index([npiNumber])
+}
+
+model Prescription {
+  id             String      @id @default(cuid())
+  customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId     String
+  prescriber     Prescriber  @relation(fields: [prescriberId], references: [id])
+  prescriberId   String
+  rxNumber       String      @unique
+  product        Product     @relation(fields: [productId], references: [id])
+  productId      String
+  qty            Int
+  daysSupply     Int
+  refillsAllowed Int         @default(0)
+  refillsUsed    Int         @default(0)
+  dateIssued     DateTime
+  expiryDate     DateTime
+  status         String      @default("ACTIVE")
+  createdAt      DateTime    @default(now())
+
+  items     PrescriptionItem[]
+  overrides PharmacistOverride[]
+
+  @@index([customerId])
+  @@index([rxNumber])
+  @@index([status])
+}
+
+model PrescriptionItem {
+  id             String       @id @default(cuid())
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescriptionId String
+  product        Product      @relation(fields: [productId], references: [id])
+  productId      String
+  qty            Int
+  createdAt      DateTime     @default(now())
+
+  @@index([prescriptionId])
+}
+
+model DrugInteraction {
+  id          String   @id @default(cuid())
+  product1    Product  @relation("InteractionProduct1", fields: [productId1], references: [id], onDelete: Cascade)
+  productId1  String
+  product2    Product  @relation("InteractionProduct2", fields: [productId2], references: [id], onDelete: Cascade)
+  productId2  String
+  severity    String   @default("MODERATE")
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([productId1, productId2])
+  @@index([severity])
+}
+
+model PharmacistOverride {
+  id             String       @id @default(cuid())
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescriptionId String
+  pharmacist     User         @relation(fields: [pharmacistId], references: [id])
+  pharmacistId   String
+  action         String
+  reason         String
+  createdAt      DateTime     @default(now())
+
+  @@index([prescriptionId])
+  @@index([pharmacistId])
+}
+
+model ReceivingSession {
+  id              String        @id @default(cuid())
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  purchaseOrderId String
+  status          String        @default("OPEN")
+  startedBy       String?
+  startedAt       DateTime      @default(now())
+  completedAt     DateTime?
+  completedBy     String?
+  createdAt       DateTime      @default(now())
+
+  discrepancies ReceivingDiscrepancy[]
+
+  @@index([purchaseOrderId])
+  @@index([status])
+}
+
+model ReceivingDiscrepancy {
+  id                  String            @id @default(cuid())
+  receivingSession    ReceivingSession  @relation(fields: [receivingSessionId], references: [id], onDelete: Cascade)
+  receivingSessionId  String
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+  purchaseOrderItemId String
+  qtyExpected         Int
+  qtyReceived         Int
+  discrepancyReason   String
+  notes               String?
+  createdAt           DateTime          @default(now())
+
+  @@index([receivingSessionId])
 }

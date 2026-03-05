@@ -16,6 +16,7 @@ import reportsRoutes from './routes/reports'
 import paymentRoutes from './routes/payments'
 import settingsRoutes from './routes/settings'
 import syncRoutes from './routes/sync'
+import phase3Routes from './routes/phase3'
 import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
 import { setupErrorHandler } from './middleware/errorHandler'
@@ -72,6 +73,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(paymentRoutes)
   server.register(settingsRoutes)
   server.register(syncRoutes)
+  server.register(phase3Routes)
   
   // Security audit endpoint (admin only)
   server.get('/api/security/audit-summary', async (req, reply) => {

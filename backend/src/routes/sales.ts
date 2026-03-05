@@ -174,6 +174,33 @@ export default async function salesRoutes(fastify: FastifyInstance) {
               reference: sale.id,
             },
           })
+
+          // Phase 3 FEFO support: if lot data exists, consume oldest-expiring batches first.
+          const lotBatches = await (tx as any).lotBatch?.findMany?.({
+            where: {
+              productId: item.productId,
+              warehouseId: warehouse.id,
+              qtyAvailable: { gt: 0 },
+            },
+            orderBy: [{ expiryDate: 'asc' }, { createdAt: 'asc' }],
+          })
+
+          if (Array.isArray(lotBatches) && lotBatches.length > 0) {
+            let remaining = item.qty
+            for (const lot of lotBatches) {
+              if (remaining <= 0) {
+                break
+              }
+              const consume = Math.min(remaining, lot.qtyAvailable)
+              if (consume > 0) {
+                await (tx as any).lotBatch.update({
+                  where: { id: lot.id },
+                  data: { qtyAvailable: { decrement: consume } },
+                })
+                remaining -= consume
+              }
+            }
+          }
         }
 
         // Create discount records
