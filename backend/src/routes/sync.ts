@@ -48,6 +48,10 @@ interface SaleInputPayment {
   notes?: string
 }
 
+const MAX_REPLAY_ATTEMPTS = 5
+const BASE_REPLAY_BACKOFF_SECONDS = 5
+const MAX_REPLAY_BACKOFF_SECONDS = 300
+
 function normalizeOperationType(op: SyncOperation): OperationType {
   return op.operationType || op.type || 'POST'
 }
@@ -147,6 +151,12 @@ function toInt(value: unknown, fallback: number): number {
   }
 
   return fallback
+}
+
+function computeReplayBackoffSeconds(attemptCount: number): number {
+  const exponent = Math.max(0, attemptCount - 1)
+  const raw = BASE_REPLAY_BACKOFF_SECONDS * Math.pow(2, exponent)
+  return Math.min(MAX_REPLAY_BACKOFF_SECONDS, raw)
 }
 
 function sortOperations(operations: SyncOperation[]): SyncOperation[] {
@@ -562,7 +572,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
       })
     }
 
-    if (deadLetter.attemptCount >= 5 && deadLetter.resolvedAt === null) {
+    if (deadLetter.attemptCount >= MAX_REPLAY_ATTEMPTS && deadLetter.resolvedAt === null) {
       await prisma.syncDeadLetter.update({
         where: { id: deadLetter.id },
         data: {
@@ -577,6 +587,25 @@ export default async function syncRoutes(fastify: FastifyInstance) {
         code: 'RETRY_BUDGET_EXCEEDED',
         error: 'Replay retry budget exceeded',
       })
+    }
+
+    // Enforce backend replay cooldown so retries are not spammed manually.
+    if (deadLetter.resolvedAt === null) {
+      const backoffSeconds = computeReplayBackoffSeconds(deadLetter.attemptCount)
+      const nextAllowedAt = new Date(deadLetter.lastFailedAt.getTime() + (backoffSeconds * 1000))
+      const now = new Date()
+
+      if (now < nextAllowedAt) {
+        const retryAfterSeconds = Math.max(1, Math.ceil((nextAllowedAt.getTime() - now.getTime()) / 1000))
+        return reply.status(429).send({
+          id: deadLetter.id,
+          status: deadLetter.status,
+          code: 'REPLAY_BACKOFF_ACTIVE',
+          error: 'Replay is temporarily throttled by exponential backoff',
+          retryAfterSeconds,
+          nextAllowedAt: nextAllowedAt.toISOString(),
+        })
+      }
     }
 
     try {
@@ -598,7 +627,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
       })
     } catch (error) {
       const nextAttemptCount = deadLetter.attemptCount + 1
-      const shouldDiscard = nextAttemptCount >= 5
+      const shouldDiscard = nextAttemptCount >= MAX_REPLAY_ATTEMPTS
 
       await prisma.syncDeadLetter.update({
         where: { id: deadLetter.id },
