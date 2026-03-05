@@ -308,7 +308,7 @@ export function ReceiptPreview({
               <div className="bg-muted p-2 rounded my-2">
                 <div className="text-xs font-bold mb-1">Discounts</div>
                 {discounts.map((d, i) => (
-                  <div key={i} className="flex justify-between text-xs">
+                  <div key={`${d.reason}-${d.amountCents}-${i}`} className="flex justify-between text-xs">
                     <span>{d.reason}</span>
                     <span>-${(d.amountCents / 100).toFixed(2)}</span>
                   </div>
@@ -336,7 +336,7 @@ export function ReceiptPreview({
               <div className={`${dividerClass} my-2 pt-2`}>
                 <div className="text-xs font-bold mb-1">Payment</div>
                 {printSettings.showPaymentBreakdown && payments.map((p, i) => (
-                  <div key={i}>
+                  <div key={`${p.method}-${p.amountCents}-${p.changeCents ?? 0}-${i}`}>
                     <div className="flex justify-between text-xs">
                       <span>{p.method}:</span>
                       <span>${(p.amountCents / 100).toFixed(2)}</span>

@@ -80,7 +80,7 @@ export function ProductManagement() {
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))] as string[]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[26px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Products</h1>
@@ -92,8 +92,8 @@ export function ProductManagement() {
 
       {/* Search and Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
+        <CardContent className="pt-[26px]">
+          <div className="flex gap-[18px]">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -122,9 +122,9 @@ export function ProductManagement() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[18px]">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-[26px]">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Total Products</p>
               <p className="text-2xl font-bold">{products.length}</p>
@@ -132,7 +132,7 @@ export function ProductManagement() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-[26px]">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Active Products</p>
               <p className="text-2xl font-bold">{products.filter(p => p.isActive).length}</p>
@@ -140,7 +140,7 @@ export function ProductManagement() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-[26px]">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Average Price</p>
               <p className="text-2xl font-bold">
@@ -185,16 +185,16 @@ export function ProductManagement() {
                       : 0
                     return (
                       <tr key={product.id} className="border-b hover:bg-muted/50">
-                        <td className="px-4 py-3 text-sm font-mono">{product.sku}</td>
-                        <td className="px-4 py-3 text-sm">{product.name}</td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{product.category || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-right font-semibold">
+                        <td className="px-4 py-[14px] text-sm font-mono">{product.sku}</td>
+                        <td className="px-4 py-[14px] text-sm">{product.name}</td>
+                        <td className="px-4 py-[14px] text-sm text-muted-foreground">{product.category || '-'}</td>
+                        <td className="px-4 py-[14px] text-sm text-right font-semibold">
                           ${(product.priceCents / 100).toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right text-muted-foreground">
+                        <td className="px-4 py-[14px] text-sm text-right text-muted-foreground">
                           ${product.costCents ? (product.costCents / 100).toFixed(2) : '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">
+                        <td className="px-4 py-[14px] text-sm text-center">
                           {margin > 0 ? (
                             <span className="inline-flex items-center gap-1 text-green-600">
                               <TrendingUp className="h-3 w-3" />
@@ -204,7 +204,7 @@ export function ProductManagement() {
                             '-'
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">
+                        <td className="px-4 py-[14px] text-sm text-center">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             product.isActive
                               ? 'bg-green-100 text-green-800'
@@ -213,7 +213,7 @@ export function ProductManagement() {
                             {product.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">
+                        <td className="px-4 py-[14px] text-sm text-center">
                           <div className="flex gap-2 justify-center">
                             <button 
                               onClick={() => setEditingProduct(product)}

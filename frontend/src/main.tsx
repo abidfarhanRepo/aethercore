@@ -5,6 +5,9 @@ import './styles.css'
 import { offlineDB } from './lib/offline/db'
 import { networkMonitor } from './lib/offline/network'
 import { syncEngine } from './lib/offline/sync'
+import { applyInitialTheme } from './lib/theme'
+
+applyInitialTheme()
 
 async function initializeOfflineMode() {
   try {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { setupAxiosInterceptors, useAuthStore } from '@/lib/auth'
 import { authAPI, api } from '@/lib/api'
 import ProductManagement from '@/pages/ProductManagement'
@@ -29,12 +29,15 @@ import {
   ClipboardList,
   Pill,
   Truck,
+  Menu,
+  X,
 } from 'lucide-react'
 import './styles.css'
 
 // Import offline components
 import OfflineIndicator from '@/components/OfflineIndicator'
 import SyncStatusModal from '@/components/SyncStatusModal'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 // Import legacy components (temporary for backward compatibility)
 import LoginComponent from './components/Login'
@@ -66,6 +69,8 @@ function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuthStore()
   const [isLoading, setIsLoading] = React.useState(true)
   const [showSyncModal, setShowSyncModal] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const location = useLocation()
 
   useEffect(() => {
     setupAxiosInterceptors(api)
@@ -102,6 +107,10 @@ function Layout({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [location.pathname])
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
   }
@@ -115,7 +124,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <div className="w-64 border-r border-border bg-card p-4 flex flex-col">
+      <div className="hidden md:flex w-64 border-r border-border bg-card p-4 flex-col">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-primary">Aether</h1>
           <p className="text-sm text-muted-foreground">POS System</p>
@@ -133,6 +142,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="space-y-2 border-t border-border pt-4">
+          <ThemeToggle />
           <div className="text-sm text-muted-foreground">
             <p className="font-semibold">{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}</p>
             <div className="flex items-center gap-2 mt-1">
@@ -157,10 +167,82 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="md:hidden flex items-center justify-between border-b border-border bg-card px-3 py-2">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Open navigation menu"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+          <div className="font-semibold">Aether POS</div>
+          <ThemeToggle compact />
+        </div>
         <div className="flex-1 overflow-auto">
           {children}
         </div>
       </div>
+
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45"
+            aria-label="Close navigation menu"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative h-full w-[86%] max-w-sm bg-card border-r border-border p-4 flex flex-col">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-primary">Aether</h2>
+                <p className="text-xs text-muted-foreground">POS System</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close navigation menu"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mb-3">
+              <ThemeToggle className="w-full" />
+            </div>
+
+            <nav className="space-y-2 flex-1 overflow-auto">
+              {visibleMenuItems.map((item) => (
+                <Link key={item.path} to={item.path}>
+                  <Button variant="ghost" className="w-full justify-start gap-2 h-12">
+                    {item.icon}
+                    {item.label}
+                  </Button>
+                </Link>
+              ))}
+            </nav>
+
+            <div className="space-y-2 border-t border-border pt-4">
+              <div className="text-sm text-muted-foreground">
+                <p className="font-semibold">{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}</p>
+                <div className="mt-2">
+                  <OfflineIndicator mode="compact" showSyncModal={setShowSyncModal} />
+                </div>
+              </div>
+              <Button
+                variant="destructive"
+                className="w-full gap-2 h-12"
+                onClick={() => logout()}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sync Status Modal */}
       <SyncStatusModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} />
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { productsAPI, salesAPI } from '@/lib/api'
 import { networkMonitor } from '@/lib/offline/network'
 import {
@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { ShoppingCart, Trash2, Plus, Minus, Search, Printer, Gift, Loader, X } from 'lucide-react'
+import { ShoppingCart, Trash2, Plus, Minus, Printer, Gift, Loader, X, Keyboard } from 'lucide-react'
 import { DiscountModal } from '@/components/DiscountModal'
 import { PaymentModal } from '@/components/PaymentModal'
 import { RefundModal } from '@/components/RefundModal'
@@ -70,6 +70,11 @@ interface ReceiptSnapshot {
 export function POSCheckout() {
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
+  const [highlightedProductIndex, setHighlightedProductIndex] = useState(-1)
+  const [productQtyBuffer, setProductQtyBuffer] = useState('')
+  const [isProductKeyboardMode, setIsProductKeyboardMode] = useState(false)
+  const [highlightedCartIndex, setHighlightedCartIndex] = useState(-1)
+  const [cartQtyBuffer, setCartQtyBuffer] = useState('')
   const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -94,6 +99,7 @@ export function POSCheckout() {
   // Selected payments
   const [appliedPayments, setAppliedPayments] = useState<AppliedPayment[]>([])
   const [terminalId] = useState(() => getOrCreateTerminalId())
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchProducts()
@@ -112,23 +118,27 @@ export function POSCheckout() {
     }
   }
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, qty: number = 1) => {
+    const sanitizedQty = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1
     const existing = cart.find(item => item.productId === product.id)
     if (existing) {
       setCart(cart.map(item =>
         item.productId === product.id
-          ? { ...item, qty: item.qty + 1 }
+          ? { ...item, qty: item.qty + sanitizedQty }
           : item
       ))
     } else {
       setCart([...cart, {
         productId: product.id,
         name: product.name,
-        qty: 1,
+        qty: sanitizedQty,
         unitPrice: product.priceCents,
       }])
     }
     setSearch('')
+    setHighlightedProductIndex(-1)
+    setProductQtyBuffer('')
+    setIsProductKeyboardMode(false)
   }
 
   const updateQty = (productId: string, qty: number) => {
@@ -156,11 +166,216 @@ export function POSCheckout() {
   const taxCents = Math.floor((taxableCents * 10) / 100) // 10% tax
   const totalCents = taxableCents + taxCents
 
+  const normalizedSearch = search.trim().toLowerCase()
+  const isSearchActive = normalizedSearch.length > 0
+  const isAnyModalOpen =
+    isDiscountModalOpen || isPaymentModalOpen || isRefundModalOpen || isReceiptModalOpen
+
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode?.includes(search) || false)
+    p.name.toLowerCase().includes(normalizedSearch) ||
+    p.sku.toLowerCase().includes(normalizedSearch) ||
+    (p.barcode?.includes(search.trim()) || false)
   ).slice(0, 10)
+
+  useEffect(() => {
+    if (!isSearchActive || filteredProducts.length === 0) {
+      if (highlightedProductIndex !== -1) {
+        setHighlightedProductIndex(-1)
+      }
+      if (productQtyBuffer !== '') {
+        setProductQtyBuffer('')
+      }
+      if (isProductKeyboardMode) {
+        setIsProductKeyboardMode(false)
+      }
+      return
+    }
+
+    if (highlightedProductIndex < 0) {
+      setHighlightedProductIndex(0)
+      return
+    }
+
+    if (highlightedProductIndex >= filteredProducts.length) {
+      setHighlightedProductIndex(filteredProducts.length - 1)
+    }
+  }, [isSearchActive, filteredProducts, highlightedProductIndex, productQtyBuffer, isProductKeyboardMode])
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      if (highlightedCartIndex !== -1) {
+        setHighlightedCartIndex(-1)
+      }
+      if (cartQtyBuffer !== '') {
+        setCartQtyBuffer('')
+      }
+      return
+    }
+
+    if (highlightedCartIndex < 0) {
+      setHighlightedCartIndex(0)
+      return
+    }
+
+    if (highlightedCartIndex >= cart.length) {
+      setHighlightedCartIndex(cart.length - 1)
+    }
+  }, [cart, highlightedCartIndex, cartQtyBuffer])
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) {
+        return false
+      }
+
+      return (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      )
+    }
+
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isAnyModalOpen) {
+        return
+      }
+
+      // Never override browser/system shortcuts.
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return
+      }
+
+      const editableTarget = isEditableTarget(event.target)
+      const isSearchInputTarget = event.target === searchInputRef.current
+      const hasHighlightedProduct =
+        highlightedProductIndex >= 0 && highlightedProductIndex < filteredProducts.length
+      const highlightedProduct = hasHighlightedProduct ? filteredProducts[highlightedProductIndex] : null
+      const hasHighlightedCartItem =
+        highlightedCartIndex >= 0 && highlightedCartIndex < cart.length
+      const highlightedItem = hasHighlightedCartItem ? cart[highlightedCartIndex] : null
+
+      if ((!editableTarget || isSearchInputTarget) && isSearchActive && filteredProducts.length > 0 && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        event.preventDefault()
+        setIsProductKeyboardMode(true)
+        setProductQtyBuffer('')
+        setHighlightedProductIndex((prev) => {
+          if (prev < 0) {
+            return 0
+          }
+
+          if (event.key === 'ArrowUp') {
+            return prev === 0 ? filteredProducts.length - 1 : prev - 1
+          }
+
+          return prev === filteredProducts.length - 1 ? 0 : prev + 1
+        })
+        return
+      }
+
+      if ((!editableTarget || isSearchInputTarget) && highlightedProduct && isSearchActive && isProductKeyboardMode && /^\d$/.test(event.key)) {
+        event.preventDefault()
+        setProductQtyBuffer((prev) => `${prev}${event.key}`.slice(0, 6))
+        return
+      }
+
+      if ((!editableTarget || isSearchInputTarget) && highlightedProduct && isSearchActive && event.key === 'Enter') {
+        event.preventDefault()
+        const parsedQty = parseInt(isProductKeyboardMode ? productQtyBuffer : '', 10)
+        const qtyToAdd = !Number.isNaN(parsedQty) && parsedQty > 0 ? parsedQty : 1
+        addToCart(highlightedProduct, qtyToAdd)
+        return
+      }
+
+      if (!editableTarget && cart.length > 0 && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        event.preventDefault()
+        setCartQtyBuffer('')
+        setHighlightedCartIndex((prev) => {
+          if (prev < 0) {
+            return 0
+          }
+
+          if (event.key === 'ArrowUp') {
+            return prev === 0 ? cart.length - 1 : prev - 1
+          }
+
+          return prev === cart.length - 1 ? 0 : prev + 1
+        })
+        return
+      }
+
+      if (!editableTarget && highlightedItem && (event.key === '+' || event.key === '=')) {
+        event.preventDefault()
+        setCartQtyBuffer('')
+        updateQty(highlightedItem.productId, highlightedItem.qty + 1)
+        return
+      }
+
+      if (!editableTarget && highlightedItem && event.key === '-') {
+        event.preventDefault()
+        setCartQtyBuffer('')
+        updateQty(highlightedItem.productId, highlightedItem.qty - 1)
+        return
+      }
+
+      if (!editableTarget && highlightedItem && (event.key === 'Delete' || event.key === 'Backspace')) {
+        // Prevent browser back only when backspace/delete is used for cart removal.
+        event.preventDefault()
+        setCartQtyBuffer('')
+        removeFromCart(highlightedItem.productId)
+        return
+      }
+
+      if (!editableTarget && highlightedItem && !isSearchActive && /^\d$/.test(event.key)) {
+        event.preventDefault()
+        setCartQtyBuffer((prev) => `${prev}${event.key}`.slice(0, 6))
+        return
+      }
+
+      if (!editableTarget && highlightedItem && event.key === 'Enter' && cartQtyBuffer.length > 0) {
+        event.preventDefault()
+        const parsedQty = parseInt(cartQtyBuffer, 10)
+        setCartQtyBuffer('')
+        if (!Number.isNaN(parsedQty) && parsedQty > 0) {
+          updateQty(highlightedItem.productId, parsedQty)
+        }
+        return
+      }
+
+      if (!editableTarget && event.key.length === 1) {
+        event.preventDefault()
+        setIsProductKeyboardMode(false)
+        setProductQtyBuffer('')
+        searchInputRef.current?.focus()
+        setSearch((prev) => prev + event.key)
+        return
+      }
+
+      if ((!editableTarget || isSearchInputTarget) && event.key === 'Enter' && isSearchActive && filteredProducts.length > 0) {
+        event.preventDefault()
+        addToCart(filteredProducts[0])
+        return
+      }
+
+      if (event.key === 'Escape' && isSearchActive) {
+        setIsProductKeyboardMode(false)
+        setProductQtyBuffer('')
+        setSearch('')
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [
+    isAnyModalOpen,
+    isSearchActive,
+    filteredProducts,
+    highlightedProductIndex,
+    productQtyBuffer,
+    isProductKeyboardMode,
+    highlightedCartIndex,
+    cart,
+    cartQtyBuffer,
+  ])
 
   const handleApplyDiscount = (discount: any) => {
     const newDiscount: AppliedDiscount = {
@@ -317,22 +532,50 @@ export function POSCheckout() {
   }
 
   return (
-    <div className="h-screen grid grid-cols-3 gap-4 p-4 bg-background">
+    <div className="min-h-screen bg-background p-3 sm:p-4 lg:p-5">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] gap-4 h-full">
       {/* Products Panel */}
-      <div className="col-span-2 flex flex-col gap-4">
+      <div className="flex flex-col gap-4 min-h-[60vh]">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Search Products</h2>
           <Input
+            ref={searchInputRef}
             placeholder="Scan barcode or search SKU/name..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setIsProductKeyboardMode(false)
+              setProductQtyBuffer('')
+              setSearch(e.target.value)
+            }}
             autoFocus
             className="text-lg h-12"
           />
         </div>
 
         {/* Quick Product List */}
-        <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-card">
+        <div className="relative flex-1 overflow-y-auto rounded-lg border border-border bg-card min-h-[420px]">
+          <div
+            className={`absolute inset-0 z-10 flex items-center justify-center px-4 transition-opacity duration-300 ${
+              isSearchActive ? 'pointer-events-none opacity-0' : 'opacity-100'
+            }`}
+            aria-hidden={isSearchActive}
+          >
+            <div className="w-full max-w-xl rounded-xl border border-border bg-background/95 backdrop-blur-sm p-5 shadow-sm">
+              <div className="flex items-center gap-2 text-base font-semibold mb-3">
+                <Keyboard className="h-4 w-4" />
+                Checkout Shortcuts
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+                <div><span className="font-medium text-foreground">Type</span> Focus search + append text</div>
+                <div><span className="font-medium text-foreground">Arrow Up/Down</span> Highlight result (selection mode)</div>
+                <div><span className="font-medium text-foreground">0-9 + Enter</span> Set qty and add highlighted result</div>
+                <div><span className="font-medium text-foreground">Escape</span> Clear search</div>
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Start typing a SKU, barcode, or product name to hide this overlay and show matching products.
+              </p>
+            </div>
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <Loader className="h-6 w-6 animate-spin" />
@@ -344,20 +587,41 @@ export function POSCheckout() {
               Search for products above
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 p-4">
-              {filteredProducts.map((product) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3 p-3 sm:p-4">
+              {filteredProducts.map((product, index) => {
+                const isHighlightedProduct = index === highlightedProductIndex
+                const highlightedQty = productQtyBuffer.length > 0 ? productQtyBuffer : '1'
+
+                return (
                 <button
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  className="p-3 rounded-lg border border-border hover:bg-accent active:scale-95 transition-all text-left"
+                  onMouseEnter={() => {
+                    setHighlightedProductIndex(index)
+                    setIsProductKeyboardMode(true)
+                  }}
+                  onFocus={() => {
+                    setHighlightedProductIndex(index)
+                    setIsProductKeyboardMode(true)
+                  }}
+                  className={`min-h-24 p-3 rounded-lg border hover:bg-accent/20 active:scale-[0.99] transition-all text-left ${
+                    isHighlightedProduct ? 'border-accent bg-accent/10 ring-1 ring-accent/50' : 'border-border'
+                  }`}
                 >
-                  <div className="font-semibold">{product.name}</div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold">{product.name}</div>
+                    {isHighlightedProduct && isSearchActive && isProductKeyboardMode && (
+                      <span className="text-[11px] leading-none rounded bg-accent/15 text-accent px-2 py-1">
+                        Qty {highlightedQty} + Enter
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-muted-foreground">{product.sku}</div>
                   <div className="text-lg font-bold text-accent">
                     ${(product.priceCents / 100).toFixed(2)}
                   </div>
                 </button>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -377,45 +641,64 @@ export function POSCheckout() {
               <div className="text-center text-muted-foreground">Cart is empty</div>
             ) : (
               <div className="space-y-2">
-                {cart.map((item) => (
-                  <div key={item.productId} className="p-2 rounded-lg border border-border">
+                {cart.map((item, index) => {
+                  const isHighlighted = index === highlightedCartIndex
+
+                  return (
+                  <div
+                    key={item.productId}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      isHighlighted ? 'border-accent bg-accent/10 ring-1 ring-accent/50' : 'border-border'
+                    }`}
+                    onClick={() => {
+                      setHighlightedCartIndex(index)
+                      setCartQtyBuffer('')
+                    }}
+                  >
                     <div className="font-semibold text-sm">{item.name}</div>
+                    {isHighlighted && cartQtyBuffer.length > 0 && (
+                      <div className="text-xs text-accent mt-1">Qty input: {cartQtyBuffer}</div>
+                    )}
                     <div className="flex items-center justify-between gap-2 mt-2">
                       <div className="text-sm text-muted-foreground">
                         ${(item.unitPrice / 100).toFixed(2)} × {item.qty}
                       </div>
                       <button
                         onClick={() => removeFromCart(item.productId)}
-                        className="text-red-600 hover:text-red-800"
+                        className="h-11 min-w-11 rounded-md inline-flex items-center justify-center text-red-600 hover:text-red-800 hover:bg-muted"
+                        aria-label={`Remove ${item.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="flex gap-1 mt-2">
+                    <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => updateQty(item.productId, item.qty - 1)}
-                        className="flex-1 py-1 text-sm border rounded hover:bg-muted"
+                        className="h-11 flex-1 text-sm border rounded hover:bg-muted inline-flex items-center justify-center"
+                        aria-label={`Decrease quantity for ${item.name}`}
                       >
-                        <Minus className="h-3 w-3 mx-auto" />
+                        <Minus className="h-4 w-4" />
                       </button>
                       <input
                         type="number"
                         value={item.qty}
                         onChange={(e) => updateQty(item.productId, parseInt(e.target.value) || 1)}
-                        className="flex-1 text-center text-sm border rounded"
+                        className="h-11 min-w-[72px] flex-1 text-center text-sm border rounded"
+                        aria-label={`Quantity for ${item.name}`}
                       />
                       <button
                         onClick={() => updateQty(item.productId, item.qty + 1)}
-                        className="flex-1 py-1 text-sm border rounded hover:bg-muted"
+                        className="h-11 flex-1 text-sm border rounded hover:bg-muted inline-flex items-center justify-center"
+                        aria-label={`Increase quantity for ${item.name}`}
                       >
-                        <Plus className="h-3 w-3 mx-auto" />
+                        <Plus className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="text-right font-semibold text-sm mt-2">
                       ${((item.qty * item.unitPrice) / 100).toFixed(2)}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </CardContent>
@@ -433,9 +716,10 @@ export function POSCheckout() {
                 className="flex-1"
               />
               <Button
-                size="sm"
+                size="default"
                 variant="outline"
                 disabled={!loyaltyNumber || isLoyaltyLoading}
+                className="h-12 min-w-12"
               >
                 {isLoyaltyLoading ? 'Loading...' : <Gift className="h-4 w-4" />}
               </Button>
@@ -462,7 +746,8 @@ export function POSCheckout() {
                       </span>
                       <button
                         onClick={() => removeDiscount(discount.id)}
-                        className="text-red-600 hover:text-red-800"
+                        className="h-11 min-w-11 rounded-md inline-flex items-center justify-center text-red-600 hover:text-red-800 hover:bg-background"
+                        aria-label={`Remove discount ${discount.reason}`}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -503,12 +788,12 @@ export function POSCheckout() {
 
             {error && <div className="text-sm text-red-600">{error}</div>}
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Button
                 variant="outline"
                 onClick={() => setIsDiscountModalOpen(true)}
                 disabled={cart.length === 0 || isProcessing}
-                size="sm"
+                className="h-12"
               >
                 Discount
               </Button>
@@ -516,14 +801,14 @@ export function POSCheckout() {
                 variant="outline"
                 onClick={() => setCart([])}
                 disabled={cart.length === 0 || isProcessing}
-                size="sm"
+                className="h-12"
               >
                 Clear
               </Button>
               <Button
                 onClick={() => setIsPaymentModalOpen(true)}
                 disabled={cart.length === 0 || isProcessing}
-                className="gap-2"
+                className="gap-2 h-12"
               >
                 {isProcessing ? <Loader className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                 {isProcessing ? 'Payment...' : `Pay $${(totalCents / 100).toFixed(2)}`}
@@ -535,14 +820,16 @@ export function POSCheckout() {
                 variant="outline"
                 onClick={() => handleVoidSale(lastSaleId)}
                 disabled={isProcessing}
-                size="sm"
-                className="w-full text-red-600"
+                size="default"
+                className="w-full text-red-600 h-12"
               >
                 Void Last Sale
               </Button>
             )}
           </CardContent>
         </Card>
+      </div>
+
       </div>
 
       {/* Modals */}

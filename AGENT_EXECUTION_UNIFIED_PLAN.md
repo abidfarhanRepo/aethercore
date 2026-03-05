@@ -378,15 +378,53 @@ Acceptance criteria:
 
 ### Phase 6 - UX and Professional Polish (2 weeks)
 Tasks:
-- Keyboard-first checkout
-- Loading skeletons + robust error states
-- Role-aware navigation and workflow simplification
-- Pagination/virtualization/perf budgets
-- Accessibility baseline (WCAG 2.1 AA)
+- Checkout productivity UX (keyboard + touch parity):
+  - Add a persistent shortcut cue panel inside the product-entry area (largest checkout box where products are shown).
+  - Show shortcut hints for checkout and product entry when search is idle (examples: focus search, pay, clear cart, open discount, quantity adjust, void last sale where permitted).
+  - Fade shortcut cue panel out as soon as product search input becomes non-empty; fade back in when search is cleared.
+  - Ensure shortcuts are role-aware and fail-closed (hidden/disabled when action is unavailable).
+  - Keep all checkout-critical actions accessible on touch devices without keyboard dependency.
+- Touch-first checkout ergonomics:
+  - Minimum interactive target size 44x44px (48x48 preferred) for product cards, cart quantity controls, and payment actions.
+  - Tablet-first responsive layout for 768px-1366px POS devices and handheld fallback for narrow screens.
+  - Improve spacing/visual hierarchy in cart and totals for quick tap accuracy under high-throughput cashier flow.
+  - Ensure product-grid scrolling and cart interactions remain smooth on low-end touch hardware.
+- Loading and error polish:
+  - Skeleton states for product results and checkout panels (replace blank/flashy loading states).
+  - Standardized actionable error blocks with retry paths and accessible live-region announcements.
+  - Consistent success/failure feedback for discount/payment/void/refund actions.
+- Theme and visual polish (light + dark):
+  - Implement app-level theme mode toggle with persistence and initial system-preference hydration.
+  - Add fully supported dark mode for checkout, cart, modals, and navigation.
+  - Replace current red-biased generic accent with a more neutral commerce-safe accent palette in both modes (readable at WCAG contrast targets).
+  - Remove hardcoded colors from virtualized/product rows and migrate to theme tokens.
+- Role-aware workflow simplification:
+  - Keep navigation and checkout controls scoped by role/capability; remove dead-end entry points.
+  - Reduce decision friction for cashier flow by emphasizing primary next actions.
+- Performance and accessibility baseline (WCAG 2.1 AA):
+  - Maintain virtualization/pagination for heavy product lists.
+  - Set practical UX performance budgets for interactive checkout (search-to-render and tap-to-feedback responsiveness).
+  - Validate focus order, keyboard navigation, labels, and contrast in both light/dark modes.
+
+Implementation tracks:
+- Track A: Shortcut overlay and keyboard bindings in checkout product-entry panel.
+- Track B: Touch-target and responsive layout hardening for checkout/cart/modals.
+- Track C: Theme architecture and accent-token refresh (light/dark parity).
+- Track D: Accessibility and feedback consistency pass.
+
+Definition of done (Phase 6):
+- Checkout shortcut cues are visible in the product-entry panel while idle and fade away immediately when typing search.
+- Keyboard shortcuts accelerate checkout but all critical actions remain fully operable by touch.
+- Dark mode is available, persisted, and visually consistent across the app shell and checkout flow.
+- Accent colors are updated in both themes and meet contrast/readability requirements.
+- Checkout UI is optimized for tablet/touch devices with no critical tap-target or overflow issues.
+- Accessibility baseline checks pass for key checkout workflows.
 
 Exit criteria:
-- Operator flows are fast and consistent
-- Performance and accessibility budgets pass
+- Operator checkout/product-entry workflows are faster and clearer on keyboard and touch.
+- Search-driven shortcut cues behave exactly as specified (idle visible, active-search faded).
+- Light/dark theme parity is production-ready with updated accent tokens.
+- Performance and accessibility budgets pass for checkout-critical paths.
 
 ### Phase 7 - Reporting and Intelligence (2 weeks)
 Tasks:

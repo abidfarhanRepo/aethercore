@@ -17,10 +17,18 @@ class NetworkMonitor {
   private listeners: Set<NetworkListener> = new Set()
   private lastCheckedAt: number = Date.now()
   private checkInterval: NodeJS.Timeout | null = null
-  private readonly PING_ENDPOINT = '/api/health'
+  private readonly API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+  private readonly PING_ENDPOINTS = [
+    `${this.API_BASE_URL}/health`,
+    `${this.API_BASE_URL}/api/health`,
+    '/health',
+    '/api/health',
+  ]
   private readonly CHECK_INTERVAL = 30000 // 30 seconds
   private readonly PING_TIMEOUT = 5000 // 5 seconds
+  private readonly MAX_CONSECUTIVE_FAILURES = 2
   private pendingQueueSize: number = 0
+  private consecutiveFailures: number = 0
 
   constructor() {
     this.setupListeners()
@@ -46,25 +54,49 @@ class NetworkMonitor {
   }
 
   private async checkConnectivity(): Promise<void> {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), this.PING_TIMEOUT)
+    const isReachable = await this.pingAnyEndpoint()
 
-      const response = await fetch(this.PING_ENDPOINT, {
+    if (isReachable) {
+      this.consecutiveFailures = 0
+      this.setOnline(true)
+      return
+    }
+
+    this.consecutiveFailures += 1
+
+    // Avoid flapping to offline on transient failures.
+    if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
+      this.setOnline(false)
+    }
+  }
+
+  private async pingAnyEndpoint(): Promise<boolean> {
+    for (const endpoint of this.PING_ENDPOINTS) {
+      try {
+        const response = await this.pingEndpoint(endpoint)
+        if (response.ok) {
+          return true
+        }
+      } catch {
+        // Try the next endpoint.
+      }
+    }
+
+    return false
+  }
+
+  private async pingEndpoint(endpoint: string): Promise<Response> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.PING_TIMEOUT)
+
+    try {
+      return await fetch(endpoint, {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-store',
       })
-
+    } finally {
       clearTimeout(timeoutId)
-
-      if (response.ok) {
-        this.setOnline(true)
-      } else {
-        this.setOnline(false)
-      }
-    } catch (error) {
-      this.setOnline(false)
     }
   }
 
@@ -73,12 +105,6 @@ class NetworkMonitor {
 
     this.isOnline = online
     this.lastCheckedAt = Date.now()
-
-    if (online) {
-      console.log('[Network] Connection restored')
-    } else {
-      console.log('[Network] Connection lost')
-    }
 
     this.notifyListeners()
   }

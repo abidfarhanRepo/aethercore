@@ -13,7 +13,9 @@ interface StoreSettingsProps {
 export default function StoreSettings({ settings, onSave }: StoreSettingsProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const createDefaultFormData = () => ({
     store_name: '',
     store_address: '',
     store_phone: '',
@@ -23,15 +25,19 @@ export default function StoreSettings({ settings, onSave }: StoreSettingsProps) 
     store_logo_url: '',
   })
 
+  const [formData, setFormData] = useState(createDefaultFormData)
+  const [initialData, setInitialData] = useState(createDefaultFormData)
+
   useEffect(() => {
     const loadInitialValues = () => {
-      const newData = { ...formData }
+      const newData = createDefaultFormData()
       settings.forEach((setting) => {
         if (setting.key in newData) {
           newData[setting.key as keyof typeof newData] = setting.value
         }
       })
       setFormData(newData)
+      setInitialData(newData)
     }
     loadInitialValues()
   }, [settings])
@@ -41,18 +47,49 @@ export default function StoreSettings({ settings, onSave }: StoreSettingsProps) 
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSave = async (fieldKey: keyof typeof formData) => {
-    const value = formData[fieldKey]
+  const requiredFields: Array<keyof typeof formData> = [
+    'store_name',
+    'store_address',
+    'store_phone',
+    'store_email',
+  ]
 
-    if (!value.trim()) {
-      setError(`${fieldKey.replace('_', ' ')} cannot be empty`)
+  const fieldLabelMap: Record<keyof typeof formData, string> = {
+    store_name: 'Store Name',
+    store_address: 'Store Address',
+    store_phone: 'Store Phone',
+    store_email: 'Store Email',
+    store_website: 'Store Website',
+    business_registration: 'Business Registration Number',
+    store_logo_url: 'Store Logo URL',
+  }
+
+  const changedFields = (Object.keys(formData) as Array<keyof typeof formData>).filter(
+    (key) => formData[key] !== initialData[key]
+  )
+
+  const handleSaveAll = async () => {
+    setSuccess(null)
+
+    const invalidRequiredField = requiredFields.find((field) => !formData[field].trim())
+    if (invalidRequiredField) {
+      setError(`${fieldLabelMap[invalidRequiredField]} cannot be empty`)
+      return
+    }
+
+    if (changedFields.length === 0) {
+      setError('No changes to save')
       return
     }
 
     try {
       setLoading(true)
       setError(null)
-      await onSave(fieldKey, value)
+      for (const fieldKey of changedFields) {
+        await onSave(fieldKey, formData[fieldKey])
+      }
+      setInitialData({ ...formData })
+      setSuccess('Store information saved successfully')
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -118,6 +155,14 @@ export default function StoreSettings({ settings, onSave }: StoreSettingsProps) 
         </Card>
       )}
 
+      {success && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <p className="text-green-700 text-sm">{success}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Store Information</CardTitle>
@@ -127,25 +172,22 @@ export default function StoreSettings({ settings, onSave }: StoreSettingsProps) 
             <div key={field.key} className="space-y-2">
               <label className="block text-sm font-medium">{field.label}</label>
               <p className="text-xs text-muted-foreground">{field.description}</p>
-              <div className="flex gap-2">
-                <Input
-                  type={field.type}
-                  name={field.key}
-                  value={formData[field.key]}
-                  onChange={handleInputChange}
-                  placeholder={field.label}
-                  disabled={loading}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => handleSave(field.key)}
-                  disabled={loading || !formData[field.key].trim()}
-                >
-                  Save
-                </Button>
-              </div>
+              <Input
+                type={field.type}
+                name={field.key}
+                value={formData[field.key]}
+                onChange={handleInputChange}
+                placeholder={field.label}
+                disabled={loading}
+              />
             </div>
           ))}
+
+          <div className="pt-1 flex justify-end">
+            <Button onClick={handleSaveAll} disabled={loading || changedFields.length === 0}>
+              {loading ? 'Saving...' : 'Save Store Information'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

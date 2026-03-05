@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 
 /**
  * Virtual List Component using React Window pattern
@@ -17,7 +17,7 @@ export interface VirtualListProps<T> {
   onScroll?: (top: number) => void;
 }
 
-export const VirtualProductList = React.memo(function VirtualProductList<T>({
+const VirtualProductListBase = function VirtualProductList<T>({
   items,
   itemHeight,
   height,
@@ -84,7 +84,11 @@ export const VirtualProductList = React.memo(function VirtualProductList<T>({
       <div style={{ height: totalHeight - (offsetY + visibleItems.length * itemHeight) }} />
     </div>
   );
-});
+};
+
+export const VirtualProductList = React.memo(VirtualProductListBase) as <T>(
+  props: VirtualListProps<T>
+) => JSX.Element;
 
 /**
  * Product-specific virtual list wrapper
@@ -117,32 +121,20 @@ export function VirtualProductListContainer({
     (product: Product, index: number) => (
       <div
         onClick={() => handleSelectProduct(product)}
-        style={{
-          display: 'flex',
-          padding: '12px 16px',
-          borderBottom: '1px solid #e5e7eb',
-          cursor: 'pointer',
-          backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb',
-          transition: 'backgroundColor 0.2s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#f3f4f6';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor =
-            index % 2 === 0 ? '#ffffff' : '#f9fafb';
-        }}
+        className={`flex px-4 py-3 border-b border-border cursor-pointer transition-colors min-h-[72px] ${
+          index % 2 === 0 ? 'bg-card' : 'bg-muted/35'
+        } hover:bg-accent/15`}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium truncate">
             {product.name}
           </div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+          <div className="text-xs text-muted-foreground mt-1">
             SKU: {product.sku}
           </div>
         </div>
-        <div style={{ textAlign: 'right', paddingLeft: '16px' }}>
-          <div style={{ fontWeight: 500 }}>${product.price.toFixed(2)}</div>
+        <div className="text-right pl-4">
+          <div className="font-semibold text-accent">${product.price.toFixed(2)}</div>
         </div>
       </div>
     ),
@@ -150,9 +142,9 @@ export function VirtualProductListContainer({
   );
 
   return (
-    <VirtualProductList
+    <VirtualProductList<Product>
       items={products}
-      itemHeight={60}
+      itemHeight={72}
       height={height}
       width="100%"
       renderItem={renderProductRow}

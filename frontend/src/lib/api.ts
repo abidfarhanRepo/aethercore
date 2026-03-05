@@ -14,6 +14,29 @@ export const api = axios.create({
   },
 })
 
+export function getNetworkErrorMessage(error: any): string {
+  const responseData = error?.response?.data
+  const message = String(error?.message || '')
+  const code = String(error?.code || '')
+
+  const hasNoResponse = !error?.response && !!error?.request
+  const hasConnectionErrorCode =
+    code === 'ERR_NETWORK' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT'
+  const hasConnectionErrorMessage =
+    /network error|connection refused|econnrefused|timeout|timed out|err_connection_refused|err_connection_timed_out/i.test(
+      message
+    )
+
+  if (hasNoResponse || hasConnectionErrorCode || hasConnectionErrorMessage) {
+    return 'Backend server at http://localhost:4000 is not reachable. Please ensure the server is running and try again.'
+  }
+
+  return responseData?.error || responseData?.message || error?.message || 'An unexpected error occurred'
+}
+
 // Request deduplication cache
 const pendingRequests = new Map<string, Promise<any>>()
 
