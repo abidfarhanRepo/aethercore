@@ -10,8 +10,9 @@ import PaymentSettings from './settings/PaymentSettings'
 import SystemSettings from './settings/SystemSettings'
 import InventorySettings from './settings/InventorySettings'
 import UserSettings from './settings/UserSettings'
+import IndustryFeaturesSettings, { SettingMeta } from './settings/IndustryFeaturesSettings'
 
-type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user'
+type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('store')
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     { id: 'system' as Tab, label: 'System', icon: '⚙️' },
     { id: 'inventory' as Tab, label: 'Inventory', icon: '📦' },
     { id: 'user' as Tab, label: 'User Settings', icon: '👥' },
+    { id: 'industry' as Tab, label: 'Industry & Features', icon: 'IF' },
   ]
 
   useEffect(() => {
@@ -53,10 +55,38 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSaveSetting = async (key: string, value: string | number | boolean) => {
+  const handleSaveSetting = async (
+    key: string,
+    value: string | number | boolean,
+    meta?: SettingMeta
+  ) => {
     try {
       setError(null)
-      await settingsAPI.update(key, value)
+      try {
+        await settingsAPI.update(key, value)
+      } catch (updateErr: any) {
+        const statusCode = updateErr?.response?.status
+        const message = String(updateErr?.response?.data?.error || updateErr?.message || '').toLowerCase()
+        const shouldCreate = statusCode === 404 || message.includes('not found') || message.includes('missing')
+
+        if (!shouldCreate) {
+          throw updateErr
+        }
+
+        const inferredType: SettingMeta['type'] =
+          typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string'
+
+        await settingsAPI.create({
+          key,
+          value: String(value),
+          category: meta?.category || 'system',
+          type: meta?.type || inferredType,
+          label: meta?.label,
+          description: meta?.description,
+          isEncrypted: false,
+        })
+      }
+
       setSuccess('Setting saved successfully')
       setTimeout(() => setSuccess(null), 3000)
       
@@ -171,6 +201,9 @@ export default function SettingsPage() {
         )}
         {activeTab === 'user' && (
           <UserSettings settings={settings.user || []} onSave={handleSaveSetting} />
+        )}
+        {activeTab === 'industry' && (
+          <IndustryFeaturesSettings settings={settings.system || []} onSave={handleSaveSetting} />
         )}
       </div>
 

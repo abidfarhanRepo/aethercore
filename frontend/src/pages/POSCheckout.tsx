@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { productsAPI, salesAPI } from '@/lib/api'
+import { settingsAPI } from '@/lib/settingsAPI'
 import { networkMonitor } from '@/lib/offline/network'
 import {
   generateOfflineOpId,
@@ -80,6 +81,10 @@ export function POSCheckout() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [appliedDiscounts, setAppliedDiscounts] = useState<AppliedDiscount[]>([])
+  const [shortcutsEnabled, setShortcutsEnabled] = useState(true)
+  const [quickSellEnabled, setQuickSellEnabled] = useState(false)
+  const [quickSellProductIds, setQuickSellProductIds] = useState<string[]>([])
+  const [quickSellQtyByProductId, setQuickSellQtyByProductId] = useState<Record<string, string>>({})
 
   // Modal states
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false)
@@ -103,7 +108,41 @@ export function POSCheckout() {
 
   useEffect(() => {
     fetchProducts()
+    fetchCheckoutSettings()
   }, [])
+
+  const fetchCheckoutSettings = async () => {
+    try {
+      const response = await settingsAPI.getByCategory('system')
+      const settings = response.data || []
+
+      const getSettingValue = (key: string): string | null => {
+        const found = settings.find((setting) => setting.key === key)
+        return found?.value ?? null
+      }
+
+      const shortcutsValue = getSettingValue('checkout_shortcuts_enabled')
+      const quickSellEnabledValue = getSettingValue('checkout_quicksell_enabled')
+      const quickSellIdsValue = getSettingValue('checkout_quicksell_product_ids')
+
+      if (shortcutsValue !== null) {
+        setShortcutsEnabled(shortcutsValue === 'true')
+      }
+      if (quickSellEnabledValue !== null) {
+        setQuickSellEnabled(quickSellEnabledValue === 'true')
+      }
+      if (quickSellIdsValue !== null) {
+        setQuickSellProductIds(
+          quickSellIdsValue
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        )
+      }
+    } catch (err) {
+      console.error('Failed to load checkout settings', err)
+    }
+  }
 
   const fetchProducts = async () => {
     try {
@@ -177,6 +216,36 @@ export function POSCheckout() {
     (p.barcode?.includes(search.trim()) || false)
   ).slice(0, 10)
 
+  const quickSellProducts = products.filter((product) => quickSellProductIds.includes(product.id))
+
+  useEffect(() => {
+    if (!quickSellEnabled || quickSellProducts.length === 0) {
+      return
+    }
+
+    setQuickSellQtyByProductId((prev) => {
+      const next: Record<string, string> = {}
+      quickSellProducts.forEach((product) => {
+        next[product.id] = prev[product.id] && Number(prev[product.id]) > 0 ? prev[product.id] : '1'
+      })
+      return next
+    })
+  }, [quickSellEnabled, quickSellProducts])
+
+  const updateQuickSellQty = (productId: string, value: string) => {
+    setQuickSellQtyByProductId((prev) => ({
+      ...prev,
+      [productId]: value,
+    }))
+  }
+
+  const addQuickSellProductToCart = (product: Product) => {
+    const rawQty = quickSellQtyByProductId[product.id] ?? '1'
+    const parsedQty = parseInt(rawQty, 10)
+    const qty = !Number.isNaN(parsedQty) && parsedQty > 0 ? parsedQty : 1
+    addToCart(product, qty)
+  }
+
   useEffect(() => {
     if (!isSearchActive || filteredProducts.length === 0) {
       if (highlightedProductIndex !== -1) {
@@ -236,7 +305,7 @@ export function POSCheckout() {
     }
 
     const handleShortcut = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isAnyModalOpen) {
+      if (!shortcutsEnabled || event.defaultPrevented || isAnyModalOpen) {
         return
       }
 
@@ -375,6 +444,7 @@ export function POSCheckout() {
     highlightedCartIndex,
     cart,
     cartQtyBuffer,
+    shortcutsEnabled,
   ])
 
   const handleApplyDiscount = (discount: any) => {
@@ -552,6 +622,48 @@ export function POSCheckout() {
           />
         </div>
 
+        {quickSellEnabled && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Sell</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {quickSellProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No quick-sell products configured in Settings.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
+                  {quickSellProducts.map((product) => (
+                    <div key={product.id} className="rounded-lg border border-border p-3 space-y-2">
+                      <div>
+                        <div className="font-medium text-sm">{product.name}</div>
+                        <div className="text-xs text-muted-foreground">{product.sku}</div>
+                        <div className="text-sm font-semibold">${(product.priceCents / 100).toFixed(2)}</div>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={quickSellQtyByProductId[product.id] ?? '1'}
+                          onChange={(event) => updateQuickSellQty(product.id, event.target.value)}
+                          aria-label={`Quick-sell quantity for ${product.name}`}
+                          className="h-11"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => addQuickSellProductToCart(product)}
+                          className="h-11"
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Product List */}
         <div className="relative flex-1 overflow-y-auto rounded-lg border border-border bg-card min-h-[420px]">
           <div
@@ -563,14 +675,20 @@ export function POSCheckout() {
             <div className="w-full max-w-xl rounded-xl border border-border bg-background/95 backdrop-blur-sm p-5 shadow-sm">
               <div className="flex items-center gap-2 text-base font-semibold mb-3">
                 <Keyboard className="h-4 w-4" />
-                Checkout Shortcuts
+                {shortcutsEnabled ? 'Checkout Shortcuts' : 'Checkout Search'}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
-                <div><span className="font-medium text-foreground">Type</span> Focus search + append text</div>
-                <div><span className="font-medium text-foreground">Arrow Up/Down</span> Highlight result (selection mode)</div>
-                <div><span className="font-medium text-foreground">0-9 + Enter</span> Set qty and add highlighted result</div>
-                <div><span className="font-medium text-foreground">Escape</span> Clear search</div>
-              </div>
+              {shortcutsEnabled ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+                  <div><span className="font-medium text-foreground">Type</span> Focus search + append text</div>
+                  <div><span className="font-medium text-foreground">Arrow Up/Down</span> Highlight result (selection mode)</div>
+                  <div><span className="font-medium text-foreground">0-9 + Enter</span> Set qty and add highlighted result</div>
+                  <div><span className="font-medium text-foreground">Escape</span> Clear search</div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Keyboard shortcuts are disabled in Settings. Use the search field and product buttons directly.
+                </div>
+              )}
               <p className="mt-4 text-sm text-muted-foreground">
                 Start typing a SKU, barcode, or product name to hide this overlay and show matching products.
               </p>

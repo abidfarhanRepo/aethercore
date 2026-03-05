@@ -1,11 +1,38 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { salesAPI, reportsAPI, productsAPI } from '@/lib/api'
+import { useAuthStore } from '@/lib/auth'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package } from 'lucide-react'
 
+interface DashboardStatState {
+  totalSales: number
+  totalRevenue: number
+  totalProducts: number
+  avgOrderValue: number
+  salesTrend: Array<{ date: string; sales: number }>
+  topProducts: Array<{ name: string; count: number }>
+  revenueByHour: Array<{ hour: string; revenue: number }>
+}
+
+interface DashboardCachePayload {
+  stats: DashboardStatState
+  timestamp: number
+}
+
+const DASHBOARD_REFRESH_OPTIONS = [
+  { label: 'Off', value: 0 },
+  { label: '15s', value: 15000 },
+  { label: '30s', value: 30000 },
+  { label: '60s', value: 60000 },
+  { label: '5m', value: 300000 },
+]
+
 export function Dashboard() {
-  const [stats, setStats] = useState({
+  const userId = useAuthStore((state) => state.user?.id || 'anonymous')
+  const cacheKey = `dashboard_stats_cache_${userId}`
+  const intervalKey = `dashboard_refresh_interval_${userId}`
+  const [stats, setStats] = useState<DashboardStatState>({
     totalSales: 0,
     totalRevenue: 0,
     totalProducts: 0,
@@ -16,17 +43,17 @@ export function Dashboard() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshIntervalMs, setRefreshIntervalMs] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null)
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading ?? true
     try {
-      setIsLoading(true)
+      if (showLoading) {
+        setIsLoading(true)
+      }
       setError(null)
 
-      // Fetch sales and reports
       const [salesRes, reportsRes, productsRes] = await Promise.all([
         salesAPI.list(),
         reportsAPI.dailySales(),
@@ -37,11 +64,9 @@ export function Dashboard() {
       const dailyData = Array.isArray(reportsRes.data) ? reportsRes.data : reportsRes.data?.data || []
       const products = Array.isArray(productsRes.data) ? productsRes.data : productsRes.data?.products || []
 
-      // Calculate stats
       const totalRevenue = sales.reduce((sum, s: any) => sum + s.totalCents, 0)
       const avgOrder = sales.length > 0 ? totalRevenue / sales.length : 0
 
-      // Top products by sales count
       const productMap = new Map<string, { name: string; count: number }>()
       sales.forEach((sale: any) => {
         sale.items?.forEach((item: any) => {
@@ -55,13 +80,12 @@ export function Dashboard() {
         .slice(0, 5)
         .map(([_, p]) => p)
 
-      // Revenue by hour (simulate from daily data)
       const revenueByHour = dailyData.slice(0, 24).map((item: any, idx: number) => ({
         hour: `${idx}:00`,
         revenue: (item.totalCents || 0) / 100,
       }))
 
-      setStats({
+      const nextStats: DashboardStatState = {
         totalSales: sales.length,
         totalRevenue: totalRevenue / 100,
         totalProducts: products.length,
@@ -72,14 +96,68 @@ export function Dashboard() {
         })),
         topProducts,
         revenueByHour,
-      })
+      }
+
+      const timestamp = Date.now()
+      setStats(nextStats)
+      setLastUpdated(timestamp)
+
+      const payload: DashboardCachePayload = { stats: nextStats, timestamp }
+      localStorage.setItem(cacheKey, JSON.stringify(payload))
     } catch (err) {
       setError('Failed to load dashboard data')
       console.error(err)
     } finally {
-      setIsLoading(false)
+      if (showLoading) {
+        setIsLoading(false)
+      }
     }
-  }
+  }, [cacheKey])
+
+  useEffect(() => {
+    let hasCachedStats = false
+
+    try {
+      const storedInterval = localStorage.getItem(intervalKey)
+      if (storedInterval !== null) {
+        const parsedInterval = Number(storedInterval)
+        if (Number.isFinite(parsedInterval) && parsedInterval >= 0) {
+          setRefreshIntervalMs(parsedInterval)
+        }
+      }
+
+      const storedCache = localStorage.getItem(cacheKey)
+      if (storedCache) {
+        const parsedCache = JSON.parse(storedCache) as DashboardCachePayload
+        if (parsedCache?.stats && typeof parsedCache.timestamp === 'number') {
+          setStats(parsedCache.stats)
+          setLastUpdated(parsedCache.timestamp)
+          setIsLoading(false)
+          hasCachedStats = true
+        }
+      }
+    } catch (err) {
+      console.error('Failed to hydrate dashboard cache', err)
+    }
+
+    void fetchDashboardData({ showLoading: !hasCachedStats })
+  }, [cacheKey, intervalKey, fetchDashboardData])
+
+  useEffect(() => {
+    localStorage.setItem(intervalKey, String(refreshIntervalMs))
+  }, [refreshIntervalMs, intervalKey])
+
+  useEffect(() => {
+    if (refreshIntervalMs <= 0) {
+      return
+    }
+
+    const timerId = window.setInterval(() => {
+      void fetchDashboardData({ showLoading: false })
+    }, refreshIntervalMs)
+
+    return () => window.clearInterval(timerId)
+  }, [refreshIntervalMs, fetchDashboardData])
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">Loading dashboard...</div>
@@ -90,13 +168,31 @@ export function Dashboard() {
   return (
     <div className="space-y-6 py-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <button
-          onClick={fetchDashboardData}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent"
-        >
-          Refresh
-        </button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Never'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted-foreground" htmlFor="dashboard-refresh-interval">Refresh</label>
+          <select
+            id="dashboard-refresh-interval"
+            value={refreshIntervalMs}
+            onChange={(event) => setRefreshIntervalMs(Number(event.target.value))}
+            className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm"
+          >
+            {DASHBOARD_REFRESH_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => void fetchDashboardData({ showLoading: false })}
+            className="px-4 py-2 border border-border rounded-md hover:bg-accent"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
