@@ -160,7 +160,7 @@ class SyncEngine {
     const results: SyncResult[] = []
 
     // Try batch sync first (if supported)
-    if (endpoint === '/api/sync/batch') {
+    if (endpoint === '/api/sync/batch' || endpoint === '/api/sales') {
       const batchResult = await this.syncBatch(items)
       return batchResult
     }
@@ -191,7 +191,11 @@ class SyncEngine {
       const operations = items.map((item) => ({
         id: item.id,
         type: item.type,
+        operationType: item.type,
         endpoint: item.endpoint,
+        offlineOpId: item.data?.offlineOpId,
+        terminalId: item.data?.terminalId,
+        clientCreatedAt: item.data?.clientCreatedAt,
         data: item.data,
       }))
 
@@ -206,10 +210,13 @@ class SyncEngine {
       for (const item of items) {
         const batchResult = batchResults.find((r: any) => r.id === item.id)
 
-        if (batchResult?.success) {
+        const status = batchResult?.status as string | undefined
+        const successStatus = status === 'created' || status === 'duplicate'
+
+        if (successStatus) {
           // Update queue item status
           item.status = 'success'
-          item.serverId = batchResult.serverId
+          item.serverId = batchResult.saleId || batchResult.serverId
           await offlineDB.updateQueueItem(item)
 
           // Record in history
@@ -218,21 +225,21 @@ class SyncEngine {
             timestamp: Date.now(),
             status: 'success',
             response: batchResult,
-            serverIds: { [item.id]: batchResult.serverId },
+            serverIds: { [item.id]: batchResult.saleId || batchResult.serverId },
           })
 
           results.push({
             success: true,
             itemId: item.id,
-            serverId: batchResult.serverId,
+            serverId: batchResult.saleId || batchResult.serverId,
           })
         } else {
           // Handle failure
-          await this.handleSyncFailure(item, batchResult?.error)
+          await this.handleSyncFailure(item, batchResult?.message || batchResult?.error || 'Batch sync failed')
           results.push({
             success: false,
             itemId: item.id,
-            error: batchResult?.error,
+            error: batchResult?.message || batchResult?.error,
           })
         }
       }

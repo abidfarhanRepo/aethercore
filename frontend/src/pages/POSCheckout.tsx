@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { productsAPI, salesAPI } from '@/lib/api'
+import { networkMonitor } from '@/lib/offline/network'
+import {
+  generateOfflineOpId,
+  generateReceiptPublicId,
+  getOrCreateTerminalId,
+} from '@/lib/offline/receiptIdentity'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -87,6 +93,7 @@ export function POSCheckout() {
 
   // Selected payments
   const [appliedPayments, setAppliedPayments] = useState<AppliedPayment[]>([])
+  const [terminalId] = useState(() => getOrCreateTerminalId())
 
   useEffect(() => {
     fetchProducts()
@@ -215,6 +222,11 @@ export function POSCheckout() {
       setError(null)
 
       const saleData = {
+        terminalId,
+        offlineOpId: generateOfflineOpId(),
+        receiptPublicId: generateReceiptPublicId(terminalId),
+        clientCreatedAt: new Date().toISOString(),
+        syncState: networkMonitor.isConnected() ? 'online_created' : 'offline_pending',
         items: cart.map(item => ({
           productId: item.productId,
           qty: item.qty,
@@ -233,7 +245,8 @@ export function POSCheckout() {
       }
 
       const response = await salesAPI.create(saleData)
-      const saleId = response.data.id
+      const isQueuedOffline = Boolean(response.data?.queued)
+      const saleId = isQueuedOffline ? saleData.receiptPublicId : response.data.id
 
       const snapshot: ReceiptSnapshot = {
         items: [...cart],
@@ -247,8 +260,20 @@ export function POSCheckout() {
         timestamp: new Date(),
       }
 
-      setCompletedSale(response.data)
-      setLastSaleId(saleId)
+      if (isQueuedOffline) {
+        setCompletedSale({
+          id: saleData.receiptPublicId,
+          totalCents,
+          discountCents: totalDiscountCents,
+          taxCents,
+          itemCount: cart.reduce((sum, item) => sum + item.qty, 0),
+          paymentMethods: payments.map((p) => p.method),
+        })
+        setLastSaleId(null)
+      } else {
+        setCompletedSale(response.data)
+        setLastSaleId(saleId)
+      }
       setReceiptSnapshot(snapshot)
 
       // Reset UI for next transaction

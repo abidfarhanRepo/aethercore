@@ -216,6 +216,11 @@ model Sale {
   userId        String
   customer      Customer? @relation(fields: [customerId], references: [id])
   customerId    String?
+  receiptPublicId String?   @unique
+  terminalId    String?
+  offlineOpId   String?   @unique
+  syncState     String    @default("online_created")
+  clientCreatedAt DateTime?
   subtotalCents Int       @default(0)
   totalCents    Int
   discountCents Int       @default(0)
@@ -237,6 +242,30 @@ model Sale {
   @@index([customerId])
   @@index([createdAt])
   @@index([status])
+  @@index([terminalId])
+  @@index([syncState])
+  @@index([clientCreatedAt])
+}
+
+model SyncDeadLetter {
+  id           String   @id @default(cuid())
+  terminalId   String?
+  offlineOpId  String?  @unique
+  endpoint     String
+  operationType String
+  payload      Json
+  errorCode    String?
+  errorDetail  String?
+  attemptCount Int      @default(1)
+  status       String   @default("open")
+  createdAt    DateTime @default(now())
+  lastFailedAt DateTime @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status])
+  @@index([endpoint])
+  @@index([createdAt])
+  @@index([terminalId])
 }
 
 model SaleItem {

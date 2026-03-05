@@ -135,6 +135,8 @@ export const createOfflineAPI = () => {
   }
 }
 
+const offlineAPI = createOfflineAPI()
+
 // Priority map - higher priority syncs first (e.g., payments fail fast)
 const PriorityMap: Record<string, number> = {
   '/api/sales': 10,
@@ -216,7 +218,7 @@ export const productsAPI = {
 
 // Sales API
 export const salesAPI = {
-  create: (data: any) => api.post('/api/sales', data),
+  create: (data: any) => offlineAPI.post('/api/sales', data),
   get: (id: string) => api.get(`/api/sales/${id}`),
   list: (filters?: any) => api.get('/api/sales', { params: filters }),
   refund: (id: string, data: any) => api.post(`/api/sales/${id}/refund`, data),

@@ -298,14 +298,83 @@ Exit criteria:
 - Receipt print/email pipeline functional
 
 ### Phase 5 - Offline and Sync Reliability (2 weeks)
-Tasks:
-- Sync endpoint contract normalization
-- Conflict policy engine + dead-letter queue
-- Replay-safe operation IDs
-- Sync telemetry and operator status surfaces
+Objective:
+- Make offline checkout and recovery deterministic across multiple terminals without changing printed receipt identity.
 
-Exit criteria:
-- Offline queue sync is deterministic and recoverable
+Architecture decisions (non-negotiable):
+- Printed receipt ID is immutable and terminal-issued (`receiptPublicId`) and is the operator/customer reference.
+- Backend sale primary key (`Sale.id`) remains internal and may only be attached later during sync.
+- Printed receipt ID does NOT change after online sync. Only the mapping state changes from `pending` to `mapped`.
+
+High-level data model additions:
+- Backend `Sale` (or linked mapping table):
+  - `receiptPublicId` (string, unique per tenant, indexed)
+  - `terminalId` (string, indexed)
+  - `offlineOpId` (string, unique idempotency key from terminal)
+  - `syncState` (`online_created` | `offline_pending` | `offline_synced` | `offline_conflict`)
+  - `clientCreatedAt` (datetime, for deterministic ordering)
+- Backend `SyncDeadLetter`:
+  - `id`, `tenantId`, `terminalId`, `offlineOpId`, `entityType`, `payload`, `errorCode`, `errorDetail`, `attemptCount`, `firstFailedAt`, `lastFailedAt`, `status` (`open` | `replayed` | `discarded`)
+- Frontend IndexedDB (`pending_sales` / `sync_queue` extensions):
+  - `receiptPublicId`, `terminalId`, `offlineOpId`, `baseVersion`, `logicalClock`, `syncAttempts`, `lastSyncError`
+
+API scope (Phase 5):
+- `POST /api/sync/batch`
+  - Input: ordered operations with `offlineOpId`, `receiptPublicId`, `terminalId`, `clientCreatedAt`, `baseVersion`, payload
+  - Output: per-operation result (`applied` | `duplicate` | `conflict` | `dead_lettered`) plus `saleId` mapping when available
+- `GET /api/sync/status`
+  - Returns queue/dead-letter counters by terminal and latest replay status for operator banner
+- `GET /api/receipts/:receiptPublicId`
+  - Always resolves by immutable printed ID and includes mapped `saleId` when synced
+- `POST /api/sync/dead-letter/:id/replay`
+  - Manual retry endpoint for supervisor/admin role
+
+Multi-terminal offline strategy (collision prevention + deterministic reconciliation):
+- Receipt identity generation:
+  - `receiptPublicId = <terminalCode>-<businessDate>-<monotonicCounter>` assigned locally and printed immediately.
+  - `terminalCode` is unique per device; counter is persisted locally and never reset mid-day.
+- Operation identity:
+  - `offlineOpId` is ULID/UUIDv7 generated per write operation and used as server idempotency key.
+- Deterministic processing:
+  - Server processes per terminal in ascending (`clientCreatedAt`, `offlineOpId`) order.
+  - Cross-terminal inventory reconciliation uses optimistic version check (`baseVersion`) and deterministic tiebreak (`clientCreatedAt`, then lexicographic `offlineOpId`).
+- Collision policy:
+  - Duplicate `offlineOpId` -> return `duplicate` with existing mapping, no new write.
+  - Conflicting stock mutation -> keep accepted write, mark rejected op as `conflict`, route to dead-letter with resolution metadata.
+
+Conflict and dead-letter policy:
+- Auto-resolvable conflicts:
+  - Idempotent duplicate operations: auto-ack as `duplicate`.
+  - Non-overlapping updates: server merge and mark `applied`.
+- Manual-review conflicts:
+  - Negative inventory risk, stale `baseVersion`, or deleted target entity.
+  - Operation is moved to `SyncDeadLetter` after retry budget (for Phase 5: 5 attempts with exponential backoff).
+- Operator visibility:
+  - Terminal UI shows `Pending Sync`, `Conflict Needs Review`, and `Synced` counts.
+  - Receipt lookup/reprint by `receiptPublicId` remains available regardless of sync state.
+
+Must-have (2-week commitment):
+- Implement immutable receipt/public ID mapping path (frontend + backend + reprint lookup).
+- Implement `POST /api/sync/batch` idempotency using `offlineOpId`.
+- Implement deterministic per-terminal ordering and version-based conflict detection.
+- Implement dead-letter persistence and supervisor replay endpoint.
+- Add operator sync banner, queue counters, and per-receipt sync badge in POS/history screens.
+- Add tests:
+  - Unit: idempotency + conflict classifier
+  - Integration: batch sync apply/duplicate/conflict/dead-letter
+  - E2E: offline sale print -> reconnect -> mapped sale retrieval by immutable `receiptPublicId`
+
+Stretch (only if must-have is green):
+- Pre-allocation window for receipt counters by business date rollover handling.
+- Bulk dead-letter replay with dry-run preview.
+- Sync telemetry dashboard widgets (p95 sync latency, conflict rate by terminal).
+
+Acceptance criteria:
+- Printed receipt ID remains unchanged before and after sync in API responses, UI history, and reprints.
+- Replaying the same offline batch does not create duplicate sales/payments.
+- Two terminals selling overlapping inventory offline reconcile deterministically with auditable conflict outcomes.
+- Dead-lettered operations are queryable, replayable, and role-restricted.
+- Operators can complete offline checkout, print receipts, and later locate synced sales using printed receipt ID only.
 
 ### Phase 6 - UX and Professional Polish (2 weeks)
 Tasks:
@@ -436,6 +505,9 @@ Single measurable outcome.
 1. Route contract normalization (`/api/*`) + contract tests.
 2. Inventory route activation (replace stubs) + integration tests.
 3. Plugin foundation (schema + loader + capability middleware + admin toggles).
+4. Phase 5 must-have: immutable `receiptPublicId` mapping + `GET /api/receipts/:receiptPublicId` lookup/reprint contract.
+5. Phase 5 must-have: `POST /api/sync/batch` idempotency (`offlineOpId`) + deterministic multi-terminal ordering and conflict classification.
+6. Phase 5 must-have: `SyncDeadLetter` persistence + supervisor replay endpoint + operator sync/conflict status surfaces.
 
 ## 15. Program Definition of Done
 - One codebase runs supermarket, restaurant, and pharmacy via profile + capability toggles.

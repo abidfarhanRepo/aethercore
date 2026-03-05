@@ -1,404 +1,622 @@
-/**
- * Batch sync endpoint for offline-first operations
- * Handles multiple concurrent operations with conflict resolution
- */
-
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { FastifyInstance } from 'fastify'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../utils/db'
-import IdempotencyService from '../utils/idempotency'
+
+type OperationType = 'POST' | 'PUT' | 'DELETE'
+
+type SyncResultStatus =
+  | 'created'
+  | 'duplicate'
+  | 'conflict'
+  | 'dead_lettered'
+  | 'error'
 
 interface SyncOperation {
-  id: string
-  type: 'POST' | 'PUT' | 'DELETE'
+  id?: string
+  offlineOpId?: string
+  terminalId?: string
   endpoint: string
-  data: any
+  operationType?: OperationType
+  type?: OperationType
+  clientCreatedAt?: string
+  data?: Record<string, unknown>
 }
 
-interface SyncOperationResult {
+interface SyncBatchBody {
+  operations: SyncOperation[]
+}
+
+interface SyncResult {
   id: string
-  success: boolean
-  status?: number
-  serverId?: string
-  error?: string
-  data?: any
+  status: SyncResultStatus
+  saleId?: string
+  receiptPublicId?: string | null
+  deadLetterId?: string
+  message?: string
 }
 
-async function syncRoutes(fastify: FastifyInstance) {
-  /**
-   * POST /api/sync/batch
-   * Accept and process batch of offline operations
-   */
-  fastify.post<{
-    Body: {
-      operations: SyncOperation[]
+interface SaleInputItem {
+  productId: string
+  qty: number
+  unitPrice: number
+}
+
+interface SaleInputPayment {
+  method: string
+  amountCents: number
+  reference?: string
+  notes?: string
+}
+
+function normalizeOperationType(op: SyncOperation): OperationType {
+  return op.operationType || op.type || 'POST'
+}
+
+function normalizeId(op: SyncOperation, index: number): string {
+  return op.id || op.offlineOpId || `op-${index + 1}`
+}
+
+function parseClientCreatedAt(value?: string): Date | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined
+  }
+
+  return parsed
+}
+
+function getOperationClientCreatedAt(operation: SyncOperation): Date | undefined {
+  const dataCreatedAt = typeof operation.data?.clientCreatedAt === 'string'
+    ? operation.data.clientCreatedAt
+    : undefined
+
+  return parseClientCreatedAt(operation.clientCreatedAt || dataCreatedAt)
+}
+
+function normalizeEndpoint(endpoint: string): string {
+  if (!endpoint.startsWith('/')) {
+    return `/${endpoint}`
+  }
+  return endpoint
+}
+
+function toSaleItems(rawItems: unknown): SaleInputItem[] {
+  if (!Array.isArray(rawItems)) {
+    return []
+  }
+
+  const items: SaleInputItem[] = []
+  for (const raw of rawItems) {
+    const item = raw as Record<string, unknown>
+    const productId = typeof item.productId === 'string' ? item.productId : ''
+    const qty = typeof item.qty === 'number' ? item.qty : Number(item.qty || 0)
+    const unitPrice = typeof item.unitPrice === 'number'
+      ? item.unitPrice
+      : Number(item.unitPrice || 0)
+
+    if (productId && qty > 0 && unitPrice >= 0) {
+      items.push({ productId, qty, unitPrice })
     }
-  }>('/api/sync/batch', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { operations } = request.body as {
-      operations: SyncOperation[]
+  }
+
+  return items
+}
+
+function toSalePayments(rawPayments: unknown, fallbackTotal: number, paymentMethod: string): SaleInputPayment[] {
+  if (!Array.isArray(rawPayments) || rawPayments.length === 0) {
+    return [{ method: paymentMethod, amountCents: fallbackTotal }]
+  }
+
+  const payments: SaleInputPayment[] = []
+  for (const raw of rawPayments) {
+    const p = raw as Record<string, unknown>
+    const method = typeof p.method === 'string' ? p.method : paymentMethod
+    const amountCents = typeof p.amountCents === 'number'
+      ? p.amountCents
+      : Number(p.amountCents || 0)
+
+    if (amountCents > 0) {
+      payments.push({
+        method,
+        amountCents,
+        reference: typeof p.reference === 'string' ? p.reference : undefined,
+        notes: typeof p.notes === 'string' ? p.notes : undefined,
+      })
+    }
+  }
+
+  if (payments.length === 0) {
+    return [{ method: paymentMethod, amountCents: fallbackTotal }]
+  }
+
+  return payments
+}
+
+function toInt(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.floor(value)
+  }
+
+  const parsed = Number(value)
+  if (Number.isFinite(parsed)) {
+    return Math.floor(parsed)
+  }
+
+  return fallback
+}
+
+function sortOperations(operations: SyncOperation[]): SyncOperation[] {
+  const compareWithinTerminal = (a: SyncOperation, b: SyncOperation): number => {
+    const aDate = getOperationClientCreatedAt(a)?.getTime() ?? Number.MAX_SAFE_INTEGER
+    const bDate = getOperationClientCreatedAt(b)?.getTime() ?? Number.MAX_SAFE_INTEGER
+
+    if (aDate !== bDate) {
+      return aDate - bDate
     }
 
-    const results: SyncOperationResult[] = []
+    const aKey = a.offlineOpId || a.id || ''
+    const bKey = b.offlineOpId || b.id || ''
 
-    if (!Array.isArray(operations)) {
-      return reply.status(400).send({
-        error: 'Invalid request: operations must be an array',
+    if (aKey < bKey) {
+      return -1
+    }
+    if (aKey > bKey) {
+      return 1
+    }
+    return 0
+  }
+
+  const byTerminal = new Map<string, SyncOperation[]>()
+
+  for (const operation of operations) {
+    const terminalKey = operation.terminalId && operation.terminalId.length > 0
+      ? operation.terminalId
+      : ''
+    const grouped = byTerminal.get(terminalKey)
+    if (grouped) {
+      grouped.push(operation)
+    } else {
+      byTerminal.set(terminalKey, [operation])
+    }
+  }
+
+  const terminalOrder = [...byTerminal.keys()].sort((a, b) => {
+    if (a === '' && b !== '') {
+      return 1
+    }
+    if (a !== '' && b === '') {
+      return -1
+    }
+    return a.localeCompare(b)
+  })
+
+  const ordered: SyncOperation[] = []
+  for (const terminalId of terminalOrder) {
+    const grouped = byTerminal.get(terminalId) || []
+    ordered.push(...grouped.sort(compareWithinTerminal))
+  }
+
+  return ordered
+}
+
+async function persistDeadLetter(params: {
+  operation: SyncOperation
+  operationId: string
+  errorCode: string
+  errorDetail?: string
+}): Promise<string | undefined> {
+  const { operation, operationId, errorCode, errorDetail } = params
+
+  const existing = operation.offlineOpId
+    ? await prisma.syncDeadLetter.findUnique({ where: { offlineOpId: operation.offlineOpId } })
+    : null
+
+  if (existing) {
+    const updated = await prisma.syncDeadLetter.update({
+      where: { id: existing.id },
+      data: {
+        attemptCount: { increment: 1 },
+        errorCode,
+        errorDetail,
+        status: 'open',
+        lastFailedAt: new Date(),
+      },
+      select: { id: true },
+    })
+    return updated.id
+  }
+
+  const created = await prisma.syncDeadLetter.create({
+    data: {
+      terminalId: operation.terminalId,
+      offlineOpId: operation.offlineOpId,
+      endpoint: normalizeEndpoint(operation.endpoint),
+      operationType: normalizeOperationType(operation),
+      payload: {
+        operationId,
+        ...operation,
+      },
+      errorCode,
+      errorDetail,
+    },
+    select: { id: true },
+  })
+
+  return created.id
+}
+
+async function resolveUserId(rawUserId: unknown): Promise<string> {
+  if (typeof rawUserId === 'string' && rawUserId.length > 0) {
+    return rawUserId
+  }
+
+  const fallbackUser = await prisma.user.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  })
+
+  if (!fallbackUser) {
+    throw new Error('No active user available for sync sale creation')
+  }
+
+  return fallbackUser.id
+}
+
+async function createSaleFromOperation(operation: SyncOperation): Promise<{ id: string; receiptPublicId: string | null }> {
+  const data = (operation.data || {}) as Record<string, unknown>
+  const items = toSaleItems(data.items)
+
+  if (items.length === 0) {
+    throw new Error('Sale operation is missing valid items')
+  }
+
+  const subtotalComputed = items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0)
+  const discountCents = toInt(data.discountCents, 0)
+  const subtotalCents = toInt(data.subtotalCents, subtotalComputed)
+  const taxableCents = Math.max(subtotalCents - discountCents, 0)
+  const taxCents = toInt(data.taxCents, Math.floor((taxableCents * 10) / 100))
+  const totalCents = toInt(data.totalCents, taxableCents + taxCents)
+  const paymentMethod = typeof data.paymentMethod === 'string' ? data.paymentMethod : 'CASH'
+  const payments = toSalePayments(data.payments, totalCents, paymentMethod)
+  const userId = await resolveUserId(data.userId)
+
+  const clientCreatedAt = getOperationClientCreatedAt(operation)
+
+  const result = await prisma.$transaction(async (tx) => {
+    let warehouse = await tx.warehouse.findFirst({ select: { id: true } })
+    if (!warehouse) {
+      warehouse = await tx.warehouse.create({
+        data: {
+          name: 'Default Warehouse',
+          location: 'Default',
+        },
+        select: { id: true },
       })
     }
 
-    console.log(`[Sync] Processing batch with ${operations.length} operations`)
+    const sale = await tx.sale.create({
+      data: {
+        userId,
+        customerId: typeof data.customerId === 'string' ? data.customerId : undefined,
+        receiptPublicId: typeof data.receiptPublicId === 'string' ? data.receiptPublicId : undefined,
+        terminalId: typeof data.terminalId === 'string' ? data.terminalId : operation.terminalId,
+        offlineOpId: typeof data.offlineOpId === 'string' ? data.offlineOpId : operation.offlineOpId,
+        syncState: 'offline_synced',
+        clientCreatedAt,
+        subtotalCents,
+        totalCents,
+        discountCents,
+        taxCents,
+        paymentMethod,
+        status: 'completed',
+        notes: typeof data.notes === 'string' ? data.notes : undefined,
+      },
+      select: { id: true, receiptPublicId: true },
+    })
 
-    // Process operations in sequence for transaction safety
-    for (const operation of operations) {
+    for (const item of items) {
+      await tx.saleItem.create({
+        data: {
+          saleId: sale.id,
+          productId: item.productId,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          discountCents: 0,
+        },
+      })
+
+      await tx.inventoryTransaction.create({
+        data: {
+          productId: item.productId,
+          warehouseId: warehouse.id,
+          qtyDelta: -item.qty,
+          type: 'SALE',
+          reason: 'SALE',
+          reference: sale.id,
+          createdBy: userId,
+        },
+      })
+    }
+
+    for (const payment of payments) {
+      await tx.salePayment.create({
+        data: {
+          saleId: sale.id,
+          method: payment.method,
+          amountCents: payment.amountCents,
+          reference: payment.reference,
+          notes: payment.notes,
+        },
+      })
+    }
+
+    return sale
+  })
+
+  return result
+}
+
+export default async function syncRoutes(fastify: FastifyInstance) {
+  fastify.post<{ Body: SyncBatchBody }>('/api/sync/batch', async (req, reply) => {
+    const body = req.body
+
+    if (!body || !Array.isArray(body.operations)) {
+      return reply.status(400).send({
+        error: 'Invalid request: operations must be an array',
+        code: 'INVALID_OPERATIONS',
+      })
+    }
+
+    const results: SyncResult[] = []
+    const operations = sortOperations(body.operations)
+
+    for (let index = 0; index < operations.length; index++) {
+      const operation = operations[index]
+      const operationId = normalizeId(operation, index)
+      const endpoint = normalizeEndpoint(operation.endpoint)
+      const operationType = normalizeOperationType(operation)
+
       try {
-        const result = await processSyncOperation(operation)
-        results.push(result)
-      } catch (error) {
-        console.error(`[Sync] Failed to process operation ${operation.id}:`, error)
+        if (operation.offlineOpId) {
+          const existingSale = await prisma.sale.findUnique({
+            where: { offlineOpId: operation.offlineOpId },
+            select: { id: true, receiptPublicId: true },
+          })
+
+          if (existingSale) {
+            results.push({
+              id: operationId,
+              status: 'duplicate',
+              saleId: existingSale.id,
+              receiptPublicId: existingSale.receiptPublicId,
+            })
+            continue
+          }
+        }
+
+        if (operationType === 'POST' && (endpoint === '/api/sales' || endpoint === '/sales')) {
+          try {
+            const createdSale = await createSaleFromOperation(operation)
+            results.push({
+              id: operationId,
+              status: 'created',
+              saleId: createdSale.id,
+              receiptPublicId: createdSale.receiptPublicId,
+            })
+          } catch (error) {
+            const targetMeta = (error instanceof Prisma.PrismaClientKnownRequestError)
+              ? (error.meta as { target?: string[] | string } | undefined)?.target
+              : undefined
+            const targetText = Array.isArray(targetMeta)
+              ? targetMeta.join(',')
+              : (typeof targetMeta === 'string' ? targetMeta : '')
+
+            if (
+              error instanceof Prisma.PrismaClientKnownRequestError
+              && error.code === 'P2002'
+              && targetText.includes('receiptPublicId')
+            ) {
+              const deadLetterId = await persistDeadLetter({
+                operation,
+                operationId,
+                errorCode: 'RECEIPT_PUBLIC_ID_CONFLICT',
+                errorDetail: error.message,
+              })
+
+              results.push({
+                id: operationId,
+                status: 'conflict',
+                deadLetterId,
+                message: 'receiptPublicId already exists',
+              })
+              continue
+            }
+
+            throw error
+          }
+
+          continue
+        }
+
+        const deadLetterId = await persistDeadLetter({
+          operation,
+          operationId,
+          errorCode: 'UNSUPPORTED_ENDPOINT',
+          errorDetail: `Unsupported operation: ${operationType} ${endpoint}`,
+        })
+
         results.push({
-          id: operation.id,
-          success: false,
-          status: 500,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          id: operationId,
+          status: 'dead_lettered',
+          deadLetterId,
+          message: `Unsupported operation: ${operationType} ${endpoint}`,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        const normalizedMessage = message.toLowerCase()
+        const isInventoryConflict = normalizedMessage.includes('stock') || normalizedMessage.includes('insufficient')
+        const errorCode = isInventoryConflict ? 'INVENTORY_CONFLICT' : 'SYNC_OPERATION_FAILED'
+        const resultStatus: SyncResultStatus = isInventoryConflict ? 'conflict' : 'error'
+
+        const deadLetterId = await persistDeadLetter({
+          operation,
+          operationId,
+          errorCode,
+          errorDetail: message,
+        })
+
+        results.push({
+          id: operationId,
+          status: resultStatus,
+          deadLetterId,
+          message,
         })
       }
     }
 
     return reply.status(200).send({
-      success: true,
       results,
-      completedAt: new Date().toISOString(),
+      processedAt: new Date().toISOString(),
     })
   })
 
-  /**
-   * GET /api/sync/status
-   * Get sync status and queue information
-   */
-  fastify.get('/api/sync/status', async (request: FastifyRequest, reply: FastifyReply) => {
-    // Return sync status information
-    return reply.status(200).send({
+  fastify.get('/api/sync/status', async () => {
+    const [total, open, replayed, resolved] = await Promise.all([
+      prisma.syncDeadLetter.count(),
+      prisma.syncDeadLetter.count({ where: { status: 'open' } }),
+      prisma.syncDeadLetter.count({ where: { status: 'replayed' } }),
+      prisma.syncDeadLetter.count({ where: { resolvedAt: { not: null } } }),
+    ])
+
+    return {
       status: 'ready',
       acceptsBatch: true,
-      maxBatchSize: 100,
-      supportedEndpoints: [
-        '/api/sales',
-        '/api/inventory/adjust',
-        '/api/products',
-        '/api/users',
+      deadLetter: {
+        total,
+        open,
+        replayed,
+        resolved,
+      },
+      readiness: {
+        syncEnabled: true,
+        replayEnabled: true,
+      },
+      checkedAt: new Date().toISOString(),
+    }
+  })
+
+  fastify.get('/api/sync/dead-letter', async () => {
+    const items = await prisma.syncDeadLetter.findMany({
+      where: {
+        status: 'open',
+        resolvedAt: null,
+      },
+      orderBy: [
+        { lastFailedAt: 'desc' },
+        { createdAt: 'desc' },
       ],
+      select: {
+        id: true,
+        terminalId: true,
+        offlineOpId: true,
+        endpoint: true,
+        operationType: true,
+        errorCode: true,
+        errorDetail: true,
+        attemptCount: true,
+        lastFailedAt: true,
+        createdAt: true,
+      },
     })
-  })
-}
-
-/**
- * Process a single sync operation
- */
-async function processSyncOperation(operation: SyncOperation): Promise<SyncOperationResult> {
-  const { id, type, endpoint, data } = operation
-
-  console.log(`[Sync] Processing ${type} ${endpoint} (${id})`)
-
-  try {
-    let result: any
-    let serverId: string | undefined
-
-    if (endpoint === '/sales' && type === 'POST') {
-      result = await createSale(data)
-      serverId = result.id
-    } else if (endpoint === '/inventory/adjust' && type === 'POST') {
-      result = await adjustInventory(data)
-      serverId = result.id
-    } else if (endpoint === '/products' && type === 'POST') {
-      result = await createProduct(data)
-      serverId = result.id
-    } else if (endpoint === '/products' && type === 'PUT') {
-      result = await updateProduct(data)
-      serverId = result.id
-    } else if (endpoint.includes('/sales/') && endpoint.includes('/refund')) {
-      result = await refundSale(data)
-    } else if (endpoint.includes('/sales/') && endpoint.includes('/return')) {
-      result = await returnSale(data)
-    } else {
-      throw new Error(`Unsupported endpoint: ${endpoint}`)
-    }
 
     return {
-      id,
-      success: true,
-      status: 200,
-      serverId,
-      data: result,
+      items,
+      count: items.length,
+      fetchedAt: new Date().toISOString(),
     }
-  } catch (error) {
-    return {
-      id,
-      success: false,
-      status: 400,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
-  }
-}
-
-/**
- * Create a sale from offline data
- */
-async function createSale(data: any): Promise<any> {
-  const { items, subtotalCents, discountCents, taxCents, totalCents, paymentMethod, paymentStatus, notes, userId } = data
-
-  // Get default warehouse
-  let warehouse = await prisma.warehouse.findFirst()
-  if (!warehouse) {
-    warehouse = await prisma.warehouse.create({
-      data: {
-        name: 'Default Warehouse',
-        location: 'Default',
-      },
-    })
-  }
-
-  // Create sale with items in transaction
-  const sale = await prisma.sale.create({
-    data: {
-      userId: userId || '', // Will be set by middleware in real implementation
-      warehouseId: warehouse.id,
-      subtotalCents,
-      discountCents: discountCents || 0,
-      taxCents: taxCents || 0,
-      totalCents,
-      paymentMethod,
-      paymentStatus,
-      notes,
-      items: {
-        create: items.map((item: any) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPriceCents: item.priceCents,
-          discountCents: item.discountCents || 0,
-          taxCents: item.taxCents || 0,
-          subtotalCents: item.subtotalCents || 0,
-        })),
-      },
-    },
-    include: {
-      items: true,
-    },
   })
 
-  // Update inventory
-  for (const item of items) {
-    const location = await prisma.inventoryLocation.findFirst({
-      where: {
-        warehouseId: warehouse.id,
-        productId: item.productId,
-      },
-    })
+  fastify.post<{ Params: { id: string } }>('/api/sync/dead-letter/:id/replay', async (req, reply) => {
+    const deadLetterId = req.params.id
 
-    if (location) {
-      await prisma.inventoryLocation.update({
-        where: { id: location.id },
+    const deadLetter = await prisma.syncDeadLetter.findUnique({ where: { id: deadLetterId } })
+    if (!deadLetter) {
+      return reply.status(404).send({
+        error: 'Dead letter not found',
+        code: 'DEAD_LETTER_NOT_FOUND',
+      })
+    }
+
+    const payload = deadLetter.payload as SyncOperation
+    const endpoint = normalizeEndpoint(deadLetter.endpoint)
+
+    if (deadLetter.operationType !== 'POST' || !(endpoint === '/api/sales' || endpoint === '/sales')) {
+      return reply.status(422).send({
+        error: 'Replay supports only sale create operations',
+        code: 'REPLAY_UNSUPPORTED_OPERATION',
+      })
+    }
+
+    if (deadLetter.attemptCount >= 5 && deadLetter.resolvedAt === null) {
+      await prisma.syncDeadLetter.update({
+        where: { id: deadLetter.id },
         data: {
-          qty: Math.max(0, location.qty - item.quantity),
+          status: 'discarded',
+          resolvedAt: new Date(),
         },
       })
 
-      // Create transaction log
-      await prisma.inventoryTransaction.create({
-        data: {
-          productId: item.productId,
-          warehouseId: warehouse.id,
-          type: 'SALE',
-          qtyDelta: -item.quantity,
-          reference: sale.id,
-          currentQty: Math.max(0, location.qty - item.quantity),
-        },
+      return reply.status(409).send({
+        id: deadLetter.id,
+        status: 'discarded',
+        code: 'RETRY_BUDGET_EXCEEDED',
+        error: 'Replay retry budget exceeded',
       })
     }
-  }
 
-  console.log(`[Sync] Created sale: ${sale.id}`)
-  return sale
-}
+    try {
+      const createdSale = await createSaleFromOperation(payload)
 
-/**
- * Adjust inventory from offline data
- */
-async function adjustInventory(data: any): Promise<any> {
-  const { productId, warehouseId, quantity, type, reason, reference } = data
-
-  // Get or create warehouse
-  let warehouse = await prisma.warehouse.findFirst()
-  if (!warehouse) {
-    warehouse = await prisma.warehouse.create({
-      data: {
-        name: 'Default Warehouse',
-        location: 'Default',
-      },
-    })
-  }
-
-  const targetWarehouseId = warehouseId || warehouse.id
-
-  // Get or create inventory location
-  let location = await prisma.inventoryLocation.findFirst({
-    where: {
-      warehouseId: targetWarehouseId,
-      productId,
-    },
-  })
-
-  if (!location) {
-    location = await prisma.inventoryLocation.create({
-      data: {
-        warehouseId: targetWarehouseId,
-        productId,
-        qty: 0,
-      },
-    })
-  }
-
-  // Calculate new qty
-  const newQty = Math.max(0, location.qty + quantity)
-
-  // Update location
-  const updated = await prisma.inventoryLocation.update({
-    where: { id: location.id },
-    data: { qty: newQty },
-  })
-
-  // Log transaction
-  const txType = quantity > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT'
-  await prisma.inventoryTransaction.create({
-    data: {
-      productId,
-      warehouseId: targetWarehouseId,
-      type: txType,
-      qtyDelta: quantity,
-      reference: reference || '',
-      currentQty: newQty,
-      notes: reason,
-    },
-  })
-
-  console.log(`[Sync] Adjusted inventory for product ${productId}: ${quantity}`)
-  return updated
-}
-
-/**
- * Create product from offline data
- */
-async function createProduct(data: any): Promise<any> {
-  const { sku, barcode, name, description, category, priceCents, costCents } = data
-
-  const product = await prisma.product.create({
-    data: {
-      sku,
-      barcode,
-      name,
-      description,
-      category,
-      priceCents,
-      costCents,
-      profitMarginCents: priceCents - (costCents || 0),
-    },
-  })
-
-  // Create default warehouse inventory location
-  const warehouse = await prisma.warehouse.findFirst()
-  if (warehouse) {
-    await prisma.inventoryLocation.create({
-      data: {
-        productId: product.id,
-        warehouseId: warehouse.id,
-        qty: 0,
-      },
-    })
-  }
-
-  console.log(`[Sync] Created product: ${product.id}`)
-  return product
-}
-
-/**
- * Update product from offline data
- */
-async function updateProduct(data: any): Promise<any> {
-  const { id, ...updateData } = data
-
-  // Calculate profit margin if prices provided
-  if (updateData.priceCents && updateData.costCents) {
-    updateData.profitMarginCents = updateData.priceCents - updateData.costCents
-  }
-
-  const product = await prisma.product.update({
-    where: { id },
-    data: updateData,
-  })
-
-  console.log(`[Sync] Updated product: ${product.id}`)
-  return product
-}
-
-/**
- * Process refund from offline data
- */
-async function refundSale(data: any): Promise<any> {
-  const { saleId, items, reason } = data
-
-  // Get sale
-  const sale = await prisma.sale.findUnique({
-    where: { id: saleId },
-    include: { items: true },
-  })
-
-  if (!sale) {
-    throw new Error(`Sale ${saleId} not found`)
-  }
-
-  // Create return/refund record
-  const refund = await prisma.return.create({
-    data: {
-      saleId,
-      userId: sale.userId,
-      items: {
-        create: items.map((item: any) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPriceCents: item.unitPriceCents,
-          refundReason: reason,
-        })),
-      },
-    },
-  })
-
-  // Restore inventory
-  for (const item of items) {
-    const location = await prisma.inventoryLocation.findFirst({
-      where: {
-        warehouseId: sale.warehouseId,
-        productId: item.productId,
-      },
-    })
-
-    if (location) {
-      await prisma.inventoryLocation.update({
-        where: { id: location.id },
+      await prisma.syncDeadLetter.update({
+        where: { id: deadLetter.id },
         data: {
-          qty: location.qty + item.quantity,
+          status: 'replayed',
+          resolvedAt: new Date(),
         },
       })
+
+      return reply.status(200).send({
+        id: deadLetter.id,
+        status: 'replayed',
+        saleId: createdSale.id,
+        receiptPublicId: createdSale.receiptPublicId,
+      })
+    } catch (error) {
+      const nextAttemptCount = deadLetter.attemptCount + 1
+      const shouldDiscard = nextAttemptCount >= 5
+
+      await prisma.syncDeadLetter.update({
+        where: { id: deadLetter.id },
+        data: {
+          status: shouldDiscard ? 'discarded' : 'open',
+          resolvedAt: shouldDiscard ? new Date() : null,
+          lastFailedAt: new Date(),
+          attemptCount: { increment: 1 },
+          errorCode: 'REPLAY_FAILED',
+          errorDetail: error instanceof Error ? error.message : 'Unknown replay error',
+        },
+      })
+
+      return reply.status(409).send({
+        id: deadLetter.id,
+        status: shouldDiscard ? 'discarded' : 'open',
+        error: error instanceof Error ? error.message : 'Replay failed',
+      })
     }
-  }
-
-  console.log(`[Sync] Created refund for sale: ${saleId}`)
-  return refund
+  })
 }
-
-/**
- * Process return from offline data
- */
-async function returnSale(data: any): Promise<any> {
-  // Similar to refund
-  return refundSale(data)
-}
-
-export default syncRoutes

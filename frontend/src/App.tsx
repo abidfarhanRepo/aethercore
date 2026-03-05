@@ -140,6 +140,9 @@ function Layout({ children }: { children: React.ReactNode }) {
                 {user.role}
               </p>
             </div>
+            <div className="mt-2">
+              <OfflineIndicator mode="compact" showSyncModal={setShowSyncModal} />
+            </div>
           </div>
           <Button
             variant="destructive"
@@ -158,10 +161,6 @@ function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
-
-      {/* Offline Indicator */}
-      <OfflineIndicator showSyncModal={setShowSyncModal} />
-
       {/* Sync Status Modal */}
       <SyncStatusModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} />
     </div>

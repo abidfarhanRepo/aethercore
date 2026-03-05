@@ -52,6 +52,14 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        const parsedClientCreatedAt = body.clientCreatedAt
+          ? new Date(body.clientCreatedAt)
+          : undefined
+
+        if (parsedClientCreatedAt && Number.isNaN(parsedClientCreatedAt.getTime())) {
+          throw new Error('Invalid clientCreatedAt')
+        }
+
         // Validate all products exist and have stock
         const itemsToCreate = body.items || []
         const products = await Promise.all(
@@ -157,6 +165,11 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           data: {
             userId: actorUserId,
             customerId: body.customerId,
+            receiptPublicId: body.receiptPublicId,
+            terminalId: body.terminalId,
+            offlineOpId: body.offlineOpId,
+            syncState: body.syncState || 'online_created',
+            clientCreatedAt: parsedClientCreatedAt,
             subtotalCents,
             totalCents,
             discountCents: totalDiscountCents,

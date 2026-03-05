@@ -17,6 +17,7 @@ import reportsRoutes from './routes/reports'
 import paymentRoutes from './routes/payments'
 import settingsRoutes from './routes/settings'
 import syncRoutes from './routes/sync'
+import receiptsRoutes from './routes/receipts'
 import phase3Routes from './routes/phase3'
 import hardwareRoutes from './routes/hardware'
 import rateLimitPlugin from './plugins/rateLimit'
@@ -76,6 +77,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(paymentRoutes)
   server.register(settingsRoutes)
   server.register(syncRoutes)
+  server.register(receiptsRoutes)
   server.register(phase3Routes)
   server.register(hardwareRoutes)
   
