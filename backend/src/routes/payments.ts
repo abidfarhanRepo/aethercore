@@ -17,6 +17,85 @@ import {
 
 // Payment processor instances (initialized when needed)
 const processors: Record<string, any> = {}
+const SUPPORTED_PROCESSORS = ['STRIPE', 'SQUARE', 'PAYPAL'] as const
+
+function paymentProviderEnabledKey(name: string): string {
+  return `payment_provider_${name.toLowerCase()}_enabled`
+}
+
+function paymentProviderDummyKey(name: string): string {
+  return `payment_provider_${name.toLowerCase()}_dummy_mode`
+}
+
+function normalizeProcessorName(name: string): string {
+  return String(name || '').trim().toUpperCase()
+}
+
+async function getSettingValue(key: string): Promise<string | null> {
+  const setting = await prisma.settings.findUnique({ where: { key } })
+  return setting?.value || null
+}
+
+async function getBooleanSetting(
+  key: string,
+  fallback: boolean
+): Promise<boolean> {
+  const value = await getSettingValue(key)
+  if (value === null) return fallback
+  return value.toLowerCase() === 'true'
+}
+
+async function upsertSetting(
+  key: string,
+  value: string,
+  type: 'string' | 'number' | 'boolean' | 'json',
+  label: string,
+  description: string
+) {
+  await prisma.settings.upsert({
+    where: { key },
+    update: { value, type, label, description, category: 'payment' },
+    create: { key, value, type, label, description, category: 'payment' },
+  })
+}
+
+function buildDummyPaymentResult(
+  processorName: string,
+  saleId: string,
+  idempotencyKey: string
+) {
+  const normalized = normalizeProcessorName(processorName)
+  return {
+    status: 'succeeded',
+    requiresAction: false,
+    transactionId: `dummy_${normalized}_${saleId}_${idempotencyKey.slice(0, 8)}`,
+    paymentIntentId: `dummy_pi_${idempotencyKey.slice(0, 16)}`,
+    actionUrl: undefined,
+    clientSecret: undefined,
+  }
+}
+
+async function ensureProcessorRecord(name: string) {
+  const normalizedName = normalizeProcessorName(name)
+  const existing = await prisma.paymentProcessor.findUnique({
+    where: { name: normalizedName },
+  })
+
+  if (existing) {
+    return existing
+  }
+
+  return prisma.paymentProcessor.create({
+    data: {
+      name: normalizedName,
+      displayName: normalizedName,
+      apiKey: encryptSensitiveData(`dummy_${normalizedName}_key`),
+      secretKey: encryptSensitiveData(`dummy_${normalizedName}_secret`),
+      webhookSecret: encryptSensitiveData(`dummy_${normalizedName}_webhook`),
+      isActive: false,
+    },
+  })
+}
 
 /**
  * Authenticate payment endpoints (requires ADMIN or specific permissions)
@@ -155,8 +234,30 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         })
       }
 
-      const proc = getProcessor(processor)
+      const normalizedProcessor = normalizeProcessorName(processor)
+      if (!SUPPORTED_PROCESSORS.includes(normalizedProcessor as any)) {
+        return reply.code(400).send({
+          error: `Unsupported payment processor: ${processor}`,
+        })
+      }
+
+      const providerEnabled = await getBooleanSetting(
+        paymentProviderEnabledKey(normalizedProcessor),
+        false
+      )
+
+      if (!providerEnabled) {
+        return reply.code(400).send({
+          error: `${normalizedProcessor} is disabled in settings`,
+        })
+      }
+
       const idempotencyKey = generateIdempotencyKey()
+      const dummyMode = await getBooleanSetting(
+        paymentProviderDummyKey(normalizedProcessor),
+        true
+      )
+      const proc = !dummyMode ? getProcessor(normalizedProcessor) : null
 
       try {
         let stripeCustomerId: string | null = null
@@ -164,7 +265,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
         // Create/get customer in processor
         if (sale.customer) {
-          if (processor === 'STRIPE') {
+          if (normalizedProcessor === 'STRIPE' && proc) {
             stripeCustomerId = await (
               proc as StripeAdapter
             ).getOrCreateCustomer(
@@ -172,9 +273,9 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
               sale.customer.email!,
               sale.customer.name
             )
-          } else if (processor === 'SQUARE') {
+          } else if (normalizedProcessor === 'SQUARE' && proc) {
             // Similar for Square
-          } else if (processor === 'PAYPAL') {
+          } else if (normalizedProcessor === 'PAYPAL' && proc) {
             // PayPal handles customer differently
           }
         }
@@ -188,7 +289,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
           cardholderName &&
           !paymentMethodId
         ) {
-          if (processor === 'STRIPE' && stripeCustomerId) {
+          if (normalizedProcessor === 'STRIPE' && stripeCustomerId && proc) {
             const tokenized = await (proc as StripeAdapter).tokenizeCard(
               {
                 cardNumber,
@@ -227,7 +328,13 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         // Process payment
         let paymentResult: any
 
-        if (processor === 'STRIPE') {
+        if (dummyMode) {
+          paymentResult = buildDummyPaymentResult(
+            normalizedProcessor,
+            saleId,
+            idempotencyKey
+          )
+        } else if (normalizedProcessor === 'STRIPE') {
           paymentResult = await (proc as StripeAdapter).processPayment({
             customerId: stripeCustomerId || 'unknown',
             amount,
@@ -239,10 +346,48 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
             saveCard,
             statementDescriptor: 'AETHER POS',
           })
-        } else if (processor === 'SQUARE') {
-          // Square payment
-        } else if (processor === 'PAYPAL') {
-          // PayPal payment
+        } else if (normalizedProcessor === 'SQUARE') {
+          const squareCustomerId = sale.customer
+            ? await (proc as SquareAdapter).getOrCreateCustomer(
+                sale.customerId || 'guest',
+                sale.customer.email || 'guest@example.com',
+                sale.customer.name || 'Guest'
+              )
+            : 'guest'
+
+          paymentResult = await (proc as SquareAdapter).processPayment({
+            sourceId: cardToken || paymentMethodIdToUse || 'manual_entry',
+            amountCents: amount,
+            currency: 'USD',
+            customerId: squareCustomerId,
+            idempotencyKey,
+            metadata: {
+              saleId,
+            },
+          })
+        } else if (normalizedProcessor === 'PAYPAL') {
+          const paypal = proc as PayPalAdapter
+          const order = await paypal.createOrder({
+            amountCents: amount,
+            currency: 'USD',
+            reference: saleId,
+            description: `Sale ${saleId}`,
+            returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payments/complete`,
+            cancelUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payments/cancel`,
+            customerId: sale.customerId || undefined,
+          })
+
+          const capture = await paypal.captureOrder({
+            orderId: order.orderId,
+            customerId: sale.customerId || 'guest',
+          })
+
+          paymentResult = {
+            status: capture.status,
+            requiresAction: false,
+            transactionId: capture.transactionId,
+            paymentIntentId: order.orderId,
+          }
         }
 
         // Get transaction ID (varies by processor)
@@ -253,15 +398,13 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         const paymentRecord = await prisma.payment.create({
           data: {
             saleId,
-            processorId: (
-              await prisma.paymentProcessor.findUniqueOrThrow({
-                where: { name: processor },
-              })
-            ).id,
+            processorId: (await ensureProcessorRecord(normalizedProcessor)).id,
             amountCents: amount,
             currency: 'USD',
             status:
-              paymentResult.status === 'succeeded'
+              ['succeeded', 'COMPLETED', 'CAPTURED', 'SUCCESS'].includes(
+                String(paymentResult.status)
+              )
                 ? 'CAPTURED'
                 : paymentResult.requiresAction
                   ? 'PROCESSING'
@@ -284,7 +427,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         // Log payment attempt
         logPaymentAttempt(
           transactionId,
-          processor,
+          normalizedProcessor,
           amount,
           cardNumber ? getCardLastFour(cardNumber) : 'xxxx',
           paymentRecord.status === 'CAPTURED' ? 'success' : 'pending'
@@ -306,7 +449,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         // Log failed payment attempt
         logPaymentAttempt(
           'unknown',
-          processor,
+          normalizedProcessor,
           amount,
           cardNumber ? getCardLastFour(cardNumber) : 'xxxx',
           'failure',
@@ -344,7 +487,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       const { saleId, paymentMethodId, amount, save } = req.body
 
       // Reuse main endpoint
-      await req.server.inject({
+      const injected = await req.server.inject({
         method: 'POST',
         url: '/api/payments/process',
         payload: {
@@ -356,6 +499,11 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         },
         headers: req.headers,
       })
+
+      return reply
+        .code(injected.statusCode)
+        .type('application/json')
+        .send(injected.json())
     } catch (error) {
       fastify.log.error(error)
       reply.code(500).send({ error: 'Internal server error' })
@@ -378,8 +526,22 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
       const { saleId, sourceId, amount } = req.body
 
-      // Process Square payment
-      reply.code(501).send({ error: 'Square payment endpoint not yet implemented' })
+      const injected = await req.server.inject({
+        method: 'POST',
+        url: '/api/payments/process',
+        payload: {
+          saleId,
+          processor: 'SQUARE',
+          amount,
+          cardToken: sourceId,
+        },
+        headers: req.headers,
+      })
+
+      return reply
+        .code(injected.statusCode)
+        .type('application/json')
+        .send(injected.json())
     } catch (error) {
       fastify.log.error(error)
       reply.code(500).send({ error: 'Internal server error' })
@@ -678,9 +840,54 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         },
       })
 
+      const settings = await prisma.settings.findMany({
+        where: {
+          key: {
+            in: [
+              ...SUPPORTED_PROCESSORS.map((name) => paymentProviderEnabledKey(name)),
+              ...SUPPORTED_PROCESSORS.map((name) => paymentProviderDummyKey(name)),
+            ],
+          },
+        },
+      })
+
+      const settingsMap = settings.reduce(
+        (acc, setting) => {
+          acc[setting.key] = setting.value
+          return acc
+        },
+        {} as Record<string, string>
+      )
+
+      const byName = processors.reduce(
+        (acc, processor) => {
+          acc[processor.name] = processor
+          return acc
+        },
+        {} as Record<string, any>
+      )
+
+      const allProcessors = SUPPORTED_PROCESSORS.map((name) => {
+        const dbProcessor = byName[name]
+        return {
+          id: dbProcessor?.id || name,
+          name,
+          displayName: dbProcessor?.displayName || name,
+          isActive: Boolean(dbProcessor?.isActive),
+          webhookUrl: dbProcessor?.webhookUrl,
+          createdAt: dbProcessor?.createdAt || new Date().toISOString(),
+          enabled:
+            settingsMap[paymentProviderEnabledKey(name)]?.toLowerCase() ===
+            'true',
+          dummyMode:
+            settingsMap[paymentProviderDummyKey(name)]?.toLowerCase() !==
+            'false',
+        }
+      })
+
       return reply.send({
         success: true,
-        processors,
+        processors: allProcessors,
       })
     } catch (error) {
       fastify.log.error(error)
@@ -696,61 +903,99 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
     Body: {
       name: string
       displayName: string
-      apiKey: string
+      apiKey?: string
       secretKey?: string
       webhookSecret?: string
       isActive: boolean
+      enabled?: boolean
+      dummyMode?: boolean
     }
   }>('/api/payments/settings', async (req, reply) => {
     try {
       await authPaymentAdmin(req, reply)
 
-      const { name, displayName, apiKey, secretKey, webhookSecret, isActive } =
-        req.body
-
-      // Validate configuration
-      const validation = validateProcessorConfig(name, {
+      const {
+        name,
+        displayName,
         apiKey,
         secretKey,
         webhookSecret,
-        applicationId: process.env[`${name.toUpperCase()}_APP_ID`],
-        locationId: process.env[`${name.toUpperCase()}_LOCATION_ID`],
-      })
+        isActive,
+        enabled,
+        dummyMode,
+      } =
+        req.body
 
-      if (!validation.valid) {
+      const normalizedName = normalizeProcessorName(name)
+
+      if (!SUPPORTED_PROCESSORS.includes(normalizedName as any)) {
         return reply.code(400).send({
-          error: 'Invalid processor configuration',
-          details: validation.errors,
+          error: `Unsupported payment processor: ${name}`,
         })
       }
 
-      // Encrypt sensitive data
-      const processor = await prisma.paymentProcessor.upsert({
-        where: { name },
-        update: {
-          displayName,
-          apiKey: encryptSensitiveData(apiKey),
-          secretKey: secretKey
-            ? encryptSensitiveData(secretKey)
-            : undefined,
-          webhookSecret: webhookSecret
-            ? encryptSensitiveData(webhookSecret)
-            : undefined,
-          isActive,
-        },
-        create: {
-          name,
-          displayName,
-          apiKey: encryptSensitiveData(apiKey),
-          secretKey: secretKey
-            ? encryptSensitiveData(secretKey)
-            : undefined,
-          webhookSecret: webhookSecret
-            ? encryptSensitiveData(webhookSecret)
-            : undefined,
-          isActive,
-        },
-      })
+      if (typeof enabled === 'boolean') {
+        await upsertSetting(
+          paymentProviderEnabledKey(normalizedName),
+          String(enabled),
+          'boolean',
+          `${normalizedName} Enabled`,
+          `Enable or disable ${normalizedName} payment processing`
+        )
+      }
+
+      if (typeof dummyMode === 'boolean') {
+        await upsertSetting(
+          paymentProviderDummyKey(normalizedName),
+          String(dummyMode),
+          'boolean',
+          `${normalizedName} Dummy Mode`,
+          `Use dummy transactions for ${normalizedName}`
+        )
+      }
+
+      let processor = await ensureProcessorRecord(normalizedName)
+
+      if (apiKey) {
+        // Validate configuration only when sensitive keys are being updated.
+        const validation = validateProcessorConfig(normalizedName, {
+          apiKey,
+          secretKey,
+          webhookSecret,
+          applicationId: process.env[`${normalizedName}_APP_ID`],
+          locationId: process.env[`${normalizedName}_LOCATION_ID`],
+        })
+
+        if (!validation.valid) {
+          return reply.code(400).send({
+            error: 'Invalid processor configuration',
+            details: validation.errors,
+          })
+        }
+
+        processor = await prisma.paymentProcessor.update({
+          where: { name: normalizedName },
+          data: {
+            displayName,
+            apiKey: encryptSensitiveData(apiKey),
+            secretKey: secretKey
+              ? encryptSensitiveData(secretKey)
+              : undefined,
+            webhookSecret: webhookSecret
+              ? encryptSensitiveData(webhookSecret)
+              : undefined,
+            isActive,
+          },
+        })
+      } else {
+        processor = await prisma.paymentProcessor.update({
+          where: { name: normalizedName },
+          data: {
+            displayName,
+            isActive,
+          },
+        })
+      }
 
       // Reinitialize processors
       await initializeProcessors()
@@ -762,6 +1007,20 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
           name: processor.name,
           displayName: processor.displayName,
           isActive: processor.isActive,
+          enabled:
+            typeof enabled === 'boolean'
+              ? enabled
+              : await getBooleanSetting(
+                  paymentProviderEnabledKey(normalizedName),
+                  false
+                ),
+          dummyMode:
+            typeof dummyMode === 'boolean'
+              ? dummyMode
+              : await getBooleanSetting(
+                  paymentProviderDummyKey(normalizedName),
+                  true
+                ),
         },
       })
     } catch (error) {

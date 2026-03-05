@@ -8,6 +8,33 @@ import { logAuthEvent } from '../utils/audit'
 
 
 export default async function authRoutes(fastify: FastifyInstance) {
+  async function ensureDevAdminUser(email: string) {
+    if (process.env.NODE_ENV === 'production') {
+      return null
+    }
+
+    if (email !== 'admin@aether.dev') {
+      return null
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) {
+      return existing
+    }
+
+    const fallbackPassword = process.env.DEV_ADMIN_PASSWORD || 'password123'
+    const hash = await bcrypt.hash(fallbackPassword, 10)
+    return prisma.user.create({
+      data: {
+        email,
+        password: hash,
+        role: 'ADMIN',
+        isActive: true,
+        failedLoginAttempts: 0,
+      },
+    })
+  }
+
   const registerSchema = {
     body: {
       type: 'object',
@@ -112,8 +139,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid email' })
       }
       
-      // Find user
-      const user = await prisma.user.findUnique({ where: { email } })
+      // Find user; in development, auto-bootstrap admin login user if missing.
+      let user = await prisma.user.findUnique({ where: { email } })
+      if (!user) {
+        user = await ensureDevAdminUser(email)
+      }
       
       if (!user) {
         // Log failed attempt with fake user identifier for audit
@@ -200,6 +230,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
       
       // Log successful login
       await logAuthEvent('LOGIN', user.id, req, 'User logged in successfully')
+
+      if (typeof (reply as any).setCookie === 'function') {
+        ;(reply as any).setCookie('refreshToken', refreshToken, {
+          path: '/api/auth',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60,
+        })
+      }
       
       return {
         accessToken,
@@ -222,7 +262,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Refresh token with rotation
   fastify.post('/api/auth/refresh', async (req, reply) => {
     try {
-      const { refreshToken } = req.body as any
+      const body = (req.body as any) || {}
+      const refreshToken =
+        body.refreshToken || (req as any).cookies?.refreshToken
       
       if (!refreshToken) {
         return reply.status(400).send({ error: 'Refresh token required' })
@@ -260,6 +302,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       })
+
+      if (typeof (reply as any).setCookie === 'function') {
+        ;(reply as any).setCookie('refreshToken', newTokens.refreshToken, {
+          path: '/api/auth',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60,
+        })
+      }
       
       return {
         accessToken: newTokens.accessToken,
@@ -275,7 +327,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Logout with token revocation
   fastify.post('/api/auth/logout', async (req, reply) => {
     try {
-      const { refreshToken } = req.body as any
+      const body = (req.body as any) || {}
+      const refreshToken =
+        body.refreshToken || (req as any).cookies?.refreshToken
       
       if (!refreshToken) {
         return reply.status(400).send({ error: 'Refresh token required' })

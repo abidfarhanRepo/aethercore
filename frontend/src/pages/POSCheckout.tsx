@@ -49,6 +49,18 @@ interface CompletedSale {
   paymentMethods: string[]
 }
 
+interface ReceiptSnapshot {
+  items: CartItem[]
+  discounts: AppliedDiscount[]
+  subtotalCents: number
+  discountTotalCents: number
+  taxCents: number
+  totalCents: number
+  payments: AppliedPayment[]
+  saleId?: string
+  timestamp: Date
+}
+
 export function POSCheckout() {
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -71,6 +83,7 @@ export function POSCheckout() {
   // Last sale for void operation
   const [lastSaleId, setLastSaleId] = useState<string | null>(null)
   const [completedSale, setCompletedSale] = useState<CompletedSale | null>(null)
+  const [receiptSnapshot, setReceiptSnapshot] = useState<ReceiptSnapshot | null>(null)
 
   // Selected payments
   const [appliedPayments, setAppliedPayments] = useState<AppliedPayment[]>([])
@@ -222,8 +235,21 @@ export function POSCheckout() {
       const response = await salesAPI.create(saleData)
       const saleId = response.data.id
 
+      const snapshot: ReceiptSnapshot = {
+        items: [...cart],
+        discounts: [...appliedDiscounts],
+        subtotalCents,
+        discountTotalCents: totalDiscountCents,
+        taxCents,
+        totalCents,
+        payments: [...payments],
+        saleId,
+        timestamp: new Date(),
+      }
+
       setCompletedSale(response.data)
       setLastSaleId(saleId)
+      setReceiptSnapshot(snapshot)
 
       // Reset UI for next transaction
       setCart([])
@@ -523,15 +549,15 @@ export function POSCheckout() {
       <ReceiptPreview
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
-        items={cart}
-        discounts={appliedDiscounts}
-        subtotalCents={subtotalCents}
-        discountTotalCents={totalDiscountCents}
-        taxCents={taxCents}
-        totalCents={totalCents}
-        payments={appliedPayments}
-        saleId={completedSale?.id}
-        timestamp={new Date()}
+        items={receiptSnapshot?.items || []}
+        discounts={receiptSnapshot?.discounts || []}
+        subtotalCents={receiptSnapshot?.subtotalCents || 0}
+        discountTotalCents={receiptSnapshot?.discountTotalCents || 0}
+        taxCents={receiptSnapshot?.taxCents || 0}
+        totalCents={receiptSnapshot?.totalCents || 0}
+        payments={receiptSnapshot?.payments || []}
+        saleId={receiptSnapshot?.saleId || completedSale?.id}
+        timestamp={receiptSnapshot?.timestamp || new Date()}
       />
     </div>
   )

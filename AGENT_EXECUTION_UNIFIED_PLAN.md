@@ -271,11 +271,27 @@ Exit criteria:
 - Profile test matrix passes in CI
 
 ### Phase 4 - Payments, Receipts, Hardware (2 weeks)
+Status:
+- Completed (implementation pass with dummy-provider mode and settings-driven controls)
+
+Validation status note:
+- `Test Print` endpoint and generated payload formatting are implemented and API-verified.
+- Physical printer execution is currently marked `UNTESTED` because no connected printer hardware is available in the current environment.
+- Final hardware validation is pending: paper feed, width clipping, character encoding, and vendor-specific driver behavior.
+
 Tasks:
 - Complete provider parity (Stripe/Square/PayPal)
 - Idempotent payment operations + webhook reconciliation
 - Receipt renderers (profile-aware)
 - Printer/scanner abstractions
+
+Implemented in this pass:
+- Payment processor enable/disable flags in settings for Stripe, Square, and PayPal
+- Dummy mode flags and safe dummy transaction flows for all three providers
+- Provider gating in `/api/payments/process` (disabled providers fail closed)
+- Expanded hardware APIs for printers/scanners and print test payload generation
+- Printer design settings (paper width, logo toggle, header/footer, font style/size)
+- Settings UI updates to manage processor toggles, dummy mode, hardware summary, and printer design
 
 Exit criteria:
 - Retry-safe payments

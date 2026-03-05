@@ -21,6 +21,36 @@ export default async function salesRoutes(fastify: FastifyInstance) {
     const body = req.body as any
 
     try {
+      let actorUserId: string | undefined = body.userId
+
+      // Prefer authenticated user when token is provided.
+      try {
+        await (req as any).jwtVerify()
+        const authUser = (req as any).user as any
+        if (authUser?.id) {
+          actorUserId = authUser.id
+        }
+      } catch {
+        // Non-authenticated/internal flows may still pass explicit body.userId.
+      }
+
+      if (!actorUserId) {
+        const fallbackUser = await prisma.user.findFirst({
+          where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true },
+        })
+        actorUserId = fallbackUser?.id
+      }
+
+      if (!actorUserId) {
+        return reply.status(400).send({
+          error: 'No valid user context for sale creation',
+          code: 'USER_CONTEXT_REQUIRED',
+          statusCode: 400,
+        })
+      }
+
       const result = await prisma.$transaction(async (tx) => {
         // Validate all products exist and have stock
         const itemsToCreate = body.items || []
@@ -125,7 +155,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         // Create sale
         const sale = await tx.sale.create({
           data: {
-            userId: body.userId || 'system',
+            userId: actorUserId,
             customerId: body.customerId,
             subtotalCents,
             totalCents,
@@ -170,7 +200,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
               qtyDelta: -item.qty,
               type: 'SALE',
               reason: 'SALE',
-              createdBy: body.userId || 'system',
+              createdBy: actorUserId,
               reference: sale.id,
             },
           })
@@ -252,7 +282,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       // Audit log
       try {
         if ((fastify as any).createAudit) {
-          await (fastify as any).createAudit('sale_created', { saleId: result.id }, body.userId || 'system')
+          await (fastify as any).createAudit('sale_created', { saleId: result.id }, actorUserId)
         }
       } catch (ae: any) {
         fastify.log.warn('Failed to write audit', ae)
@@ -282,6 +312,13 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           error: e.message, 
           code: 'PAYMENT_MISMATCH',
           statusCode: 422
+        })
+      }
+      if (e.message.includes('Foreign key constraint')) {
+        return reply.status(400).send({
+          error: 'Invalid user reference for sale',
+          code: 'INVALID_USER_REFERENCE',
+          statusCode: 400,
         })
       }
       

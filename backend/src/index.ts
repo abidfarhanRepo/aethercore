@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 import Fastify from 'fastify'
+import fastifyCookie from '@fastify/cookie'
 import { prisma } from './utils/db'
 import authRoutes from './routes/auth'
 import productRoutes from './routes/products'
@@ -17,6 +18,7 @@ import paymentRoutes from './routes/payments'
 import settingsRoutes from './routes/settings'
 import syncRoutes from './routes/sync'
 import phase3Routes from './routes/phase3'
+import hardwareRoutes from './routes/hardware'
 import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
 import { setupErrorHandler } from './middleware/errorHandler'
@@ -51,6 +53,7 @@ const initializeSecurityAndRoutes = async () => {
   setupErrorHandler(server)
   
   // Register plugins and routes
+  server.register(fastifyCookie)
   server.register(rateLimitPlugin)
   
   // Health check endpoint
@@ -74,6 +77,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(settingsRoutes)
   server.register(syncRoutes)
   server.register(phase3Routes)
+  server.register(hardwareRoutes)
   
   // Security audit endpoint (admin only)
   server.get('/api/security/audit-summary', async (req, reply) => {

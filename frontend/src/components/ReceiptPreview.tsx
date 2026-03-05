@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Printer, X } from 'lucide-react'
@@ -33,6 +33,30 @@ interface ReceiptPreviewProps {
   cashierName?: string
 }
 
+type PrintDesignSettings = {
+  paperWidth: number
+  showLogo: boolean
+  headerText: string
+  footerText: string
+  fontStyle: string
+  fontSize: string
+  separatorStyle: 'dashed' | 'double' | 'none'
+  showStoreName: boolean
+  showReceiptId: boolean
+  showTimestamp: boolean
+  showItems: boolean
+  showItemDetails: boolean
+  showSubtotal: boolean
+  showDiscounts: boolean
+  showTax: boolean
+  showTotal: boolean
+  showPaymentSection: boolean
+  showPaymentBreakdown: boolean
+  showChange: boolean
+  showCashier: boolean
+  showThankYou: boolean
+}
+
 export function ReceiptPreview({
   isOpen,
   onClose,
@@ -48,6 +72,62 @@ export function ReceiptPreview({
   timestamp,
   cashierName,
 }: ReceiptPreviewProps) {
+  const [printSettings, setPrintSettings] = useState<PrintDesignSettings>({
+    paperWidth: 48,
+    showLogo: false,
+    headerText: 'THANK YOU FOR YOUR PURCHASE',
+    footerText: 'Come Again Soon!',
+    fontStyle: 'normal',
+    fontSize: 'medium',
+    separatorStyle: 'dashed',
+    showStoreName: true,
+    showReceiptId: true,
+    showTimestamp: true,
+    showItems: true,
+    showItemDetails: true,
+    showSubtotal: true,
+    showDiscounts: true,
+    showTax: true,
+    showTotal: true,
+    showPaymentSection: true,
+    showPaymentBreakdown: true,
+    showChange: true,
+    showCashier: false,
+    showThankYou: true,
+  })
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!isOpen) return
+      try {
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('auth_token') || ''
+        const response = await fetch(`${API_BASE_URL}/api/hardware/print-settings`, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : '',
+          },
+        })
+
+        if (!response.ok) return
+        const data = await response.json()
+        if (data.settings) {
+          setPrintSettings((prev) => ({ ...prev, ...data.settings }))
+        }
+      } catch {
+        // Keep local defaults if settings endpoint is unavailable.
+      }
+    }
+
+    void loadSettings()
+  }, [API_BASE_URL, isOpen])
+
+  const dividerClass = useMemo(() => {
+    if (printSettings.separatorStyle === 'none') return ''
+    if (printSettings.separatorStyle === 'double') return 'border-t-2 border-solid'
+    return 'border-t border-dashed'
+  }, [printSettings.separatorStyle])
+
   if (!isOpen) return null
 
   const handlePrint = () => {
@@ -72,7 +152,13 @@ export function ReceiptPreview({
           .line { display: flex; justify-content: space-between; margin: 5px 0; }
           .line-item { text-align: left; }
           .line-price { text-align: right; }
-          .divider { border-top: 1px dashed #000; margin: 10px 0; }
+          .divider { border-top: ${
+            printSettings.separatorStyle === 'none'
+              ? '0'
+              : printSettings.separatorStyle === 'double'
+                ? '2px solid #000'
+                : '1px dashed #000'
+          }; margin: 10px 0; }
           .total-line { font-weight: bold; font-size: 14px; }
           .section-title { font-weight: bold; margin-top: 10px; margin-bottom: 5px; }
           .footer { text-align: center; font-size: 10px; margin-top: 20px; }
@@ -81,28 +167,32 @@ export function ReceiptPreview({
       <body>
         <div class="receipt">
           <div class="header">
-            AETHER POS SYSTEM<br/>
-            Receipt #${saleId || 'N/A'}<br/>
-            ${timestamp ? timestamp.toLocaleString() : ''}
+            ${printSettings.showLogo ? '[LOGO]<br/>' : ''}
+            ${printSettings.showStoreName ? 'AETHER POS SYSTEM<br/>' : ''}
+            ${printSettings.showReceiptId ? `Receipt #${saleId || 'N/A'}<br/>` : ''}
+            ${printSettings.showTimestamp && timestamp ? timestamp.toLocaleString() : ''}
+            ${printSettings.headerText ? `<br/>${printSettings.headerText}` : ''}
           </div>
 
+          ${printSettings.showItems ? `
           <div class="section-title">Items</div>
           ${items.map(item => `
             <div class="line">
               <span class="line-item">${item.name} x${item.qty}</span>
               <span class="line-price">$${((item.qty * item.unitPrice) / 100).toFixed(2)}</span>
             </div>
-            <div style="font-size: 10px; color: #666;">@ $${(item.unitPrice / 100).toFixed(2)} each</div>
+            ${printSettings.showItemDetails ? `<div style="font-size: 10px; color: #666;">@ $${(item.unitPrice / 100).toFixed(2)} each</div>` : ''}
           `).join('')}
+          ` : ''}
 
           <div class="divider"></div>
 
-          <div class="line">
+          ${printSettings.showSubtotal ? `<div class="line">
             <span>Subtotal:</span>
             <span class="line-price">$${(subtotalCents / 100).toFixed(2)}</span>
-          </div>
+          </div>` : ''}
 
-          ${discountTotalCents > 0 ? `
+          ${printSettings.showDiscounts && discountTotalCents > 0 ? `
             <div class="section-title">Discounts</div>
             ${discounts.map(d => `
               <div class="line">
@@ -116,37 +206,40 @@ export function ReceiptPreview({
             </div>
           ` : ''}
 
-          ${taxCents > 0 ? `
+          ${printSettings.showTax && taxCents > 0 ? `
             <div class="line">
-              <span>Tax (10%):</span>
+              <span>Tax:</span>
               <span class="line-price">$${(taxCents / 100).toFixed(2)}</span>
             </div>
           ` : ''}
 
-          <div class="divider"></div>
+          ${printSettings.showTotal ? '<div class="divider"></div>' : ''}
 
-          <div class="line total-line">
+          ${printSettings.showTotal ? `<div class="line total-line">
             <span>TOTAL:</span>
             <span class="line-price">$${(totalCents / 100).toFixed(2)}</span>
-          </div>
+          </div>` : ''}
 
+          ${printSettings.showPaymentSection ? `
           <div class="section-title">Payment</div>
-          ${payments.map(p => `
+          ${printSettings.showPaymentBreakdown ? payments.map(p => `
             <div class="line">
               <span>${p.method}</span>
               <span class="line-price">$${(p.amountCents / 100).toFixed(2)}</span>
             </div>
-            ${p.changeCents ? `
+            ${printSettings.showChange && p.changeCents ? `
               <div class="line">
                 <span>Change:</span>
                 <span class="line-price">$${(p.changeCents / 100).toFixed(2)}</span>
               </div>
             ` : ''}
-          `).join('')}
+          `).join('') : ''}
+          ` : ''}
 
           <div class="footer">
-            ${cashierName ? `<div>Cashier: ${cashierName}</div>` : ''}
-            <div>Thank you for your purchase!</div>
+            ${printSettings.showCashier && cashierName ? `<div>Cashier: ${cashierName}</div>` : ''}
+            ${printSettings.showThankYou ? '<div>Thank you for your purchase!</div>' : ''}
+            ${printSettings.footerText ? `<div>${printSettings.footerText}</div>` : ''}
           </div>
         </div>
       </body>
@@ -170,38 +263,48 @@ export function ReceiptPreview({
           {/* Receipt Simulation */}
           <div className="bg-background border-2 border-dashed border-border p-6 font-mono text-sm max-h-96 overflow-y-auto">
             <div className="text-center font-bold mb-4">
-              <div>AETHER POS SYSTEM</div>
-              <div>Receipt #{saleId || 'N/A'}</div>
-              {timestamp && (
+              {printSettings.showLogo && <div>[LOGO]</div>}
+              {printSettings.showStoreName && <div>AETHER POS SYSTEM</div>}
+              {printSettings.showReceiptId && <div>Receipt #{saleId || 'N/A'}</div>}
+              {printSettings.showTimestamp && timestamp && (
                 <div className="text-xs mt-1">
                   {timestamp.toLocaleString()}
                 </div>
               )}
+              {printSettings.headerText && (
+                <div className="text-xs mt-2">{printSettings.headerText}</div>
+              )}
             </div>
 
-            <div className="border-t border-dashed my-2 pt-2">
-              Items
-            </div>
-            {items.map((item) => (
+            {printSettings.showItems && (
+              <div className={`${dividerClass} my-2 pt-2`}>
+                Items
+              </div>
+            )}
+            {printSettings.showItems && items.map((item) => (
               <div key={item.id}>
                 <div className="flex justify-between text-xs">
                   <span>{item.name}</span>
                   <span>${((item.qty * item.unitPrice) / 100).toFixed(2)}</span>
                 </div>
-                <div className="text-xs text-muted-foreground ml-2">
-                  {item.qty} × ${(item.unitPrice / 100).toFixed(2)}
-                </div>
+                {printSettings.showItemDetails && (
+                  <div className="text-xs text-muted-foreground ml-2">
+                    {item.qty} × ${(item.unitPrice / 100).toFixed(2)}
+                  </div>
+                )}
               </div>
             ))}
 
-            <div className="border-t border-dashed my-2 pt-2">
-              <div className="flex justify-between text-xs">
-                <span>Subtotal:</span>
-                <span>${(subtotalCents / 100).toFixed(2)}</span>
+            {printSettings.showSubtotal && (
+              <div className={`${dividerClass} my-2 pt-2`}>
+                <div className="flex justify-between text-xs">
+                  <span>Subtotal:</span>
+                  <span>${(subtotalCents / 100).toFixed(2)}</span>
+                </div>
               </div>
-            </div>
+            )}
 
-            {discountTotalCents > 0 && (
+            {printSettings.showDiscounts && discountTotalCents > 0 && (
               <div className="bg-muted p-2 rounded my-2">
                 <div className="text-xs font-bold mb-1">Discounts</div>
                 {discounts.map((d, i) => (
@@ -213,41 +316,46 @@ export function ReceiptPreview({
               </div>
             )}
 
-            {taxCents > 0 && (
+            {printSettings.showTax && taxCents > 0 && (
               <div className="flex justify-between text-xs my-2">
-                <span>Tax (10%):</span>
+                <span>Tax:</span>
                 <span>${(taxCents / 100).toFixed(2)}</span>
               </div>
             )}
 
-            <div className="border-t border-dashed my-2 pt-2">
-              <div className="flex justify-between font-bold">
-                <span>TOTAL:</span>
-                <span>${(totalCents / 100).toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div className="border-t border-dashed my-2 pt-2">
-              <div className="text-xs font-bold mb-1">Payment</div>
-              {payments.map((p, i) => (
-                <div key={i}>
-                  <div className="flex justify-between text-xs">
-                    <span>{p.method}:</span>
-                    <span>${(p.amountCents / 100).toFixed(2)}</span>
-                  </div>
-                  {p.changeCents > 0 && (
-                    <div className="flex justify-between text-xs text-green-600">
-                      <span>Change:</span>
-                      <span>${(p.changeCents / 100).toFixed(2)}</span>
-                    </div>
-                  )}
+            {printSettings.showTotal && (
+              <div className={`${dividerClass} my-2 pt-2`}>
+                <div className="flex justify-between font-bold">
+                  <span>TOTAL:</span>
+                  <span>${(totalCents / 100).toFixed(2)}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
-            <div className="text-center text-xs mt-4 pt-2 border-t border-dashed">
-              {cashierName && <div>Cashier: {cashierName}</div>}
-              <div className="mt-2">Thank you for your purchase!</div>
+            {printSettings.showPaymentSection && (
+              <div className={`${dividerClass} my-2 pt-2`}>
+                <div className="text-xs font-bold mb-1">Payment</div>
+                {printSettings.showPaymentBreakdown && payments.map((p, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between text-xs">
+                      <span>{p.method}:</span>
+                      <span>${(p.amountCents / 100).toFixed(2)}</span>
+                    </div>
+                    {printSettings.showChange && p.changeCents > 0 && (
+                      <div className="flex justify-between text-xs text-green-600">
+                        <span>Change:</span>
+                        <span>${(p.changeCents / 100).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className={`text-center text-xs mt-4 pt-2 ${dividerClass}`}>
+              {printSettings.showCashier && cashierName && <div>Cashier: {cashierName}</div>}
+              {printSettings.showThankYou && <div className="mt-2">Thank you for your purchase!</div>}
+              {printSettings.footerText && <div className="mt-1">{printSettings.footerText}</div>}
             </div>
           </div>
 

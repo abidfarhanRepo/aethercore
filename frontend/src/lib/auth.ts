@@ -103,7 +103,10 @@ export function setupAxiosInterceptors(apiInstance: any) {
         
         try {
           console.debug(`Attempting token refresh (attempt ${attempt.count}/${MAX_RETRY_ATTEMPTS})`)
-          const response = await apiInstance.post('/api/auth/refresh', { refreshToken })
+          const response = await apiInstance.post(
+            '/api/auth/refresh',
+            refreshToken ? { refreshToken } : {}
+          )
           const { accessToken, refreshToken: newRefreshToken } = response.data
           
           if (!accessToken || !newRefreshToken) {
