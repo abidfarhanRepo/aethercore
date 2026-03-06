@@ -35,11 +35,121 @@ model User {
   userRoles      UserRole[]
   permissionLog  PermissionLog[]
   pharmacistOverrides PharmacistOverride[]
+  securityEventsAuthored SecurityEvent[]    @relation("SecurityEventActor")
+  keyRotationsAuthored   KeyRotationLog[]   @relation("KeyRotationActor")
+  notificationsReceived  Notification[]     @relation("NotificationRecipient")
+  notificationsAuthored  Notification[]     @relation("NotificationActor")
 
   @@index([email])
   @@index([role])
   @@index([department])
   @@index([isActive])
+}
+
+enum SecuritySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SecurityEventType {
+  FAILED_LOGIN
+  KEY_ROTATION
+  SECURITY_STATUS_CHECK_FAILED
+  TLS_CONFIG_CHANGED
+  HEADER_POLICY_CHANGED
+  UNKNOWN
+}
+
+enum NotificationType {
+  SECURITY
+  SYSTEM
+  AUTH
+}
+
+model SecurityEvent {
+  id         String            @id @default(cuid())
+  eventType  SecurityEventType @default(UNKNOWN)
+  severity   SecuritySeverity  @default(MEDIUM)
+  source     String
+  message    String
+  details    Json?
+  ipAddress  String?
+  actor      User?             @relation("SecurityEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId    String?
+  createdAt  DateTime          @default(now())
+
+  @@index([eventType])
+  @@index([severity])
+  @@index([source])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model KeyRotationLog {
+  id             String           @id @default(cuid())
+  component      String
+  oldKeyVersion  String?
+  newKeyVersion  String?
+  status         String           @default("success")
+  details        Json?
+  rotatedAt      DateTime         @default(now())
+  actor          User?            @relation("KeyRotationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId        String?
+
+  @@index([component])
+  @@index([status])
+  @@index([actorId])
+  @@index([rotatedAt])
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  type         NotificationType @default(SYSTEM)
+  severity     SecuritySeverity @default(LOW)
+  title        String
+  message      String
+  metadata     Json?
+  isRead       Boolean          @default(false)
+  readAt       DateTime?
+  isArchived   Boolean          @default(false)
+  archivedAt   DateTime?
+  recipient    User?            @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  recipientId  String?
+  actor        User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId      String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([recipientId])
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+  @@index([isArchived])
+  @@index([createdAt])
+}
+
+model SystemSecurityStatus {
+  id                    String   @id @default(cuid())
+  httpsEnforced         Boolean
+  tlsKeyPathConfigured  Boolean  @default(false)
+  tlsCertPathConfigured Boolean  @default(false)
+  tlsCaPathConfigured   Boolean  @default(false)
+  tlsCertSubject        String?
+  tlsCertIssuer         String?
+  tlsCertValidFrom      DateTime?
+  tlsCertValidTo        DateTime?
+  coreHeaderPosture     Json
+  status                String   @default("unknown")
+  notes                 String?
+  checkError            String?
+  checkedAt             DateTime @default(now())
+  createdAt             DateTime @default(now())
+
+  @@index([status])
+  @@index([checkedAt])
+  @@index([createdAt])
 }
 
 enum Role {

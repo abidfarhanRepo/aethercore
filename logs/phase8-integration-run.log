@@ -1,0 +1,4 @@
+ERROR: Neither TEST_DATABASE_URL nor DATABASE_URL is set.
+Set one of them to your Neon direct connection string, then rerun.
+Example:
+  $env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"

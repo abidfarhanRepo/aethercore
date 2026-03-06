@@ -14,7 +14,10 @@ const ALGORITHM = 'aes-256-gcm'
  */
 function ensureKeyLength(): string {
   if (ENCRYPTION_KEY.length < 32) {
-    console.warn('⚠️ ENCRYPTION_KEY is less than 32 characters. This is insecure. Set ENCRYPTION_KEY env var.')
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ENCRYPTION_KEY must be at least 32 characters in production')
+    }
+    console.warn('ENCRYPTION_KEY is less than 32 characters. This is insecure. Set ENCRYPTION_KEY env var.')
     // Pad key to 32 bytes for development only 
     return ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32)
   }

@@ -1,10 +1,13 @@
 import { FastifyInstance } from 'fastify'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../utils/db'
+import { SecurityEventType, SecuritySeverity } from '@prisma/client'
 import { generateTokenPair, rotateRefreshToken, revokeToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt'
 import { sanitizeEmail, sanitizeString, validatePasswordStrength, removeSQLInjectionPatterns, containsXSSPatterns } from '../utils/sanitizer'
 import { onLoginSuccess, onLoginFailure } from '../middleware/brute-force'
 import { logAuthEvent } from '../utils/audit'
+import { createFailedLoginNotification } from '../lib/notificationService'
+import { logSecurityEventRecord } from '../lib/securityCompliance'
 
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -149,6 +152,19 @@ export default async function authRoutes(fastify: FastifyInstance) {
         // Log failed attempt with fake user identifier for audit
         await onLoginFailure(email, req)
         await logAuthEvent('LOGIN_FAILED', undefined, req, `User not found: ${email}`)
+        await logSecurityEventRecord({
+          eventType: SecurityEventType.FAILED_LOGIN,
+          severity: SecuritySeverity.MEDIUM,
+          source: 'auth/login',
+          message: 'Failed login attempt for unknown user',
+          details: { email },
+          ipAddress: req.ip,
+        }).catch((error) => {
+          console.error('Failed to persist failed-login security event:', error)
+        })
+        await createFailedLoginNotification(email, req.ip).catch((error) => {
+          console.error('Failed to persist failed-login notification:', error)
+        })
         // Don't reveal if user exists
         return reply.status(401).send({ error: 'Invalid credentials' })
       }
@@ -188,6 +204,24 @@ export default async function authRoutes(fastify: FastifyInstance) {
         })
         
         await logAuthEvent('LOGIN_FAILED', user.id, req, `Failed attempt ${newFailedAttempts}/5`)
+        await logSecurityEventRecord({
+          eventType: SecurityEventType.FAILED_LOGIN,
+          severity: isLocked ? SecuritySeverity.HIGH : SecuritySeverity.MEDIUM,
+          source: 'auth/login',
+          message: `Failed login attempt ${newFailedAttempts}/5`,
+          details: {
+            email,
+            failedAttempts: newFailedAttempts,
+            lockApplied: isLocked,
+          },
+          actorId: user.id,
+          ipAddress: req.ip,
+        }).catch((error) => {
+          console.error('Failed to persist failed-login security event:', error)
+        })
+        await createFailedLoginNotification(email, req.ip).catch((error) => {
+          console.error('Failed to persist failed-login notification:', error)
+        })
         
         if (lockStatus.locked) {
           return reply.status(429).send({

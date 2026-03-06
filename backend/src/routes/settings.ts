@@ -1,6 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../utils/db'
 import { requireAuth, requireRole } from '../plugins/authMiddleware'
+import { SecurityEventType, SecuritySeverity } from '@prisma/client'
+import { logKeyRotation, logSecurityEventRecord } from '../lib/securityCompliance'
 
 interface SettingsRequest extends FastifyRequest {
   user?: any
@@ -187,6 +189,42 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
               ...data,
             },
           })
+
+      const sensitiveKeyPattern = /(key|secret|cert|token)/i
+      const changedSensitiveSetting =
+        Boolean(existing) &&
+        sensitiveKeyPattern.test(key) &&
+        existing?.value !== data.value
+
+      if (changedSensitiveSetting) {
+        await logKeyRotation({
+          component: `settings:${key}`,
+          oldKeyVersion: 'previous',
+          newKeyVersion: 'updated',
+          actorId: request.user?.id,
+          details: {
+            category: data.category,
+            updatedBy: request.user?.id,
+          },
+        }).catch((error) => {
+          console.error('Failed to persist key rotation log:', error)
+        })
+
+        await logSecurityEventRecord({
+          eventType: SecurityEventType.KEY_ROTATION,
+          severity: SecuritySeverity.MEDIUM,
+          source: 'settings/update',
+          message: `Sensitive setting updated: ${key}`,
+          details: {
+            key,
+            category: data.category,
+          },
+          actorId: request.user?.id,
+          ipAddress: request.ip,
+        }).catch((error) => {
+          console.error('Failed to persist key rotation security event:', error)
+        })
+      }
 
       return reply.code(existing ? 200 : 201).send({
         ...updated,

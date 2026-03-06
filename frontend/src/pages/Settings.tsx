@@ -11,8 +11,9 @@ import SystemSettings from './settings/SystemSettings'
 import InventorySettings from './settings/InventorySettings'
 import UserSettings from './settings/UserSettings'
 import IndustryFeaturesSettings, { SettingMeta } from './settings/IndustryFeaturesSettings'
+import SecuritySettings from './settings/SecuritySettings'
 
-type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry'
+type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry' | 'security'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('store')
@@ -30,6 +31,7 @@ export default function SettingsPage() {
     { id: 'inventory' as Tab, label: 'Inventory', icon: '📦' },
     { id: 'user' as Tab, label: 'User Settings', icon: '👥' },
     { id: 'industry' as Tab, label: 'Industry & Features', icon: 'IF' },
+    { id: 'security' as Tab, label: 'Security', icon: 'SEC' },
   ]
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function SettingsPage() {
       inventory: 'inventory',
       user: 'user',
       industry: 'system',
+      security: 'system',
     }
 
     return byTab[activeTab]
@@ -214,6 +217,7 @@ export default function SettingsPage() {
         {activeTab === 'industry' && (
           <IndustryFeaturesSettings settings={settings.system || []} onSave={handleSaveSetting} />
         )}
+        {activeTab === 'security' && <SecuritySettings />}
       </div>
 
       {/* Footer Actions */}

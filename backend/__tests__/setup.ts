@@ -5,7 +5,10 @@
 
 // Set test environment variables
 process.env.NODE_ENV = 'test'
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/aether_test'
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  'postgresql://test:test@localhost:5432/aether_test'
 process.env.JWT_ACCESS_SECRET = 'test_access_secret_key_for_testing_only'
 process.env.JWT_REFRESH_SECRET = 'test_refresh_secret_key_for_testing_only'
 process.env.REDIS_URL = process.env.TEST_REDIS_URL || 'redis://localhost:6379/1'

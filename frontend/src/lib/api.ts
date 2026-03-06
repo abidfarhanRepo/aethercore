@@ -3,8 +3,13 @@ import { networkMonitor } from './offline/network'
 import { syncEngine } from './offline/sync'
 import { offlineDB } from './offline/db'
 
-// Use explicit backend URL - don't rely on Vite proxy which is unreliable
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+const defaultLocalProtocol =
+  typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https' : 'http'
+
+// In production default to same-origin transport to preserve HTTPS, while keeping a local fallback for development.
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? window.location.origin : `${defaultLocalProtocol}://localhost:4000`)
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -31,7 +36,7 @@ export function getNetworkErrorMessage(error: any): string {
     )
 
   if (hasNoResponse || hasConnectionErrorCode || hasConnectionErrorMessage) {
-    return 'Backend server at http://localhost:4000 is not reachable. Please ensure the server is running and try again.'
+    return 'Backend server is not reachable. Please ensure the server is running and try again.'
   }
 
   return responseData?.error || responseData?.message || error?.message || 'An unexpected error occurred'

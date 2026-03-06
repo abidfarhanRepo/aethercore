@@ -543,13 +543,45 @@ Exit criteria:
 
 ### Phase 8 - Security, Compliance, Ops (2 weeks)
 Tasks:
-- Secrets management and key rotation
-- Immutable audit retention policy
-- Monitoring, alerting, tracing
-- Backup/restore drills and release gates
+- Secrets and key rotation execution
+  - [x] Store application secrets only in environment secret providers (K8s Secret/CI vault), never in git.
+  - [ ] Enforce quarterly rotation for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, DB credentials, and Redis credentials.
+  - [x] Add `/api/security/key-rotations` query path to review rotation history by time and actor.
+  - [x] Add `/api/security/rotate-keys` (ADMIN) for rotation logging workflow and operator notification fanout.
+  - [x] Record `SecurityEvent(KEY_ROTATION)` for every success/failure path and retain actor/IP metadata.
+- TLS posture hardening
+  - [x] Configure `TLS_KEY_PATH`, `TLS_CERT_PATH`, and `TLS_CA_PATH` in all production runtime manifests.
+  - [x] Ensure TLS certificate mounts are read-only in Docker/K8s workloads.
+  - [x] Add ingress TLS manifest with cert-manager placeholders and strict redirect annotations.
+  - [ ] Add non-dedicated-hosting TLS profile: reverse-proxy TLS termination (Nginx/Caddy) with internal backend over private network and forced HTTPS redirect.
+  - [ ] Add dedicated-hosting TLS profile: managed cert rotation via cert-manager or cloud LB certificate manager.
+  - [ ] Add LAN/no-public-domain fallback TLS profile for organizations using local DNS/IP with locally trusted certificate authority (CA) and installation guide.
+  - [x] Surface TLS posture in `/api/security/status` and `/api/health` (`httpsEnforced`, `tlsConfigured`).
+- Monitoring, alerting, and tracing
+  - [x] Add `/api/health` dependency checks for postgres and redis with latency measurements.
+  - [x] Emit security failure notifications to ADMIN and MANAGER recipients.
+  - [x] Capture security event and key rotation streams via `/api/security/events` and `/api/security/key-rotations`.
+  - [ ] Define alert thresholds: auth failure spikes, security status failures, expired cert metadata, and backup failures.
+- Backup and restore readiness
+  - [ ] Schedule daily encrypted DB backups and weekly restore simulation in non-prod.
+  - [ ] Validate point-in-time restore runbook with explicit RPO/RTO targets.
+  - [ ] Persist backup drill outcomes as security/ops events for audit traceability.
+- Release gates and compliance controls
+  - [x] CI gate: targeted security and health route tests must pass before deploy.
+  - [ ] CI gate: migration status and schema drift check must be green.
+  - [ ] Pre-release gate: latest `/api/health` status is `ok|degraded` with database check passing.
+  - [ ] Pre-release gate: no unresolved CRITICAL security events in previous 24h.
+  - [ ] Post-release gate: verify key rotation and security notification fanout are visible in notification history.
+- Notification history and auditability
+  - [x] Persist notification records per recipient for ADMIN and MANAGER audiences.
+  - [x] Track read/archive lifecycle for security notifications in UI/API.
+  - [x] Keep notification metadata fields (`component`, `status`, `error`) for incident reconstruction.
+  - [x] Add Security Settings UI panel that shows TLS/HTTPS posture, key rotation history, security event stream, and notification history.
 
 Exit criteria:
-- Production readiness checklist fully green
+- Phase 8 checklist items above are all complete.
+- Security, key rotation, and health endpoints are test-covered and passing in CI.
+- Release gate evidence (backup drill, health checks, notification history) is attached to deployment records.
 
 ## 10. Core Module Requirements (Merged)
 
