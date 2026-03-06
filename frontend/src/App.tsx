@@ -104,24 +104,40 @@ function Layout({ children, featureFlags }: { children: React.ReactNode; feature
   const location = useLocation()
   const isCheckoutRoute = location.pathname === '/checkout'
 
+  const isTokenUsable = (token: string): boolean => {
+    const parts = token.split('.')
+    if (parts.length !== 3) return false
+
+    try {
+      const payloadPart = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+      const padded = payloadPart + '='.repeat((4 - (payloadPart.length % 4)) % 4)
+      const payload = JSON.parse(atob(padded)) as { exp?: number }
+      if (!payload.exp) return true
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      return payload.exp > nowSeconds
+    } catch {
+      return false
+    }
+  }
+
   useEffect(() => {
     setupAxiosInterceptors(api)
     
     // Check if user is already logged in
     const token = useAuthStore.getState().accessToken
     if (token) {
-      // FIX: Validate token before calling getMe to avoid unnecessary 401 errors
-      // Check if token looks valid (jwt format: 3 parts separated by dots)
-      const isValidJWTFormat = token.split('.').length === 3
-      
-      if (isValidJWTFormat) {
+      // Validate token structure + expiry before making /auth/me call.
+      if (isTokenUsable(token)) {
         authAPI
           .getMe()
           .then((res) => {
             useAuthStore.getState().setUser(res.data)
           })
           .catch((error) => {
-            console.error('Failed to fetch user info:', error.response?.status)
+            const status = error?.response?.status
+            if (status !== 401) {
+              console.error('Failed to fetch user info:', status)
+            }
             // Clear tokens on auth failure
             logout()
           })
@@ -129,8 +145,7 @@ function Layout({ children, featureFlags }: { children: React.ReactNode; feature
             setIsLoading(false)
           })
       } else {
-        // Token format is invalid, clear it
-        console.warn('Invalid token format detected, clearing authentication')
+        // Token is malformed or expired; clear auth state without noisy network calls.
         logout()
         setIsLoading(false)
       }
