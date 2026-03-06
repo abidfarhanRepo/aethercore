@@ -24,6 +24,7 @@ import hardwareRoutes from './routes/hardware'
 import securityRoutes from './routes/security'
 import notificationRoutes from './routes/notifications'
 import healthRoutes from './routes/health'
+import pluginRoutes from './routes/plugins'
 import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
 import { setupErrorHandler } from './middleware/errorHandler'
@@ -88,6 +89,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(securityRoutes)
   server.register(notificationRoutes)
   server.register(healthRoutes)
+  server.register(pluginRoutes)
   
   // Security audit endpoint (admin only)
   server.get('/api/security/audit-summary', async (req, reply) => {

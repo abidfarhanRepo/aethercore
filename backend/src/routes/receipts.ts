@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { prisma } from '../utils/db'
+import { coreHookBus } from '../lib/hookBus'
 
 export default async function receiptsRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { receiptPublicId: string } }>('/api/receipts/:receiptPublicId', async (req, reply) => {
@@ -31,6 +32,13 @@ export default async function receiptsRoutes(fastify: FastifyInstance) {
     }
 
     const saleRecord = sale as any
+
+    await coreHookBus.emit('onReceiptRender', {
+      saleId: saleRecord.id,
+      receiptPublicId: saleRecord.receiptPublicId,
+      terminalId: saleRecord.terminalId,
+      syncState: saleRecord.syncState,
+    })
 
     return {
       saleId: saleRecord.id,

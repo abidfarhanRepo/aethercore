@@ -5,6 +5,31 @@ import { prisma } from '../utils/db'
 import { requireAuth, requireRole, requirePermission } from '../plugins/authMiddleware'
 
 export default async function userRoutes(server: FastifyInstance) {
+  // Backward-compatible admin endpoint used by legacy Admin component.
+  server.get(
+    '/api/admin/users',
+    { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const users = await prisma.user.findMany({
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+
+        reply.send(users)
+      } catch {
+        reply.code(500).send({ error: 'Failed to list users' })
+      }
+    }
+  )
+
   // GET /users - List all users
   server.get<{ Querystring: { role?: string; department?: string; search?: string; limit?: string; offset?: string } }>(
     '/api/users',

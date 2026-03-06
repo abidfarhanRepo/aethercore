@@ -14,6 +14,7 @@ import {
   validateSplitPayment,
   PaymentInput,
 } from '../utils/paymentEngine'
+import { coreHookBus } from '../lib/hookBus'
 
 export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales - Create Sale ============
@@ -50,6 +51,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           statusCode: 400,
         })
       }
+
+      await coreHookBus.emit('beforeSaleFinalize', {
+        userId: actorUserId,
+        receiptPublicId: body.receiptPublicId,
+        terminalId: body.terminalId,
+      })
 
       const result = await prisma.$transaction(async (tx) => {
         const parsedClientCreatedAt = body.clientCreatedAt
@@ -206,6 +213,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           })
 
           // Create inventory transaction
+          await coreHookBus.emit('beforeInventoryCommit', {
+            saleId: sale.id,
+            productId: item.productId,
+            qtyDelta: -item.qty,
+            reason: 'SALE',
+          })
           await tx.inventoryTransaction.create({
             data: {
               productId: item.productId,
@@ -216,6 +229,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
               createdBy: actorUserId,
               reference: sale.id,
             },
+          })
+          await coreHookBus.emit('afterInventoryCommit', {
+            saleId: sale.id,
+            productId: item.productId,
+            qtyDelta: -item.qty,
+            reason: 'SALE',
           })
 
           // Phase 3 FEFO support: if lot data exists, consume oldest-expiring batches first.
@@ -300,6 +319,11 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       } catch (ae: any) {
         fastify.log.warn('Failed to write audit', ae)
       }
+
+      await coreHookBus.emit('afterSaleFinalize', {
+        saleId: result.id,
+        userId: actorUserId,
+      })
 
       return reply.code(201).send(result)
     } catch (e: any) {
@@ -444,6 +468,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       const body = req.body as any
 
       try {
+        await coreHookBus.emit('beforeRefund', {
+          saleId: id,
+          type: body.type,
+          reason: body.reason,
+        })
+
         const sale = await prisma.sale.findUnique({
           where: { id },
           include: { items: true, customer: true },
@@ -531,6 +561,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           await (fastify as any).createAudit('sale_refunded', refund, (req as any).userId)
         }
 
+        await coreHookBus.emit('afterRefund', {
+          saleId: id,
+          type: body.type,
+          refundAmountCents,
+        })
+
         return reply.code(201).send(refund)
       } catch (e: any) {
         fastify.log.error(e)
@@ -547,6 +583,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       const body = req.body as any
 
       try {
+        await coreHookBus.emit('beforeRefund', {
+          saleId: id,
+          type: 'return',
+          reason: body.reason,
+        })
+
         const saleReturn = await prisma.saleReturn.create({
           data: {
             saleId: id,
@@ -568,6 +610,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           if (item) {
             const warehouse = await prisma.warehouse.findFirst()
             if (warehouse) {
+              await coreHookBus.emit('beforeInventoryCommit', {
+                saleId: id,
+                productId: item.productId,
+                qtyDelta: body.restockQty,
+                reason: 'RETURN',
+              })
               await prisma.inventoryTransaction.create({
                 data: {
                   productId: item.productId,
@@ -579,9 +627,21 @@ export default async function salesRoutes(fastify: FastifyInstance) {
                   createdBy: (req as any).userId || 'system',
                 },
               })
+              await coreHookBus.emit('afterInventoryCommit', {
+                saleId: id,
+                productId: item.productId,
+                qtyDelta: body.restockQty,
+                reason: 'RETURN',
+              })
             }
           }
         }
+
+        await coreHookBus.emit('afterRefund', {
+          saleId: id,
+          type: 'return',
+          returnId: saleReturn.id,
+        })
 
         return reply.code(201).send(saleReturn)
       } catch (e: any) {
@@ -623,6 +683,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           const warehouse = await tx.warehouse.findFirst()
           if (warehouse && sale.items.length > 0) {
             for (const item of sale.items) {
+              await coreHookBus.emit('beforeInventoryCommit', {
+                saleId: id,
+                productId: item.productId,
+                qtyDelta: item.qty,
+                reason: 'VOID',
+              })
               await tx.inventoryTransaction.create({
                 data: {
                   productId: item.productId,
@@ -633,6 +699,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
                   reference: id,
                   createdBy: (req as any).userId || 'system',
                 },
+              })
+              await coreHookBus.emit('afterInventoryCommit', {
+                saleId: id,
+                productId: item.productId,
+                qtyDelta: item.qty,
+                reason: 'VOID',
               })
             }
           }

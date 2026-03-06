@@ -12,8 +12,9 @@ import InventorySettings from './settings/InventorySettings'
 import UserSettings from './settings/UserSettings'
 import IndustryFeaturesSettings, { SettingMeta } from './settings/IndustryFeaturesSettings'
 import SecuritySettings from './settings/SecuritySettings'
+import PluginSettings from './settings/PluginSettings'
 
-type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry' | 'security'
+type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry' | 'security' | 'plugins'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('store')
@@ -31,6 +32,7 @@ export default function SettingsPage() {
     { id: 'inventory' as Tab, label: 'Inventory', icon: '📦' },
     { id: 'user' as Tab, label: 'User Settings', icon: '👥' },
     { id: 'industry' as Tab, label: 'Industry & Features', icon: 'IF' },
+    { id: 'plugins' as Tab, label: 'Plugins', icon: 'PLG' },
     { id: 'security' as Tab, label: 'Security', icon: 'SEC' },
   ]
 
@@ -54,6 +56,7 @@ export default function SettingsPage() {
       inventory: 'inventory',
       user: 'user',
       industry: 'system',
+      plugins: 'system',
       security: 'system',
     }
 
@@ -217,6 +220,7 @@ export default function SettingsPage() {
         {activeTab === 'industry' && (
           <IndustryFeaturesSettings settings={settings.system || []} onSave={handleSaveSetting} />
         )}
+        {activeTab === 'plugins' && <PluginSettings />}
         {activeTab === 'security' && <SecuritySettings />}
       </div>
 

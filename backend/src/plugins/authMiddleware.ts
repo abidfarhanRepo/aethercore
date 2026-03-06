@@ -95,6 +95,7 @@ export interface AuthUser {
   id: string
   email: string
   role: string
+  tenantId?: string | null
   firstName?: string
   lastName?: string
 }
@@ -112,6 +113,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
         id: true,
         email: true,
         role: true,
+        tenantId: true,
         firstName: true,
         lastName: true,
         isActive: true,

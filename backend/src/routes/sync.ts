@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../utils/db'
+import { requireAuth, requireRole } from '../plugins/authMiddleware'
+import { coreHookBus } from '../lib/hookBus'
 
 type OperationType = 'POST' | 'PUT' | 'DELETE'
 
@@ -249,7 +251,7 @@ async function persistDeadLetter(params: {
       payload: {
         operationId,
         ...operation,
-      },
+      } as Prisma.InputJsonValue,
       errorCode,
       errorDetail,
     },
@@ -444,6 +446,12 @@ export default async function syncRoutes(fastify: FastifyInstance) {
                 deadLetterId,
                 message: 'receiptPublicId already exists',
               })
+              await coreHookBus.emit('onSyncConflict', {
+                operationId,
+                endpoint,
+                reason: 'RECEIPT_PUBLIC_ID_CONFLICT',
+                deadLetterId,
+              })
               continue
             }
 
@@ -466,6 +474,12 @@ export default async function syncRoutes(fastify: FastifyInstance) {
           deadLetterId,
           message: `Unsupported operation: ${operationType} ${endpoint}`,
         })
+        await coreHookBus.emit('onSyncConflict', {
+          operationId,
+          endpoint,
+          reason: 'UNSUPPORTED_ENDPOINT',
+          deadLetterId,
+        })
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
         const normalizedMessage = message.toLowerCase()
@@ -483,6 +497,13 @@ export default async function syncRoutes(fastify: FastifyInstance) {
         results.push({
           id: operationId,
           status: resultStatus,
+          deadLetterId,
+          message,
+        })
+        await coreHookBus.emit('onSyncConflict', {
+          operationId,
+          endpoint,
+          reason: errorCode,
           deadLetterId,
           message,
         })
@@ -551,7 +572,9 @@ export default async function syncRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string } }>('/api/sync/dead-letter/:id/replay', async (req, reply) => {
+  fastify.post<{ Params: { id: string } }>('/api/sync/dead-letter/:id/replay', {
+    preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER', 'SUPERVISOR')],
+  }, async (req, reply) => {
     const deadLetterId = req.params.id
 
     const deadLetter = await prisma.syncDeadLetter.findUnique({ where: { id: deadLetterId } })
@@ -562,7 +585,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
       })
     }
 
-    const payload = deadLetter.payload as SyncOperation
+    const payload = deadLetter.payload as unknown as SyncOperation
     const endpoint = normalizeEndpoint(deadLetter.endpoint)
 
     if (deadLetter.operationType !== 'POST' || !(endpoint === '/api/sales' || endpoint === '/sales')) {

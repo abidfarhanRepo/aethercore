@@ -15,6 +15,8 @@ model User {
   lastName            String?
   phone               String?
   department          String?
+  tenant              Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenantId            String?
   manager             User?     @relation("ManagerRelation", fields: [managerId], references: [id], onDelete: SetNull)
   managerId           String?
   subordinates        User[]    @relation("ManagerRelation")
@@ -39,11 +41,20 @@ model User {
   keyRotationsAuthored   KeyRotationLog[]   @relation("KeyRotationActor")
   notificationsReceived  Notification[]     @relation("NotificationRecipient")
   notificationsAuthored  Notification[]     @relation("NotificationActor")
+  tenantFeatureFlagsUpdated TenantFeatureFlag[] @relation("TenantFeatureFlagUpdater")
 
   @@index([email])
   @@index([role])
   @@index([department])
   @@index([isActive])
+  @@index([tenantId])
+}
+
+enum TenantProfile {
+  SUPERMARKET
+  RESTAURANT
+  PHARMACY
+  GENERAL
 }
 
 enum SecuritySeverity {
@@ -746,6 +757,98 @@ model TaxExemption {
   @@index([category])
   @@index([productId])
   @@index([isActive])
+}
+
+model Tenant {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String
+  profile   TenantProfile @default(GENERAL)
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  users        User[]
+  featureFlags TenantFeatureFlag[]
+
+  @@index([profile])
+  @@index([isActive])
+}
+
+model Plugin {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  version     String
+  description String?
+  isCore      Boolean  @default(false)
+  isEnabled   Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  manifest    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  capabilities         PluginCapability[]
+  dependencies         PluginDependency[] @relation("PluginDependencies")
+  requiredBy           PluginDependency[] @relation("PluginRequiredBy")
+  tenantFeatureFlags   TenantFeatureFlag[]
+
+  @@index([isCore])
+  @@index([isEnabled])
+  @@index([isActive])
+}
+
+model PluginCapability {
+  id          String   @id @default(cuid())
+  plugin      Plugin   @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  pluginId    String
+  key         String   @unique
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  flags TenantFeatureFlag[]
+
+  @@index([pluginId])
+  @@index([isDefault])
+}
+
+model PluginDependency {
+  id               String  @id @default(cuid())
+  plugin           Plugin  @relation("PluginDependencies", fields: [pluginId], references: [id], onDelete: Cascade)
+  pluginId         String
+  dependsOnPlugin  Plugin  @relation("PluginRequiredBy", fields: [dependsOnPluginId], references: [id], onDelete: Cascade)
+  dependsOnPluginId String
+  minVersion       String?
+  required         Boolean @default(true)
+  createdAt        DateTime @default(now())
+
+  @@unique([pluginId, dependsOnPluginId])
+  @@index([pluginId])
+  @@index([dependsOnPluginId])
+}
+
+model TenantFeatureFlag {
+  id            String            @id @default(cuid())
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      String
+  capability    PluginCapability? @relation(fields: [capabilityId], references: [id], onDelete: SetNull)
+  capabilityId  String?
+  capabilityKey String
+  enabled       Boolean           @default(false)
+  sourcePlugin  Plugin?           @relation(fields: [sourcePluginId], references: [id], onDelete: SetNull)
+  sourcePluginId String?
+  config        Json?
+  updatedByUser User?             @relation("TenantFeatureFlagUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+  updatedBy     String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([tenantId, capabilityKey])
+  @@index([tenantId])
+  @@index([capabilityKey])
+  @@index([enabled])
 }
 
 model LotBatch {
