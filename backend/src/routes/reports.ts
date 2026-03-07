@@ -27,7 +27,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', requirePermission('reports.view'))
 
   // ============ Sales Summary by Day/Week/Month ============
-  fastify.get('/api/reports/sales-summary', async (req, reply) => {
+  fastify.get('/api/v1/reports/sales-summary', async (req, reply) => {
     const { dateFrom, dateTo, groupBy } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -69,7 +69,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Sales by Product ============
-  fastify.get('/api/reports/sales-by-product', async (req, reply) => {
+  fastify.get('/api/v1/reports/sales-by-product', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -108,7 +108,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Sales by Category ============
-  fastify.get('/api/reports/sales-by-category', async (req, reply) => {
+  fastify.get('/api/v1/reports/sales-by-category', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -139,7 +139,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Top Products ============
-  fastify.get('/api/reports/top-products', async (req, reply) => {
+  fastify.get('/api/v1/reports/top-products', async (req, reply) => {
     const { limit, dateFrom, dateTo } = req.query as Record<string, string>
     const limitNum = parseInt(limit) || 10
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -176,7 +176,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Revenue Analysis ============
-  fastify.get('/api/reports/revenue-analysis', async (req, reply) => {
+  fastify.get('/api/v1/reports/revenue-analysis', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -205,7 +205,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Inventory Valuation ============
-  fastify.get('/api/reports/inventory-valuation', async (req, reply) => {
+  fastify.get('/api/v1/reports/inventory-valuation', async (req, reply) => {
     const cacheKey = 'inventory-valuation'
     const cached = getCache(cacheKey)
     if (cached) return cached
@@ -247,7 +247,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Inventory Movement ============
-  fastify.get('/api/reports/inventory-movement', async (req, reply) => {
+  fastify.get('/api/v1/reports/inventory-movement', async (req, reply) => {
     const cacheKey = 'inventory-movement'
     const cached = getCache(cacheKey)
     if (cached) return cached
@@ -293,7 +293,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Low Stock Items ============
-  fastify.get('/api/reports/low-stock', async (req, reply) => {
+  fastify.get('/api/v1/reports/low-stock', async (req, reply) => {
     const cacheKey = 'low-stock'
     const cached = getCache(cacheKey)
     if (cached) return cached
@@ -319,7 +319,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Customer Analytics ============
-  fastify.get('/api/reports/customer-analytics', async (req, reply) => {
+  fastify.get('/api/v1/reports/customer-analytics', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -364,7 +364,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Payment Methods ============
-  fastify.get('/api/reports/payment-methods', async (req, reply) => {
+  fastify.get('/api/v1/reports/payment-methods', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -397,7 +397,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Discounts Impact ============
-  fastify.get('/api/reports/discounts-impact', async (req, reply) => {
+  fastify.get('/api/v1/reports/discounts-impact', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -435,7 +435,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Employee Performance ============
-  fastify.get('/api/reports/employee-performance', async (req, reply) => {
+  fastify.get('/api/v1/reports/employee-performance', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -470,7 +470,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Profit Margins ============
-  fastify.get('/api/reports/profit-margins', async (req, reply) => {
+  fastify.get('/api/v1/reports/profit-margins', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -518,7 +518,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Tax Summary ============
-  fastify.get('/api/reports/tax-summary', async (req, reply) => {
+  fastify.get('/api/v1/reports/tax-summary', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -545,7 +545,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Hourly Sales ============
-  fastify.get('/api/reports/hourly-sales', async (req, reply) => {
+  fastify.get('/api/v1/reports/hourly-sales', async (req, reply) => {
     const { date } = req.query as Record<string, string>
     const reportDate = date ? new Date(date) : new Date()
     reportDate.setHours(0, 0, 0, 0)
@@ -580,7 +580,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Inventory Adjustments ============
-  fastify.get('/api/reports/inventory-adjustments', async (req, reply) => {
+  fastify.get('/api/v1/reports/inventory-adjustments', async (req, reply) => {
     const { dateFrom, dateTo } = req.query as Record<string, string>
     const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const to = dateTo ? new Date(dateTo) : new Date()
@@ -609,7 +609,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ Daily Sales (hourly breakdown for a specific date) ============
-  fastify.get('/api/reports/daily-sales', async (req, reply) => {
+  fastify.get('/api/v1/reports/daily-sales', async (req, reply) => {
     const { date } = req.query as Record<string, string>
     const reportDate = date ? new Date(date) : new Date()
     reportDate.setHours(0, 0, 0, 0)
@@ -646,7 +646,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
   })
 
   // ============ CSV Export ============
-  fastify.get('/api/reports/export/csv', { preHandler: [requirePermission('reports.export')] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/export/csv', { preHandler: [requirePermission('reports.export')] }, async (req, reply) => {
     const { type, dateFrom, dateTo } = req.query as Record<string, string>
 
     if (type === 'sales-summary') {

@@ -13,10 +13,10 @@ const STATIC_ASSETS = [
 ]
 
 const API_CACHE_ROUTES = [
-  '/api/products',
-  '/api/inventory',
-  '/api/users',
-  '/api/categories',
+  '/api/v1/products',
+  '/api/v1/inventory',
+  '/api/v1/users',
+  '/api/v1/categories',
 ]
 
 // Install event - cache static assets
@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   }
 
   // Handle API requests
-  if (url.includes('/api/')) {
+  if (url.includes('/api/v1/')) {
     if (method === 'GET') {
       // Serve from network, fallback to cache (Network First strategy)
       event.respondWith(

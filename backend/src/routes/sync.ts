@@ -374,7 +374,7 @@ async function createSaleFromOperation(operation: SyncOperation): Promise<{ id: 
 }
 
 export default async function syncRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: SyncBatchBody }>('/api/sync/batch', async (req, reply) => {
+  fastify.post<{ Body: SyncBatchBody }>('/api/v1/sync/batch', async (req, reply) => {
     const body = req.body
 
     if (!body || !Array.isArray(body.operations)) {
@@ -411,7 +411,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
           }
         }
 
-        if (operationType === 'POST' && (endpoint === '/api/sales' || endpoint === '/sales')) {
+        if (operationType === 'POST' && (endpoint === '/api/v1/sales' || endpoint === '/sales')) {
           try {
             const createdSale = await createSaleFromOperation(operation)
             results.push({
@@ -516,7 +516,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
     })
   })
 
-  fastify.get('/api/sync/status', async () => {
+  fastify.get('/api/v1/sync/status', async () => {
     const [total, open, replayed, resolved] = await Promise.all([
       prisma.syncDeadLetter.count(),
       prisma.syncDeadLetter.count({ where: { status: 'open' } }),
@@ -541,7 +541,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/api/sync/dead-letter', async () => {
+  fastify.get('/api/v1/sync/dead-letter', async () => {
     const items = await prisma.syncDeadLetter.findMany({
       where: {
         status: 'open',
@@ -572,7 +572,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string } }>('/api/sync/dead-letter/:id/replay', {
+  fastify.post<{ Params: { id: string } }>('/api/v1/sync/dead-letter/:id/replay', {
     preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER', 'SUPERVISOR')],
   }, async (req, reply) => {
     const deadLetterId = req.params.id
@@ -588,7 +588,7 @@ export default async function syncRoutes(fastify: FastifyInstance) {
     const payload = deadLetter.payload as unknown as SyncOperation
     const endpoint = normalizeEndpoint(deadLetter.endpoint)
 
-    if (deadLetter.operationType !== 'POST' || !(endpoint === '/api/sales' || endpoint === '/sales')) {
+    if (deadLetter.operationType !== 'POST' || !(endpoint === '/api/v1/sales' || endpoint === '/sales')) {
       return reply.status(422).send({
         error: 'Replay supports only sale create operations',
         code: 'REPLAY_UNSUPPORTED_OPERATION',

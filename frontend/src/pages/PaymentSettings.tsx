@@ -61,7 +61,7 @@ export function PaymentSettings() {
 
   const loadProcessors = async () => {
     try {
-      const response = await fetch('/api/payments/settings', {
+      const response = await fetch('/api/v1/payments/settings', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         },
@@ -130,7 +130,7 @@ export function PaymentSettings() {
         payload.webhookSecret = config.webhookSecret
       }
 
-      const response = await fetch('/api/payments/settings', {
+      const response = await fetch('/api/v1/payments/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

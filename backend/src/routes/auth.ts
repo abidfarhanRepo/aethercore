@@ -62,7 +62,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   }
 
   // Register with enhanced security
-  fastify.post('/api/auth/register', { schema: registerSchema }, async (req, reply) => {
+  fastify.post('/api/v1/auth/register', { schema: registerSchema }, async (req, reply) => {
     try {
       const { email: rawEmail, password: rawPassword } = req.body as any
       
@@ -126,7 +126,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Login with enhanced security
-  fastify.post('/api/auth/login', { schema: loginSchema }, async (req, reply) => {
+  fastify.post('/api/v1/auth/login', { schema: loginSchema }, async (req, reply) => {
     try {
       const { email: rawEmail, password } = req.body as any
       
@@ -268,7 +268,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       if (typeof (reply as any).setCookie === 'function') {
         ;(reply as any).setCookie('refreshToken', refreshToken, {
-          path: '/api/auth',
+          path: '/api/v1/auth',
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
@@ -295,7 +295,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Refresh token with rotation
-  fastify.post('/api/auth/refresh', async (req, reply) => {
+  fastify.post('/api/v1/auth/refresh', async (req, reply) => {
     try {
       const body = (req.body as any) || {}
       const refreshToken =
@@ -340,7 +340,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       if (typeof (reply as any).setCookie === 'function') {
         ;(reply as any).setCookie('refreshToken', newTokens.refreshToken, {
-          path: '/api/auth',
+          path: '/api/v1/auth',
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
@@ -360,7 +360,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Logout with token revocation
-  fastify.post('/api/auth/logout', async (req, reply) => {
+  fastify.post('/api/v1/auth/logout', async (req, reply) => {
     try {
       const body = (req.body as any) || {}
       const refreshToken =
@@ -385,7 +385,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
       
       // Clear cookies
-      reply.clearCookie('refreshToken', { path: '/api/auth' })
+      reply.clearCookie('refreshToken', { path: '/api/v1/auth' })
       
       return { ok: true, message: 'Logged out successfully' }
     } catch (error) {
@@ -395,7 +395,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Get current user info
-  fastify.get('/api/auth/me', async (req, reply) => {
+  fastify.get('/api/v1/auth/me', async (req, reply) => {
     try {
       const auth = req.headers.authorization
       if (!auth) {

@@ -19,7 +19,7 @@ import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
 
 export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales - Create Sale ============
-  fastify.post('/api/sales', async (req, reply) => {
+  fastify.post('/api/v1/sales', async (req, reply) => {
     const body = req.body as any
     const idempotencyHeader = req.headers['idempotency-key']
     const idempotencyKey =
@@ -388,7 +388,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ GET /sales - List Sales ============
   fastify.get(
-    '/api/sales',
+    '/api/v1/sales',
     async (req, reply) => {
       const query = req.query as any
 
@@ -445,7 +445,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ GET /sales/:id - Get Sale Details ============
   fastify.get(
-    '/api/sales/:id',
+    '/api/v1/sales/:id',
     async (req, reply) => {
       const { id } = req.params as any
 
@@ -480,7 +480,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ POST /sales/:id/refund - Process Refund ============
   fastify.post(
-    '/api/sales/:id/refund',
+    '/api/v1/sales/:id/refund',
     async (req, reply) => {
       const { id } = req.params as any
       const body = req.body as any
@@ -595,7 +595,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ POST /sales/:id/return - Process Return ============
   fastify.post(
-    '/api/sales/:id/return',
+    '/api/v1/sales/:id/return',
     async (req, reply) => {
       const { id } = req.params as any
       const body = req.body as any
@@ -671,7 +671,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ POST /sales/:id/void - Void Sale ============
   fastify.post(
-    '/api/sales/:id/void',
+    '/api/v1/sales/:id/void',
     async (req, reply) => {
       const { id } = req.params as any
       const body = req.body as any
@@ -747,7 +747,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
   // ============ GET /sales/analytics/summary - Sales Analytics ============
   fastify.get(
-    '/api/sales/analytics/summary',
+    '/api/v1/sales/analytics/summary',
     async (req, reply) => {
       const query = req.query as any
       const period = query.period || 'daily' // daily, weekly, monthly

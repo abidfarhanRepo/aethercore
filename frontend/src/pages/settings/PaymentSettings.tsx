@@ -137,7 +137,7 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
 
   const loadProcessorSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/payments/settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/payments/settings`, {
         headers: authHeaders(),
       })
       if (!response.ok) {
@@ -154,8 +154,8 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
   const loadHardwareSummary = async () => {
     try {
       const [printersRes, scannersRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/hardware/printers`, { headers: authHeaders() }),
-        fetch(`${API_BASE_URL}/api/hardware/scanners`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/api/v1/hardware/printers`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/api/v1/hardware/scanners`, { headers: authHeaders() }),
       ])
 
       if (printersRes.ok) {
@@ -175,7 +175,7 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
 
   const loadPrintDesignSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/hardware/print-settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/hardware/print-settings`, {
         headers: authHeaders(),
       })
 
@@ -208,7 +208,7 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
       setSavingProcessor(processor.name)
       setError(null)
 
-      const response = await fetch(`${API_BASE_URL}/api/payments/settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/payments/settings`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -238,7 +238,7 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
       setSavingPrintSettings(true)
       setError(null)
 
-      const response = await fetch(`${API_BASE_URL}/api/hardware/print-settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/hardware/print-settings`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify(printDesign),
@@ -263,7 +263,7 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
 
     try {
       setError(null)
-      const response = await fetch(`${API_BASE_URL}/api/hardware/printers`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/hardware/printers`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -295,7 +295,7 @@ export default function PaymentSettings({ settings, onSave }: PaymentSettingsPro
       setError(null)
       setTestPrintPayload('')
 
-      const response = await fetch(`${API_BASE_URL}/api/hardware/printers/${printerId}/test-print`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/hardware/printers/${printerId}/test-print`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({}),

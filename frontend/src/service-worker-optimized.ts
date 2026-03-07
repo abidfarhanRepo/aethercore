@@ -17,11 +17,11 @@ const CACHE_DURATIONS = {
 
 // API endpoints to cache
 const CACHEABLE_ENDPOINTS = [
-  '/api/products',
-  '/api/inventory',
-  '/api/categories',
-  '/api/reports',
-  '/api/user/profile',
+  '/api/v1/products',
+  '/api/v1/inventory',
+  '/api/v1/categories',
+  '/api/v1/reports',
+  '/api/v1/user/profile',
 ];
 
 // Files to precache on installation
@@ -79,7 +79,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   }
 
   // API requests - stale-while-revalidate
-  if (url.pathname.startsWith('/api/')) {
+  if (url.pathname.startsWith('/api/v1/')) {
     return event.respondWith(handleAPIRequest(request));
   }
 

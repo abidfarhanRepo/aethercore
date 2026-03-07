@@ -3,7 +3,7 @@ import { prisma } from '../utils/db'
 import { coreHookBus } from '../lib/hookBus'
 
 export default async function receiptsRoutes(fastify: FastifyInstance) {
-  fastify.get<{ Params: { receiptPublicId: string } }>('/api/receipts/:receiptPublicId', async (req, reply) => {
+  fastify.get<{ Params: { receiptPublicId: string } }>('/api/v1/receipts/:receiptPublicId', async (req, reply) => {
     const { receiptPublicId } = req.params
 
     const sale = await prisma.sale.findFirst({

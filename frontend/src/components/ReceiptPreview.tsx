@@ -103,7 +103,7 @@ export function ReceiptPreview({
       if (!isOpen) return
       try {
         const token = localStorage.getItem('accessToken') || localStorage.getItem('auth_token') || ''
-        const response = await fetch(`${API_BASE_URL}/api/hardware/print-settings`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/hardware/print-settings`, {
           headers: {
             Authorization: token ? `Bearer ${token}` : '',
           },

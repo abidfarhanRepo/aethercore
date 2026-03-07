@@ -56,7 +56,7 @@ type CompleteReceivingBody = {
 }
 
 export default async function phase3Routes(fastify: FastifyInstance) {
-  fastify.post<{ Body: LotCreateBody }>('/api/inventory/lots', { preHandler: [requireAuth, requireAllCapabilities(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
+  fastify.post<{ Body: LotCreateBody }>('/api/v1/inventory/lots', { preHandler: [requireAuth, requireAllCapabilities(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
     const { productId, warehouseId, batchNumber, expiryDate, qtyAvailable, costPerUnit, notes } = req.body
 
     if (!productId || !warehouseId || !batchNumber || !expiryDate || qtyAvailable === undefined) {
@@ -83,7 +83,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get<{ Params: { productId: string } }>('/api/inventory/lots/:productId', { preHandler: [requireAuth, requireAllCapabilities(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
+  fastify.get<{ Params: { productId: string } }>('/api/v1/inventory/lots/:productId', { preHandler: [requireAuth, requireAllCapabilities(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
     const { productId } = req.params
 
     try {
@@ -99,7 +99,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get<{ Querystring: { thresholdDays?: string } }>('/api/inventory/expiry-alerts', { preHandler: [requireAuth, requireCapability('inventory.expiry')] }, async (req, reply) => {
+  fastify.get<{ Querystring: { thresholdDays?: string } }>('/api/v1/inventory/expiry-alerts', { preHandler: [requireAuth, requireCapability('inventory.expiry')] }, async (req, reply) => {
     const thresholdDays = Number(req.query.thresholdDays || '30')
     const now = new Date()
     const thresholdDate = new Date(now)
@@ -140,7 +140,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Body: LotTransferBody }>('/api/inventory/transfer-lot', { preHandler: [requireAuth, requireAllCapabilities(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
+  fastify.post<{ Body: LotTransferBody }>('/api/v1/inventory/transfer-lot', { preHandler: [requireAuth, requireAllCapabilities(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
     const { productId, fromLotBatchId, toLotBatchId, qty, notes } = req.body
 
     if (!productId || !fromLotBatchId || !qty || qty <= 0) {
@@ -197,7 +197,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/api/restaurant/tables', { preHandler: [requireAuth, requireCapability('restaurant.table_service')] }, async (_req, reply) => {
+  fastify.get('/api/v1/restaurant/tables', { preHandler: [requireAuth, requireCapability('restaurant.table_service')] }, async (_req, reply) => {
     try {
       const tables = await (prisma as any).restaurantTable.findMany({ orderBy: [{ tableNumber: 'asc' }] })
       return { tables }
@@ -207,7 +207,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.patch<{ Params: { id: string }; Body: TablePatchBody }>('/api/restaurant/tables/:id', { preHandler: [requireAuth, requireCapability('restaurant.table_service')] }, async (req, reply) => {
+  fastify.patch<{ Params: { id: string }; Body: TablePatchBody }>('/api/v1/restaurant/tables/:id', { preHandler: [requireAuth, requireCapability('restaurant.table_service')] }, async (req, reply) => {
     const { id } = req.params
     const { status, notes } = req.body
 
@@ -226,7 +226,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/api/kitchen/tickets', { preHandler: [requireAuth, requireCapability('restaurant.kds')] }, async (_req, reply) => {
+  fastify.get('/api/v1/kitchen/tickets', { preHandler: [requireAuth, requireCapability('restaurant.kds')] }, async (_req, reply) => {
     try {
       const tickets = await (prisma as any).kitchenTicket.findMany({
         include: {
@@ -242,7 +242,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.patch<{ Params: { id: string }; Body: TicketPatchBody }>('/api/kitchen/tickets/:id/status', { preHandler: [requireAuth, requireCapability('restaurant.kds')] }, async (req, reply) => {
+  fastify.patch<{ Params: { id: string }; Body: TicketPatchBody }>('/api/v1/kitchen/tickets/:id/status', { preHandler: [requireAuth, requireCapability('restaurant.kds')] }, async (req, reply) => {
     const { id } = req.params
     const { status } = req.body
 
@@ -265,7 +265,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get<{ Params: { rxNumber: string } }>('/api/pharmacy/prescriptions/:rxNumber', { preHandler: [requireAuth, requireCapability('pharmacy.prescription_validation')] }, async (req, reply) => {
+  fastify.get<{ Params: { rxNumber: string } }>('/api/v1/pharmacy/prescriptions/:rxNumber', { preHandler: [requireAuth, requireCapability('pharmacy.prescription_validation')] }, async (req, reply) => {
     const { rxNumber } = req.params
 
     try {
@@ -290,7 +290,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/api/pharmacy/interactions', { preHandler: [requireAuth, requireCapability('pharmacy.drug_interactions')] }, async (_req, reply) => {
+  fastify.get('/api/v1/pharmacy/interactions', { preHandler: [requireAuth, requireCapability('pharmacy.drug_interactions')] }, async (_req, reply) => {
     try {
       const interactions = await (prisma as any).drugInteraction.findMany({
         where: { isActive: true },
@@ -307,7 +307,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string } }>('/api/pharmacy/prescriptions/:id/fill', { preHandler: [requireAuth, requireCapability('pharmacy.prescription_validation')] }, async (req, reply) => {
+  fastify.post<{ Params: { id: string } }>('/api/v1/pharmacy/prescriptions/:id/fill', { preHandler: [requireAuth, requireCapability('pharmacy.prescription_validation')] }, async (req, reply) => {
     const { id } = req.params
 
     try {
@@ -344,7 +344,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Body: OverrideBody }>('/api/pharmacy/overrides', { preHandler: [requireAuth, requireCapability('pharmacy.controlled_substances')] }, async (req, reply) => {
+  fastify.post<{ Body: OverrideBody }>('/api/v1/pharmacy/overrides', { preHandler: [requireAuth, requireCapability('pharmacy.controlled_substances')] }, async (req, reply) => {
     const { prescriptionId, pharmacistId, action, reason } = req.body
 
     if (!prescriptionId || !pharmacistId || !action || !reason) {
@@ -368,7 +368,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string }; Body: StartReceivingBody }>('/api/purchases/:id/start-receiving', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (req, reply) => {
+  fastify.post<{ Params: { id: string }; Body: StartReceivingBody }>('/api/v1/purchases/:id/start-receiving', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (req, reply) => {
     const { id } = req.params
     const { startedBy } = req.body
 
@@ -388,7 +388,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string }; Body: ReceivingDiscrepancyBody }>('/api/purchases/:id/receiving/discrepancy', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (req, reply) => {
+  fastify.post<{ Params: { id: string }; Body: ReceivingDiscrepancyBody }>('/api/v1/purchases/:id/receiving/discrepancy', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (req, reply) => {
     const { id } = req.params
     const { sessionId, purchaseOrderItemId, qtyExpected, qtyReceived, discrepancyReason, notes } = req.body
 
@@ -415,7 +415,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string }; Body: CompleteReceivingBody }>('/api/purchases/:id/receiving/complete', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (req, reply) => {
+  fastify.post<{ Params: { id: string }; Body: CompleteReceivingBody }>('/api/v1/purchases/:id/receiving/complete', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (req, reply) => {
     const { id } = req.params
     const { sessionId, completedBy } = req.body
 
@@ -449,7 +449,7 @@ export default async function phase3Routes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/api/purchases/discrepancies', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (_req, reply) => {
+  fastify.get('/api/v1/purchases/discrepancies', { preHandler: [requireAuth, requireCapability('procurement.receiving')] }, async (_req, reply) => {
     try {
       const discrepancies = await (prisma as any).receivingDiscrepancy.findMany({
         include: {

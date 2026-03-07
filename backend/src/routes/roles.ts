@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from '../plugins/authMiddleware'
 export default async function roleRoutes(server: FastifyInstance) {
   // GET /roles - List all roles
   server.get<{ Querystring: { limit?: string; offset?: string } }>(
-    '/api/roles',
+    '/api/v1/roles',
     { preHandler: requireAuth },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -107,7 +107,7 @@ export default async function roleRoutes(server: FastifyInstance) {
 
   // GET /roles/:id - Get role details
   server.get<{ Params: { id: string } }>(
-    '/api/roles/:id',
+    '/api/v1/roles/:id',
     { preHandler: requireAuth },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -261,7 +261,7 @@ export default async function roleRoutes(server: FastifyInstance) {
 
   // POST /roles - Create custom role (ADMIN only)
   server.post<{ Body: any }>(
-    '/api/roles',
+    '/api/v1/roles',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -305,7 +305,7 @@ export default async function roleRoutes(server: FastifyInstance) {
 
   // PUT /roles/:id - Update role permissions (ADMIN only)
   server.put<{ Params: { id: string }; Body: any }>(
-    '/api/roles/:id',
+    '/api/v1/roles/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -352,7 +352,7 @@ export default async function roleRoutes(server: FastifyInstance) {
 
   // DELETE /roles/:id - Delete custom role (ADMIN only)
   server.delete<{ Params: { id: string } }>(
-    '/api/roles/:id',
+    '/api/v1/roles/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {

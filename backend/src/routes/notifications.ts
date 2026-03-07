@@ -8,7 +8,7 @@ import {
 } from '../lib/notificationService'
 
 export default async function notificationRoutes(fastify: FastifyInstance) {
-  fastify.get('/api/notifications', { preHandler: [requireAuth] }, async (req, reply) => {
+  fastify.get('/api/v1/notifications', { preHandler: [requireAuth] }, async (req, reply) => {
     const user = req.user
     const query = (req.query || {}) as {
       includeArchived?: string
@@ -34,7 +34,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
     return { notifications }
   })
 
-  fastify.get('/api/notifications/unread-count', { preHandler: [requireAuth] }, async (req, reply) => {
+  fastify.get('/api/v1/notifications/unread-count', { preHandler: [requireAuth] }, async (req, reply) => {
     const user = req.user
     if (!user?.id) {
       return reply.code(401).send({ error: 'unauthenticated' })
@@ -44,7 +44,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
     return { unreadCount: count }
   })
 
-  fastify.patch('/api/notifications/:id/read', { preHandler: [requireAuth] }, async (req, reply) => {
+  fastify.patch('/api/v1/notifications/:id/read', { preHandler: [requireAuth] }, async (req, reply) => {
     const user = req.user
     const { id } = req.params as { id: string }
 
@@ -60,7 +60,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
     return { ok: true }
   })
 
-  fastify.patch('/api/notifications/:id/archive', { preHandler: [requireAuth] }, async (req, reply) => {
+  fastify.patch('/api/v1/notifications/:id/archive', { preHandler: [requireAuth] }, async (req, reply) => {
     const user = req.user
     const { id } = req.params as { id: string }
 

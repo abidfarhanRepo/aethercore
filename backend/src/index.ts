@@ -55,6 +55,21 @@ const initializeSecurityAndRoutes = async () => {
 
     request.headers['x-request-id'] = requestId
     reply.header('X-Request-ID', requestId)
+
+    const requestPath = request.url.split('?')[0]
+    if (
+      request.method === 'GET' &&
+      requestPath.startsWith('/api/') &&
+      !requestPath.startsWith('/api/v1/')
+    ) {
+      const query = request.url.includes('?') ? request.url.slice(request.url.indexOf('?')) : ''
+      const upgradedPath = `/api/v1/${requestPath.slice('/api/'.length)}`
+      reply
+        .header('X-API-Deprecation', 'Deprecated endpoint. Use /api/v1/*')
+        .header('Warning', '299 - "Deprecated API version. Use /api/v1 endpoints"')
+        .redirect(301, `${upgradedPath}${query}`)
+      return
+    }
   })
 
   server.addHook('onResponse', async (request, reply) => {
@@ -113,7 +128,7 @@ const initializeSecurityAndRoutes = async () => {
   server.register(pluginRoutes)
   
   // Security audit endpoint (admin only)
-  server.get('/api/security/audit-summary', async (req, reply) => {
+  server.get('/api/v1/security/audit-summary', async (req, reply) => {
     // Check auth and admin role
     const auth = req.headers.authorization
     if (!auth) {
@@ -130,7 +145,7 @@ const initializeSecurityAndRoutes = async () => {
   })
   
   // Brute force stats endpoint (admin only)
-  server.get('/api/security/bruteforce-stats', async (req, reply) => {
+  server.get('/api/v1/security/bruteforce-stats', async (req, reply) => {
     try {
       const { getBruteForceStats } = await import('./middleware/brute-force')
       const stats = await getBruteForceStats()

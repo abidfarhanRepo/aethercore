@@ -160,7 +160,7 @@ class SyncEngine {
     const results: SyncResult[] = []
 
     // Try batch sync first (if supported)
-    if (endpoint === '/api/sync/batch' || endpoint === '/api/sales') {
+    if (endpoint === '/api/v1/sync/batch' || endpoint === '/api/v1/sales') {
       const batchResult = await this.syncBatch(items)
       return batchResult
     }
@@ -200,7 +200,7 @@ class SyncEngine {
       }))
 
       // Send batch request
-      const response = await api.post('/api/sync/batch', {
+      const response = await api.post('/api/v1/sync/batch', {
         operations,
       })
 

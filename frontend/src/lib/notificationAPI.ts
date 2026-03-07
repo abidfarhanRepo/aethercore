@@ -24,9 +24,9 @@ export const notificationAPI = {
     if (params?.unreadOnly) search.set('unreadOnly', 'true')
     if (params?.limit) search.set('limit', String(params.limit))
     const suffix = search.toString() ? `?${search.toString()}` : ''
-    return api.get<{ notifications: AppNotification[] }>(`/api/notifications${suffix}`)
+    return api.get<{ notifications: AppNotification[] }>(`/api/v1/notifications${suffix}`)
   },
-  getUnreadCount: () => api.get<{ unreadCount: number }>('/api/notifications/unread-count'),
-  markRead: (id: string) => api.patch(`/api/notifications/${id}/read`),
-  archive: (id: string) => api.patch(`/api/notifications/${id}/archive`),
+  getUnreadCount: () => api.get<{ unreadCount: number }>('/api/v1/notifications/unread-count'),
+  markRead: (id: string) => api.patch(`/api/v1/notifications/${id}/read`),
+  archive: (id: string) => api.patch(`/api/v1/notifications/${id}/archive`),
 }

@@ -106,7 +106,7 @@
 ---
 
 ### TICKET W1-04 — Add API Versioning (/api/v1/)
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Files:**
 - `backend/src/index.ts` ← update route registration

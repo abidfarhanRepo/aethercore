@@ -100,15 +100,15 @@ export interface AlertEvaluationResult {
 }
 
 export const securityAPI = {
-  getStatus: () => api.get<SecurityStatusResponse>('/api/security/status'),
-  getEvents: (limit = 50) => api.get<{ items: SecurityEventItem[]; meta: { limit: number; count: number } }>(`/api/security/events?limit=${limit}`),
+  getStatus: () => api.get<SecurityStatusResponse>('/api/v1/security/status'),
+  getEvents: (limit = 50) => api.get<{ items: SecurityEventItem[]; meta: { limit: number; count: number } }>(`/api/v1/security/events?limit=${limit}`),
   getKeyRotations: (limit = 50) =>
-    api.get<{ items: KeyRotationItem[]; meta: { limit: number; count: number } }>(`/api/security/key-rotations?limit=${limit}`),
+    api.get<{ items: KeyRotationItem[]; meta: { limit: number; count: number } }>(`/api/v1/security/key-rotations?limit=${limit}`),
   rotateKeys: (payload: { component: 'jwt_access' | 'jwt_refresh' | 'encryption' | 'tls' | 'settings'; newVersion: string; notes?: string }) =>
-    api.post('/api/security/rotate-keys', payload),
-  getAlertRules: () => api.get<{ config: AlertRulesConfig }>('/api/security/alert-rules'),
+    api.post('/api/v1/security/rotate-keys', payload),
+  getAlertRules: () => api.get<{ config: AlertRulesConfig }>('/api/v1/security/alert-rules'),
   updateAlertRules: (payload: Partial<AlertRulesConfig>) =>
-    api.put<{ config: AlertRulesConfig }>('/api/security/alert-rules', payload),
-  evaluateAlertRules: () => api.post<{ evaluation: AlertEvaluationResult }>('/api/security/alert-rules/evaluate'),
-  getHealth: () => api.get<HealthResponse>('/api/health'),
+    api.put<{ config: AlertRulesConfig }>('/api/v1/security/alert-rules', payload),
+  evaluateAlertRules: () => api.post<{ evaluation: AlertEvaluationResult }>('/api/v1/security/alert-rules/evaluate'),
+  getHealth: () => api.get<HealthResponse>('/api/v1/health'),
 }

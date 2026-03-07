@@ -273,7 +273,7 @@ export const batchQueue = new BatchRequestQueue();
  *
  * // Deduplicate requests
  * const data = await deduplicator.getOrFetch('products', async () => {
- *   const res = await fetch('/api/products');
+ *   const res = await fetch('/api/v1/products');
  *   return res.json();
  * });
  *
@@ -282,7 +282,7 @@ export const batchQueue = new BatchRequestQueue();
  *   const cached = apiCache.get('products');
  *   if (cached) return cached;
  *
- *   const response = await fetch('/api/products');
+ *   const response = await fetch('/api/v1/products');
  *   const data = await response.json();
  *   apiCache.set('products', data, 5 * 60 * 1000); // Cache for 5 min
  *   return data;
@@ -290,8 +290,8 @@ export const batchQueue = new BatchRequestQueue();
  *
  * // Batch requests
  * const results = await Promise.all([
- *   batchQueue.queue('id1', () => fetch('/api/item/1')),
- *   batchQueue.queue('id2', () => fetch('/api/item/2')),
- *   batchQueue.queue('id3', () => fetch('/api/item/3')),
+ *   batchQueue.queue('id1', () => fetch('/api/v1/item/1')),
+ *   batchQueue.queue('id2', () => fetch('/api/v1/item/2')),
+ *   batchQueue.queue('id3', () => fetch('/api/v1/item/3')),
  * ]);
  */

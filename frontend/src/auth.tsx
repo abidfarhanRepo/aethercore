@@ -25,7 +25,7 @@ export function AuthProvider({children}:{children:React.ReactNode}){
         const rtoken = localStorage.getItem('refreshToken')
         if(!rtoken) { logout(); return Promise.reject(err) }
         try{
-          const resp = await api.post('/api/auth/refresh', { refreshToken: rtoken })
+          const resp = await api.post('/api/v1/auth/refresh', { refreshToken: rtoken })
           const { accessToken: newAccess, refreshToken: newRefresh, user } = resp.data
           localStorage.setItem('accessToken', newAccess)
           if(newRefresh) localStorage.setItem('refreshToken', newRefresh)
@@ -45,7 +45,7 @@ export function AuthProvider({children}:{children:React.ReactNode}){
   useEffect(()=>{
     // Try to load user from server if tokens exist
     if(accessToken){
-      api.get('/api/auth/me').then(r=>setUser(r.data)).catch(()=>setUser(null))
+      api.get('/api/v1/auth/me').then(r=>setUser(r.data)).catch(()=>setUser(null))
     }
   },[accessToken])
 

@@ -57,7 +57,7 @@ export function PayPalPaymentButton({
                 createOrder: async () => {
                   try {
                     // Create PayPal order on backend
-                    const response = await fetch('/api/payments/paypal/orders', {
+                    const response = await fetch('/api/v1/payments/paypal/orders', {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ export function PayPalPaymentButton({
 
                     // Capture PayPal order on backend
                     const response = await fetch(
-                      '/api/payments/paypal',
+                      '/api/v1/payments/paypal',
                       {
                         method: 'POST',
                         headers: {

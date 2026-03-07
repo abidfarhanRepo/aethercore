@@ -30,7 +30,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // GET all settings grouped by category
   fastify.get(
-    '/api/settings',
+    '/api/v1/settings',
     { preHandler: [requireAuth, requireManagerRole] },
     async (request: SettingsRequest, reply: FastifyReply) => {
 
@@ -62,7 +62,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // GET specific setting by key
   fastify.get(
-    '/api/settings/:key',
+    '/api/v1/settings/:key',
     { preHandler: [requireAuth, requireManagerRole] },
     async (request: SettingsRequest, reply: FastifyReply) => {
 
@@ -85,7 +85,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // GET settings by category
   fastify.get(
-    '/api/settings/category/:category',
+    '/api/v1/settings/category/:category',
     { preHandler: [requireAuth, requireManagerRole] },
     async (request: SettingsRequest, reply: FastifyReply) => {
 
@@ -106,7 +106,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // PUT update a specific setting
   fastify.put(
-    '/api/settings/:key',
+    '/api/v1/settings/:key',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {
@@ -245,7 +245,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // POST batch update multiple settings
   fastify.post(
-    '/api/settings/batch',
+    '/api/v1/settings/batch',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {
@@ -352,7 +352,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // POST create a new setting (admin only - seeding)
   fastify.post(
-    '/api/settings',
+    '/api/v1/settings',
     {
       preHandler: [requireAuth, requireRole('ADMIN')],
       schema: {
@@ -405,7 +405,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // DELETE a setting (admin only)
   fastify.delete(
-    '/api/settings/:key',
+    '/api/v1/settings/:key',
     {
       preHandler: [requireAuth, requireRole('ADMIN')],
       schema: {
@@ -431,7 +431,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // GET all tax rates
   fastify.get(
-    '/api/settings/tax-rates',
+    '/api/v1/settings/tax-rates',
     { preHandler: [requireAuth, requireManagerRole] },
     async (request: SettingsRequest, reply: FastifyReply) => {
 
@@ -445,7 +445,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // GET tax rate by id
   fastify.get(
-    '/api/settings/tax-rates/:id',
+    '/api/v1/settings/tax-rates/:id',
     { preHandler: [requireAuth, requireManagerRole] },
     async (request: SettingsRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string }
@@ -460,7 +460,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // POST create tax rate
   fastify.post(
-    '/api/settings/tax-rates',
+    '/api/v1/settings/tax-rates',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {
@@ -506,7 +506,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // PUT update tax rate
   fastify.put(
-    '/api/settings/tax-rates/:id',
+    '/api/v1/settings/tax-rates/:id',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {
@@ -558,7 +558,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // DELETE tax rate
   fastify.delete(
-    '/api/settings/tax-rates/:id',
+    '/api/v1/settings/tax-rates/:id',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {
@@ -584,7 +584,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // GET all tax exemptions
   fastify.get(
-    '/api/settings/tax-exemptions',
+    '/api/v1/settings/tax-exemptions',
     { preHandler: [requireAuth, requireManagerRole] },
     async (request: SettingsRequest, reply: FastifyReply) => {
 
@@ -599,7 +599,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // POST create tax exemption
   fastify.post(
-    '/api/settings/tax-exemptions',
+    '/api/v1/settings/tax-exemptions',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {
@@ -632,7 +632,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
 
   // DELETE tax exemption
   fastify.delete(
-    '/api/settings/tax-exemptions/:id',
+    '/api/v1/settings/tax-exemptions/:id',
     {
       preHandler: [requireAuth, requireManagerRole],
       schema: {

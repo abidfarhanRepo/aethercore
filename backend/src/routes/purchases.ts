@@ -14,7 +14,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance){
     }
   }
 
-  fastify.post('/api/purchases', { schema: createPoSchema }, async (req, reply)=>{
+  fastify.post('/api/v1/purchases', { schema: createPoSchema }, async (req, reply)=>{
     const body = req.body as any
     const items: { productId: string; qty: number; unitPrice: number }[] = body.items
 
@@ -40,7 +40,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance){
     body: { type: 'object', required: ['items'], properties: { userId: { type: 'string' }, items: { type: 'array', minItems: 1, items: { type: 'object', required: ['productId','qty'], properties: { productId: { type: 'string' }, qty: { type: 'number' } } } } } }
   }
 
-  fastify.post('/api/purchases/:id/receive', { schema: receiveSchema }, async (req, reply)=>{
+  fastify.post('/api/v1/purchases/:id/receive', { schema: receiveSchema }, async (req, reply)=>{
     const id = (req.params as any).id
     const body = req.body as any
     const items: { productId: string; qty: number }[] = body.items
@@ -63,14 +63,14 @@ export default async function purchaseRoutes(fastify: FastifyInstance){
     }
   })
 
-  fastify.get('/api/purchases/:id', { schema: { params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } } }, async (req, reply)=>{
+  fastify.get('/api/v1/purchases/:id', { schema: { params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } } }, async (req, reply)=>{
     const id = (req.params as any).id
     const po = await (prisma as any).purchaseOrder.findUnique({ where: { id }, include: { items: true } })
     if(!po) return reply.status(404).send({ error: 'not found' })
     return po
   })
 
-  fastify.get('/api/purchases', async ()=>{
+  fastify.get('/api/v1/purchases', async ()=>{
     return (prisma as any).purchaseOrder.findMany({ include: { items: true } })
   })
 }

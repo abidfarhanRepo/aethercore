@@ -20,9 +20,9 @@ class NetworkMonitor {
   private readonly API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
   private readonly PING_ENDPOINTS = [
     `${this.API_BASE_URL}/health`,
-    `${this.API_BASE_URL}/api/health`,
+    `${this.API_BASE_URL}/api/v1/health`,
     '/health',
-    '/api/health',
+    '/api/v1/health',
   ]
   private readonly CHECK_INTERVAL = 30000 // 30 seconds
   private readonly PING_TIMEOUT = 5000 // 5 seconds

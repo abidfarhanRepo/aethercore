@@ -36,22 +36,22 @@ export interface TenantFlagItem {
 }
 
 export const pluginAPI = {
-  listPlugins: () => api.get<{ plugins: PluginItem[] }>('/api/plugins'),
-  listTenants: () => api.get<{ tenants: TenantItem[] }>('/api/plugins/tenants'),
+  listPlugins: () => api.get<{ plugins: PluginItem[] }>('/api/v1/plugins'),
+  listTenants: () => api.get<{ tenants: TenantItem[] }>('/api/v1/plugins/tenants'),
   createTenant: (payload: { name: string; code: string; profile: TenantItem['profile'] }) =>
-    api.post<TenantItem>('/api/plugins/tenants', payload),
+    api.post<TenantItem>('/api/v1/plugins/tenants', payload),
   listTenantFlags: (tenantId: string) =>
     api.get<{
       tenant: TenantItem
       defaults: string[]
       flags: TenantFlagItem[]
-    }>(`/api/plugins/tenants/${tenantId}/feature-flags`),
+    }>(`/api/v1/plugins/tenants/${tenantId}/feature-flags`),
   updateTenantFlag: (tenantId: string, capabilityKey: string, enabled: boolean) =>
-    api.put<TenantFlagItem>(`/api/plugins/tenants/${tenantId}/feature-flags/${encodeURIComponent(capabilityKey)}`, {
+    api.put<TenantFlagItem>(`/api/v1/plugins/tenants/${tenantId}/feature-flags/${encodeURIComponent(capabilityKey)}`, {
       enabled,
     }),
   enablePlugin: (pluginKey: string, tenantId?: string) =>
-    api.post(`/api/plugins/${pluginKey}/enable`, tenantId ? { tenantId } : {}),
+    api.post(`/api/v1/plugins/${pluginKey}/enable`, tenantId ? { tenantId } : {}),
   disablePlugin: (pluginKey: string, tenantId?: string) =>
-    api.post(`/api/plugins/${pluginKey}/disable`, tenantId ? { tenantId } : {}),
+    api.post(`/api/v1/plugins/${pluginKey}/disable`, tenantId ? { tenantId } : {}),
 }

@@ -7,7 +7,7 @@ import { requireAuth, requireRole, requirePermission } from '../plugins/authMidd
 export default async function userRoutes(server: FastifyInstance) {
   // Backward-compatible admin endpoint used by legacy Admin component.
   server.get(
-    '/api/admin/users',
+    '/api/v1/admin/users',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (_request: any, reply: FastifyReply) => {
       try {
@@ -32,7 +32,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // GET /users - List all users
   server.get<{ Querystring: { role?: string; department?: string; search?: string; limit?: string; offset?: string } }>(
-    '/api/users',
+    '/api/v1/users',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -84,7 +84,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // GET /users/:id - Get user details
   server.get<{ Params: { id: string } }>(
-    '/api/users/:id',
+    '/api/v1/users/:id',
     { preHandler: requireAuth },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -125,7 +125,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // POST /users - Create new user (ADMIN only)
   server.post<{ Body: any }>(
-    '/api/users',
+    '/api/v1/users',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -190,7 +190,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // PUT /users/:id - Update user (ADMIN only)
   server.put<{ Params: { id: string }; Body: any }>(
-    '/api/users/:id',
+    '/api/v1/users/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -241,7 +241,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // DELETE /users/:id - Deactivate user (ADMIN only)
   server.delete<{ Params: { id: string } }>(
-    '/api/users/:id',
+    '/api/v1/users/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -280,7 +280,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // POST /users/:id/change-password - Change own password
   server.post<{ Params: { id: string }; Body: any }>(
-    '/api/users/:id/change-password',
+    '/api/v1/users/:id/change-password',
     { preHandler: requireAuth },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -342,7 +342,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // POST /users/:id/reset-password - Admin reset (ADMIN only)
   server.post<{ Params: { id: string } }>(
-    '/api/users/:id/reset-password',
+    '/api/v1/users/:id/reset-password',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -385,7 +385,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // POST /users/:id/unlock - Unlock locked account (ADMIN only)
   server.post<{ Params: { id: string } }>(
-    '/api/users/:id/unlock',
+    '/api/v1/users/:id/unlock',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -421,7 +421,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // PUT /users/:id/roles - Update user roles (ADMIN only)
   server.put<{ Params: { id: string }; Body: any }>(
-    '/api/users/:id/roles',
+    '/api/v1/users/:id/roles',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (request: any, reply: FastifyReply) => {
       try {
@@ -464,7 +464,7 @@ export default async function userRoutes(server: FastifyInstance) {
 
   // GET /users/:id/audit-log - View user activity log
   server.get<{ Params: { id: string }; Querystring: { limit?: string; offset?: string } }>(
-    '/api/users/:id/audit-log',
+    '/api/v1/users/:id/audit-log',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (request: any, reply: FastifyReply) => {
       try {

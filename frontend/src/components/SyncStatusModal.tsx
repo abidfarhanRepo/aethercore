@@ -34,7 +34,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
 
   const loadDeadLetterItems = async () => {
     try {
-      const response = await api.get('/api/sync/dead-letter')
+      const response = await api.get('/api/v1/sync/dead-letter')
       const items = Array.isArray(response.data?.items) ? response.data.items : []
       setDeadLetterItems(items)
     } catch (error) {
@@ -101,7 +101,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
   const handleReplayDeadLetter = async (id: string) => {
     setReplayingId(id)
     try {
-      await api.post(`/api/sync/dead-letter/${id}/replay`)
+      await api.post(`/api/v1/sync/dead-letter/${id}/replay`)
       await loadData()
     } catch (error) {
       console.error('Dead-letter replay failed:', error)

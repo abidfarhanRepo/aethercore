@@ -176,7 +176,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   await initializeProcessors()
 
   /**
-   * POST /api/payments/process
+   * POST /api/v1/payments/process
    * Process payment (generic endpoint that selects processor)
    */
   fastify.post<{
@@ -193,7 +193,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       cardholderName?: string
       saveCard?: boolean
     }
-  }>('/api/payments/process', async (req, reply) => {
+  }>('/api/v1/payments/process', async (req, reply) => {
     try {
       await req.jwtVerify()
       const user = req.user as any
@@ -486,7 +486,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/stripe
+   * POST /api/v1/payments/stripe
    * Process Stripe payment (convenience endpoint)
    */
   fastify.post<{
@@ -496,7 +496,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       amount: number
       save?: boolean
     }
-  }>('/api/payments/stripe', async (req, reply) => {
+  }>('/api/v1/payments/stripe', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -505,7 +505,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       // Reuse main endpoint
       const injected = await req.server.inject({
         method: 'POST',
-        url: '/api/payments/process',
+        url: '/api/v1/payments/process',
         payload: {
           saleId,
           processor: 'STRIPE',
@@ -527,7 +527,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/square
+   * POST /api/v1/payments/square
    * Process Square payment
    */
   fastify.post<{
@@ -536,7 +536,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       sourceId: string
       amount: number
     }
-  }>('/api/payments/square', async (req, reply) => {
+  }>('/api/v1/payments/square', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -544,7 +544,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
       const injected = await req.server.inject({
         method: 'POST',
-        url: '/api/payments/process',
+        url: '/api/v1/payments/process',
         payload: {
           saleId,
           processor: 'SQUARE',
@@ -565,7 +565,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/paypal
+   * POST /api/v1/payments/paypal
    * Process PayPal payment
    */
   fastify.post<{
@@ -573,7 +573,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       saleId: string
       orderId: string
     }
-  }>('/api/payments/paypal', async (req, reply) => {
+  }>('/api/v1/payments/paypal', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -634,7 +634,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * GET /api/payments/methods
+   * GET /api/v1/payments/methods
    * List payment methods on file for a customer
    */
   fastify.get<{
@@ -642,7 +642,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       customerId: string
       processor?: string
     }
-  }>('/api/payments/methods', async (req, reply) => {
+  }>('/api/v1/payments/methods', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -681,7 +681,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/:id/refund
+   * POST /api/v1/payments/:id/refund
    * Process refund for a payment
    */
   fastify.post<{
@@ -692,7 +692,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       amount?: number
       reason?: string
     }
-  }>('/api/payments/:id/refund', async (req, reply) => {
+  }>('/api/v1/payments/:id/refund', async (req, reply) => {
     try {
       await req.jwtVerify()
       const user = req.user as any
@@ -798,7 +798,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/:id/receipt
+   * POST /api/v1/payments/:id/receipt
    * Email receipt
    */
   fastify.post<{
@@ -808,7 +808,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
     Body: {
       recipientEmail: string
     }
-  }>('/api/payments/:id/receipt', async (req, reply) => {
+  }>('/api/v1/payments/:id/receipt', async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -879,7 +879,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * GET /payments/settings
    * Get payment processor configuration (ADMIN only)
    */
-  fastify.get('/api/payments/settings', async (req, reply) => {
+  fastify.get('/api/v1/payments/settings', async (req, reply) => {
     try {
       await authPaymentAdmin(req, reply)
 
@@ -950,7 +950,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/settings
+   * POST /api/v1/payments/settings
    * Update payment processor configuration (ADMIN only)
    */
   fastify.post<{
@@ -964,7 +964,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       enabled?: boolean
       dummyMode?: boolean
     }
-  }>('/api/payments/settings', async (req, reply) => {
+  }>('/api/v1/payments/settings', async (req, reply) => {
     try {
       await authPaymentAdmin(req, reply)
 
@@ -1084,12 +1084,12 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/webhooks/stripe
+   * POST /api/v1/payments/webhooks/stripe
    * Stripe webhook handler
    */
   fastify.post<{
     Body: any
-  }>('/api/payments/webhooks/stripe', async (req, reply) => {
+  }>('/api/v1/payments/webhooks/stripe', async (req, reply) => {
     try {
       const signature = req.headers['stripe-signature'] as string
       const body = JSON.stringify(req.body)
@@ -1148,12 +1148,12 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/webhooks/square
+   * POST /api/v1/payments/webhooks/square
    * Square webhook handler
    */
   fastify.post<{
     Body: any
-  }>('/api/payments/webhooks/square', async (req, reply) => {
+  }>('/api/v1/payments/webhooks/square', async (req, reply) => {
     try {
       const bodyData = req.body as any
       const signature = req.headers['x-square-hmac-sha256'] as string
@@ -1192,12 +1192,12 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
   })
 
   /**
-   * POST /api/payments/webhooks/paypal
+   * POST /api/v1/payments/webhooks/paypal
    * PayPal webhook handler
    */
   fastify.post<{
     Body: any
-  }>('/api/payments/webhooks/paypal', async (req, reply) => {
+  }>('/api/v1/payments/webhooks/paypal', async (req, reply) => {
     try {
       const bodyData = req.body as any
       const transmissionId = req.headers['paypal-transmission-id'] as string

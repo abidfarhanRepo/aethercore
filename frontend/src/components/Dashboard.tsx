@@ -10,10 +10,10 @@ export default function Dashboard(){
   useEffect(()=>{
     setLoading(true)
     Promise.all([
-      axios.get('/api/reports/daily-sales').catch(e=>{
+      axios.get('/api/v1/reports/daily-sales').catch(e=>{
         return axios.get('http://localhost:4000/reports/daily-sales').catch(()=>({data:[]}))
       }),
-      axios.get('/api/reports/inventory-valuation').catch(e=>{
+      axios.get('/api/v1/reports/inventory-valuation').catch(e=>{
         return axios.get('http://localhost:4000/reports/inventory-valuation').catch(()=>({data:[]}))
       })
     ]).then(([ds, iv])=>{

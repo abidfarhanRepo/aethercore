@@ -30,7 +30,7 @@ const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ showSyncModal, mode
     syncEngine.getProgress().then(applyProgress)
 
     void api
-      .get('/api/sync/status')
+      .get('/api/v1/sync/status')
       .then((res) => {
         const count = Number(res.data?.deadLetter?.open)
         setDeadLetterOpenCount(Number.isFinite(count) ? count : 0)

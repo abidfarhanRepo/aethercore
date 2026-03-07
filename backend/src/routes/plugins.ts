@@ -16,7 +16,7 @@ function parseProfile(value?: string): TenantProfile {
 export default async function pluginRoutes(fastify: FastifyInstance) {
   const managerGuard = [requireAuth, requireRole('ADMIN', 'MANAGER')]
 
-  fastify.get('/api/plugins', { preHandler: managerGuard }, async () => {
+  fastify.get('/api/v1/plugins', { preHandler: managerGuard }, async () => {
     const plugins = await prisma.plugin.findMany({
       include: {
         capabilities: {
@@ -35,7 +35,7 @@ export default async function pluginRoutes(fastify: FastifyInstance) {
     return { plugins }
   })
 
-  fastify.get('/api/plugins/tenants', { preHandler: managerGuard }, async () => {
+  fastify.get('/api/v1/plugins/tenants', { preHandler: managerGuard }, async () => {
     const tenants = await prisma.tenant.findMany({
       include: {
         _count: { select: { users: true, featureFlags: true } },
@@ -46,7 +46,7 @@ export default async function pluginRoutes(fastify: FastifyInstance) {
     return { tenants }
   })
 
-  fastify.post('/api/plugins/tenants', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+  fastify.post('/api/v1/plugins/tenants', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
     const body = (req.body || {}) as { name?: string; code?: string; profile?: string }
 
     if (!body.name || !body.code) {
@@ -64,7 +64,7 @@ export default async function pluginRoutes(fastify: FastifyInstance) {
     return reply.code(201).send(tenant)
   })
 
-  fastify.get('/api/plugins/tenants/:tenantId/feature-flags', { preHandler: managerGuard }, async (req, reply) => {
+  fastify.get('/api/v1/plugins/tenants/:tenantId/feature-flags', { preHandler: managerGuard }, async (req, reply) => {
     const { tenantId } = req.params as { tenantId: string }
 
     const tenant = await prisma.tenant.findUnique({
@@ -92,7 +92,7 @@ export default async function pluginRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.put('/api/plugins/tenants/:tenantId/feature-flags/:capabilityKey', { preHandler: managerGuard }, async (req, reply) => {
+  fastify.put('/api/v1/plugins/tenants/:tenantId/feature-flags/:capabilityKey', { preHandler: managerGuard }, async (req, reply) => {
     const { tenantId, capabilityKey } = req.params as { tenantId: string; capabilityKey: string }
     const body = (req.body || {}) as { enabled?: boolean; config?: Record<string, unknown> }
 
@@ -116,7 +116,7 @@ export default async function pluginRoutes(fastify: FastifyInstance) {
     return upserted
   })
 
-  fastify.post('/api/plugins/:pluginKey/enable', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+  fastify.post('/api/v1/plugins/:pluginKey/enable', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
     const { pluginKey } = req.params as { pluginKey: string }
     const { tenantId } = (req.body || {}) as { tenantId?: string }
 
@@ -146,7 +146,7 @@ export default async function pluginRoutes(fastify: FastifyInstance) {
     return { ok: true, pluginKey, isEnabled: true }
   })
 
-  fastify.post('/api/plugins/:pluginKey/disable', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
+  fastify.post('/api/v1/plugins/:pluginKey/disable', { preHandler: [requireAuth, requireRole('ADMIN')] }, async (req, reply) => {
     const { pluginKey } = req.params as { pluginKey: string }
     const { tenantId } = (req.body || {}) as { tenantId?: string }
 

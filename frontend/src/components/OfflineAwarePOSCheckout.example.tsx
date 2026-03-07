@@ -71,7 +71,7 @@ export function OfflineAwarePOSCheckout() {
         }
       } else {
         // Online: send to server directly
-        const response = await api.post('/api/sales', saleData)
+        const response = await api.post('/api/v1/sales', saleData)
 
         if (response.status === 200 || response.status === 201) {
           alert('Sale completed successfully')
@@ -90,7 +90,7 @@ export function OfflineAwarePOSCheckout() {
       if (networkStatus.isOnline) {
         const queueId = await syncEngine.queueOperation(
           'POST',
-          '/api/sales',
+          '/api/v1/sales',
           {
             items,
             subtotalCents,
@@ -117,7 +117,7 @@ export function OfflineAwarePOSCheckout() {
       if (!sale) return
 
       // Queue for sync
-      await syncEngine.queueOperation('POST', '/api/sales', sale, 10)
+      await syncEngine.queueOperation('POST', '/api/v1/sales', sale, 10)
       await deleteSale(saleId)
       alert('Sale requeued for sync')
     } catch (error) {

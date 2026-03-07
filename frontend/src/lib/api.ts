@@ -11,6 +11,8 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.PROD ? window.location.origin : `${defaultLocalProtocol}://localhost:4000`)
 
+export const API_BASE = '/api/v1'
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -167,28 +169,28 @@ const offlineAPI = createOfflineAPI()
 
 // Priority map - higher priority syncs first (e.g., payments fail fast)
 const PriorityMap: Record<string, number> = {
-  '/api/sales': 10,
-  '/api/payments': 50,
-  '/api/inventory/adjust': 20,
+  '/api/v1/sales': 10,
+  '/api/v1/payments': 50,
+  '/api/v1/inventory/adjust': 20,
 }
 
 // Offline cache helpers
 async function getOfflineCache(url: string): Promise<any> {
   // Map URLs to IndexedDB stores
-  if (url.includes('/api/products')) {
+  if (url.includes('/api/v1/products')) {
     return offlineDB.getAllProducts()
   }
-  if (url.includes('/api/inventory')) {
+  if (url.includes('/api/v1/inventory')) {
     return offlineDB.getAllInventory()
   }
-  if (url.includes('/api/users')) {
+  if (url.includes('/api/v1/users')) {
     return offlineDB.getAllUsers()
   }
   return null
 }
 
 async function setOfflineCache(url: string, data: any): Promise<void> {
-  if (url.includes('/api/products') && Array.isArray(data)) {
+  if (url.includes('/api/v1/products') && Array.isArray(data)) {
     await Promise.all(
       data.map((product: any) =>
         offlineDB.saveProduct({
@@ -198,7 +200,7 @@ async function setOfflineCache(url: string, data: any): Promise<void> {
         })
       )
     )
-  } else if (url.includes('/api/inventory') && Array.isArray(data)) {
+  } else if (url.includes('/api/v1/inventory') && Array.isArray(data)) {
     await Promise.all(
       data.map((inventory: any) =>
         offlineDB.saveInventoryLevel({
@@ -208,7 +210,7 @@ async function setOfflineCache(url: string, data: any): Promise<void> {
         })
       )
     )
-  } else if (url.includes('/api/users') && Array.isArray(data)) {
+  } else if (url.includes('/api/v1/users') && Array.isArray(data)) {
     await Promise.all(
       data.map((user: any) =>
         offlineDB.saveUser({
@@ -224,120 +226,120 @@ async function setOfflineCache(url: string, data: any): Promise<void> {
 // Auth API
 export const authAPI = {
   register: (email: string, password: string) =>
-    api.post('/api/auth/register', { email, password }),
+    api.post('/api/v1/auth/register', { email, password }),
   login: (email: string, password: string) =>
-    api.post('/api/auth/login', { email, password }),
+    api.post('/api/v1/auth/login', { email, password }),
   refresh: (refreshToken: string) =>
-    api.post('/api/auth/refresh', { refreshToken }),
+    api.post('/api/v1/auth/refresh', { refreshToken }),
   revoke: (refreshToken: string) =>
-    api.post('/api/auth/logout', { refreshToken }),
-  getMe: () => api.get('/api/auth/me'),
+    api.post('/api/v1/auth/logout', { refreshToken }),
+  getMe: () => api.get('/api/v1/auth/me'),
 }
 
 // Products API
 export const productsAPI = {
-  list: () => api.get('/api/products'),
-  get: (id: string) => api.get(`/api/products/${id}`),
-  create: (data: any) => api.post('/api/products', data),
-  update: (id: string, data: any) => api.put(`/api/products/${id}`, data),
-  delete: (id: string) => api.delete(`/api/products/${id}`),
-  search: (query: string) => api.get('/api/products', { params: { q: query } }),
+  list: () => api.get('/api/v1/products'),
+  get: (id: string) => api.get(`/api/v1/products/${id}`),
+  create: (data: any) => api.post('/api/v1/products', data),
+  update: (id: string, data: any) => api.put(`/api/v1/products/${id}`, data),
+  delete: (id: string) => api.delete(`/api/v1/products/${id}`),
+  search: (query: string) => api.get('/api/v1/products', { params: { q: query } }),
 }
 
 // Sales API
 export const salesAPI = {
-  create: (data: any) => offlineAPI.post('/api/sales', data),
-  get: (id: string) => api.get(`/api/sales/${id}`),
-  list: (filters?: any) => api.get('/api/sales', { params: filters }),
-  refund: (id: string, data: any) => api.post(`/api/sales/${id}/refund`, data),
-  return: (id: string, data: any) => api.post(`/api/sales/${id}/return`, data),
-  void: (id: string, data: any) => api.post(`/api/sales/${id}/void`, data),
-  analytics: (filters?: any) => api.get('/api/sales/analytics/summary', { params: filters }),
+  create: (data: any) => offlineAPI.post('/api/v1/sales', data),
+  get: (id: string) => api.get(`/api/v1/sales/${id}`),
+  list: (filters?: any) => api.get('/api/v1/sales', { params: filters }),
+  refund: (id: string, data: any) => api.post(`/api/v1/sales/${id}/refund`, data),
+  return: (id: string, data: any) => api.post(`/api/v1/sales/${id}/return`, data),
+  void: (id: string, data: any) => api.post(`/api/v1/sales/${id}/void`, data),
+  analytics: (filters?: any) => api.get('/api/v1/sales/analytics/summary', { params: filters }),
 }
 
 // Inventory API
 export const inventoryAPI = {
-  list: () => api.get('/api/inventory'),
-  get: (productId: string) => api.get(`/api/inventory/${productId}`),
+  list: () => api.get('/api/v1/inventory'),
+  get: (productId: string) => api.get(`/api/v1/inventory/${productId}`),
   adjust: (productId: string, warehouseId: string, qtyDelta: number, reason?: string, notes?: string, costPerUnit?: number) =>
-    api.post('/api/inventory/adjust', { productId, warehouseId, qtyDelta, reason, notes, costPerUnit }),
+    api.post('/api/v1/inventory/adjust', { productId, warehouseId, qtyDelta, reason, notes, costPerUnit }),
   transfer: (productId: string, fromWarehouseId: string, toWarehouseId: string, qty: number, notes?: string) =>
-    api.post('/api/inventory/transfer', { productId, fromWarehouseId, toWarehouseId, qty, notes }),
-  getLowStock: () => api.get('/api/inventory/low-stock'),
+    api.post('/api/v1/inventory/transfer', { productId, fromWarehouseId, toWarehouseId, qty, notes }),
+  getLowStock: () => api.get('/api/v1/inventory/low-stock'),
   recount: (warehouseId: string, sessionName: string, items: any[]) =>
-    api.post('/api/inventory/recount', { warehouseId, sessionName, items }),
-  getWarehouses: () => api.get('/api/inventory/warehouses'),
-  initWarehouse: () => api.post('/api/inventory/warehouse/init', {}),
+    api.post('/api/v1/inventory/recount', { warehouseId, sessionName, items }),
+  getWarehouses: () => api.get('/api/v1/inventory/warehouses'),
+  initWarehouse: () => api.post('/api/v1/inventory/warehouse/init', {}),
 }
 
 // Purchases API
 export const purchasesAPI = {
-  create: (data: any) => api.post('/api/purchases', data),
-  get: (id: string) => api.get(`/api/purchases/${id}`),
-  list: () => api.get('/api/purchases'),
-  receive: (id: string, data: any) => api.post(`/api/purchases/${id}/receive`, data),
+  create: (data: any) => api.post('/api/v1/purchases', data),
+  get: (id: string) => api.get(`/api/v1/purchases/${id}`),
+  list: () => api.get('/api/v1/purchases'),
+  receive: (id: string, data: any) => api.post(`/api/v1/purchases/${id}/receive`, data),
 }
 
 // Reports API
 export const reportsAPI = {
-  dailySales: (query?: any) => api.get('/api/reports/daily-sales', { params: query }),
-  inventoryValuation: () => api.get('/api/reports/inventory-valuation'),
-  salesSummary: (query?: any) => api.get('/api/reports/sales-summary', { params: query }),
-  salesByProduct: (query?: any) => api.get('/api/reports/sales-by-product', { params: query }),
-  salesByCategory: (query?: any) => api.get('/api/reports/sales-by-category', { params: query }),
-  topProducts: (query?: any) => api.get('/api/reports/top-products', { params: query }),
-  revenueAnalysis: (query?: any) => api.get('/api/reports/revenue-analysis', { params: query }),
-  inventoryMovement: () => api.get('/api/reports/inventory-movement'),
-  lowStock: () => api.get('/api/reports/low-stock'),
-  customerAnalytics: (query?: any) => api.get('/api/reports/customer-analytics', { params: query }),
-  paymentMethods: (query?: any) => api.get('/api/reports/payment-methods', { params: query }),
-  discountsImpact: (query?: any) => api.get('/api/reports/discounts-impact', { params: query }),
-  employeePerformance: (query?: any) => api.get('/api/reports/employee-performance', { params: query }),
-  profitMargins: (query?: any) => api.get('/api/reports/profit-margins', { params: query }),
-  taxSummary: (query?: any) => api.get('/api/reports/tax-summary', { params: query }),
-  hourlySales: (query?: any) => api.get('/api/reports/hourly-sales', { params: query }),
-  inventoryAdjustments: (query?: any) => api.get('/api/reports/inventory-adjustments', { params: query }),
-  visibleSales: (query?: any) => api.get('/api/reports/sales/visible', { params: query }),
-  visibleSaleById: (id: string) => api.get(`/api/reports/sales/${id}/visible`),
-  visiblePurchases: (query?: any) => api.get('/api/reports/purchases/visible', { params: query }),
-  visiblePurchaseById: (id: string) => api.get(`/api/reports/purchases/${id}/visible`),
-  purchaseRecommendations: (query?: any) => api.get('/api/reports/intelligence/purchase-recommendations', { params: query }),
-  intelligenceKpis: (query?: any) => api.get('/api/reports/intelligence/kpis', { params: query }),
-  exportCSV: (type: string, query?: any) => api.get(`/api/reports/export/csv?type=${type}`, { params: query, responseType: 'blob' }),
+  dailySales: (query?: any) => api.get('/api/v1/reports/daily-sales', { params: query }),
+  inventoryValuation: () => api.get('/api/v1/reports/inventory-valuation'),
+  salesSummary: (query?: any) => api.get('/api/v1/reports/sales-summary', { params: query }),
+  salesByProduct: (query?: any) => api.get('/api/v1/reports/sales-by-product', { params: query }),
+  salesByCategory: (query?: any) => api.get('/api/v1/reports/sales-by-category', { params: query }),
+  topProducts: (query?: any) => api.get('/api/v1/reports/top-products', { params: query }),
+  revenueAnalysis: (query?: any) => api.get('/api/v1/reports/revenue-analysis', { params: query }),
+  inventoryMovement: () => api.get('/api/v1/reports/inventory-movement'),
+  lowStock: () => api.get('/api/v1/reports/low-stock'),
+  customerAnalytics: (query?: any) => api.get('/api/v1/reports/customer-analytics', { params: query }),
+  paymentMethods: (query?: any) => api.get('/api/v1/reports/payment-methods', { params: query }),
+  discountsImpact: (query?: any) => api.get('/api/v1/reports/discounts-impact', { params: query }),
+  employeePerformance: (query?: any) => api.get('/api/v1/reports/employee-performance', { params: query }),
+  profitMargins: (query?: any) => api.get('/api/v1/reports/profit-margins', { params: query }),
+  taxSummary: (query?: any) => api.get('/api/v1/reports/tax-summary', { params: query }),
+  hourlySales: (query?: any) => api.get('/api/v1/reports/hourly-sales', { params: query }),
+  inventoryAdjustments: (query?: any) => api.get('/api/v1/reports/inventory-adjustments', { params: query }),
+  visibleSales: (query?: any) => api.get('/api/v1/reports/sales/visible', { params: query }),
+  visibleSaleById: (id: string) => api.get(`/api/v1/reports/sales/${id}/visible`),
+  visiblePurchases: (query?: any) => api.get('/api/v1/reports/purchases/visible', { params: query }),
+  visiblePurchaseById: (id: string) => api.get(`/api/v1/reports/purchases/${id}/visible`),
+  purchaseRecommendations: (query?: any) => api.get('/api/v1/reports/intelligence/purchase-recommendations', { params: query }),
+  intelligenceKpis: (query?: any) => api.get('/api/v1/reports/intelligence/kpis', { params: query }),
+  exportCSV: (type: string, query?: any) => api.get(`/api/v1/reports/export/csv?type=${type}`, { params: query, responseType: 'blob' }),
 }
 
 // Audit API
 export const auditAPI = {
-  list: (query?: any) => api.get('/api/audits', { params: query }),
+  list: (query?: any) => api.get('/api/v1/audits', { params: query }),
 }
 
 // Users API
 export const usersAPI = {
-  list: (filters?: any) => api.get('/api/users', { params: filters }),
-  get: (id: string) => api.get(`/api/users/${id}`),
-  create: (data: any) => api.post('/api/users', data),
-  update: (id: string, data: any) => api.put(`/api/users/${id}`, data),
-  delete: (id: string) => api.delete(`/api/users/${id}`),
-  changePassword: (id: string, data: any) => api.post(`/api/users/${id}/change-password`, data),
-  resetPassword: (id: string) => api.post(`/api/users/${id}/reset-password`, {}),
-  unlock: (id: string) => api.post(`/api/users/${id}/unlock`, {}),
-  updateRoles: (id: string, customRoleIds: string[]) => api.put(`/api/users/${id}/roles`, { customRoleIds }),
+  list: (filters?: any) => api.get('/api/v1/users', { params: filters }),
+  get: (id: string) => api.get(`/api/v1/users/${id}`),
+  create: (data: any) => api.post('/api/v1/users', data),
+  update: (id: string, data: any) => api.put(`/api/v1/users/${id}`, data),
+  delete: (id: string) => api.delete(`/api/v1/users/${id}`),
+  changePassword: (id: string, data: any) => api.post(`/api/v1/users/${id}/change-password`, data),
+  resetPassword: (id: string) => api.post(`/api/v1/users/${id}/reset-password`, {}),
+  unlock: (id: string) => api.post(`/api/v1/users/${id}/unlock`, {}),
+  updateRoles: (id: string, customRoleIds: string[]) => api.put(`/api/v1/users/${id}/roles`, { customRoleIds }),
   getAuditLog: (id: string, limit?: number, offset?: number) =>
-    api.get(`/api/users/${id}/audit-log`, { params: { limit, offset } }),
+    api.get(`/api/v1/users/${id}/audit-log`, { params: { limit, offset } }),
 }
 
 // Roles API
 export const rolesAPI = {
-  list: (filters?: any) => api.get('/api/roles', { params: filters }),
-  get: (id: string) => api.get(`/api/roles/${id}`),
-  create: (data: any) => api.post('/api/roles', data),
-  update: (id: string, data: any) => api.put(`/api/roles/${id}`, data),
-  delete: (id: string) => api.delete(`/api/roles/${id}`),
+  list: (filters?: any) => api.get('/api/v1/roles', { params: filters }),
+  get: (id: string) => api.get(`/api/v1/roles/${id}`),
+  create: (data: any) => api.post('/api/v1/roles', data),
+  update: (id: string, data: any) => api.put(`/api/v1/roles/${id}`, data),
+  delete: (id: string) => api.delete(`/api/v1/roles/${id}`),
 }
 
 // Permission Log API
 export const permissionAPI = {
-  list: (filters?: any) => api.get('/api/audit/permissions', { params: filters }),
+  list: (filters?: any) => api.get('/api/v1/audit/permissions', { params: filters }),
 }
 
 export default api

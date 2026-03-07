@@ -7,7 +7,7 @@ export default function Purchases(){
   const [pos, setPos] = useState<any[]>([])
 
   useEffect(()=>{
-    axios.get('/api/products').then(r=>{
+    axios.get('/api/v1/products').then(r=>{
       const data = Array.isArray(r.data) ? r.data : (r.data?.products || [])
       setProducts(data)
     }).catch(()=>{

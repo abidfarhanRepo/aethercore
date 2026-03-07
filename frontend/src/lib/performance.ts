@@ -175,10 +175,10 @@ class FrontendPerformanceMonitor {
   private sendMetricsToBackend(metricType: string, data: any): void {
     // Use beacon API for reliability
     if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/metrics', JSON.stringify({ type: metricType, data }));
+      navigator.sendBeacon('/api/v1/metrics', JSON.stringify({ type: metricType, data }));
     } else {
       // Fallback to fetch (non-blocking)
-      fetch('/api/metrics', {
+      fetch('/api/v1/metrics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: metricType, data }),

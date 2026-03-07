@@ -89,7 +89,7 @@ function StripePaymentFormContent({
       }
 
       // Call backend to process payment
-      const response = await fetch('/api/payments/process', {
+      const response = await fetch('/api/v1/payments/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

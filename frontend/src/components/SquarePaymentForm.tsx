@@ -98,7 +98,7 @@ export function SquarePaymentForm({
         const nonce = result.token
 
         // Call backend to process payment
-        const response = await fetch('/api/payments/square', {
+        const response = await fetch('/api/v1/payments/square', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

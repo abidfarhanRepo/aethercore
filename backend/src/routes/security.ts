@@ -58,7 +58,7 @@ const ALLOWED_ROTATION_COMPONENTS = new Set(['jwt_access', 'jwt_refresh', 'encry
 
 export default async function securityRoutes(fastify: FastifyInstance) {
   fastify.get(
-    '/api/security/status',
+    '/api/v1/security/status',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (req, reply) => {
       try {
@@ -93,7 +93,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.get(
-    '/api/security/events',
+    '/api/v1/security/events',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (req, reply) => {
       const query = (req.query || {}) as SecurityListQuery
@@ -117,7 +117,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.get(
-    '/api/security/key-rotations',
+    '/api/v1/security/key-rotations',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (req, reply) => {
       const query = (req.query || {}) as SecurityListQuery
@@ -141,7 +141,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.post(
-    '/api/security/rotate-keys',
+    '/api/v1/security/rotate-keys',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (req, reply) => {
       const body = (req.body || {}) as RotateKeysBody
@@ -211,7 +211,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
           actionRequired: [
             'Update secret provider value (K8s Secret / vault / CI secret).',
             'Roll backend/frontend deployments that consume this secret.',
-            'Verify /api/security/status and /api/health after rollout.',
+            'Verify /api/v1/security/status and /api/v1/health after rollout.',
           ],
           rotation,
         })
@@ -247,7 +247,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.get(
-    '/api/security/backup-drills',
+    '/api/v1/security/backup-drills',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (req, reply) => {
       const query = (req.query || {}) as BackupDrillListQuery
@@ -296,7 +296,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.post(
-    '/api/security/backup-drills/simulate-restore',
+    '/api/v1/security/backup-drills/simulate-restore',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (req, reply) => {
       const actorId = req.user?.id
@@ -407,7 +407,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.get(
-    '/api/security/alert-rules',
+    '/api/v1/security/alert-rules',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (_req, reply) => {
       try {
@@ -421,7 +421,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.put(
-    '/api/security/alert-rules',
+    '/api/v1/security/alert-rules',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (req, reply) => {
       const body = (req.body || {}) as AlertRulesUpdateBody
@@ -436,7 +436,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
   )
 
   fastify.post(
-    '/api/security/alert-rules/evaluate',
+    '/api/v1/security/alert-rules/evaluate',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
     async (req, reply) => {
       try {

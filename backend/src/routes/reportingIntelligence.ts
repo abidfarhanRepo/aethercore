@@ -27,7 +27,7 @@ function parseRole(input: unknown): ReportingRole | null {
 }
 
 export default async function reportingIntelligenceRoutes(fastify: FastifyInstance) {
-  fastify.get('/api/reports/sales/visible', { preHandler: [requireAuth, requirePermission('sales.read')] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/sales/visible', { preHandler: [requireAuth, requirePermission('sales.read')] }, async (req, reply) => {
     const user = (req as any).user
     const role = parseRole(user?.role)
 
@@ -49,7 +49,7 @@ export default async function reportingIntelligenceRoutes(fastify: FastifyInstan
     }
   })
 
-  fastify.get('/api/reports/sales/:id/visible', { preHandler: [requireAuth, requirePermission('sales.read')] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/sales/:id/visible', { preHandler: [requireAuth, requirePermission('sales.read')] }, async (req, reply) => {
     const user = (req as any).user
     const role = parseRole(user?.role)
 
@@ -74,7 +74,7 @@ export default async function reportingIntelligenceRoutes(fastify: FastifyInstan
     }
   })
 
-  fastify.get('/api/reports/purchases/visible', { preHandler: [requireAuth, requirePermission('purchases.read')] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/purchases/visible', { preHandler: [requireAuth, requirePermission('purchases.read')] }, async (req, reply) => {
     const user = (req as any).user
     const role = parseRole(user?.role)
 
@@ -96,7 +96,7 @@ export default async function reportingIntelligenceRoutes(fastify: FastifyInstan
     }
   })
 
-  fastify.get('/api/reports/purchases/:id/visible', { preHandler: [requireAuth, requirePermission('purchases.read')] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/purchases/:id/visible', { preHandler: [requireAuth, requirePermission('purchases.read')] }, async (req, reply) => {
     const user = (req as any).user
     const role = parseRole(user?.role)
 
@@ -121,7 +121,7 @@ export default async function reportingIntelligenceRoutes(fastify: FastifyInstan
     }
   })
 
-  fastify.get('/api/reports/intelligence/purchase-recommendations', { preHandler: [requireAuth] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/intelligence/purchase-recommendations', { preHandler: [requireAuth] }, async (req, reply) => {
     const user = (req as any).user
     const role = parseRole(user?.role)
 
@@ -153,7 +153,7 @@ export default async function reportingIntelligenceRoutes(fastify: FastifyInstan
     }
   })
 
-  fastify.get('/api/reports/intelligence/kpis', { preHandler: [requireAuth] }, async (req, reply) => {
+  fastify.get('/api/v1/reports/intelligence/kpis', { preHandler: [requireAuth] }, async (req, reply) => {
     const user = (req as any).user
     const role = parseRole(user?.role)
 
