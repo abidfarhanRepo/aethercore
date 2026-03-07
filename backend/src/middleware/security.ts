@@ -11,7 +11,7 @@ import fastifyHelmet from '@fastify/helmet'
  */
 export async function registerSecurityHeaders(fastify: FastifyInstance): Promise<void> {
   // Register Helmet with comprehensive security settings
-  await fastify.register(fastifyHelmet, {
+  await fastify.register(fastifyHelmet as any, {
     // Content Security Policy - prevent XSS and injection attacks
     contentSecurityPolicy: {
       directives: {

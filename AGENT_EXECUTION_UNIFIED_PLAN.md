@@ -37,19 +37,15 @@ Current repo baseline is:
 - Frontend: React + Vite + TypeScript
 - Existing route and schema patterns must be extended, not replaced wholesale
 
-## 5. Current-State Constraints (Must fix first)
-Verified blockers from repo:
-- Inventory routes are stubbed in `backend/src/routes/inventory.ts`
-- Payment route prefix mismatch:
-  - backend uses `/payments/process`
-  - frontend calls `/api/payments/process`
-- Sync route prefix mismatch:
-  - backend uses `/sync/batch`
-  - frontend calls `/api/sync/batch`
-- Email receipt path has TODO implementation
+## 5. Current-State Constraints (Resolved)
+Status update (2026-03-07):
+- ✅ Inventory production routes are implemented and active under `/api/inventory/*`.
+- ✅ Payment route contract is normalized to `/api/payments/process`.
+- ✅ Sync route contract is normalized to `/api/sync/batch` and `/api/sync/status`.
+- ⚠️ Email receipt transport still has pending completion details in payments flow.
 
-Rule:
-No new plugin work starts until API contract and inventory foundations are stable.
+Rule outcome:
+Phase 0 blockers are cleared. Plugin/capability work is no longer gated by API contract drift.
 
 ## 6. Unified Architecture Direction
 
@@ -160,6 +156,212 @@ export interface PosPlugin {
 
 ## 9. Phase Plan (Unified, execution-safe)
 
+### Implementation Snapshot (2026-03-07)
+- Phase 0: ✅ Implemented
+- Phase 1: ✅ Implemented
+- Phase 2: ✅ Implemented (plugin schema, capability middleware, tenant flags, admin UI/API, hook bus)
+- Phase 3: ⚠️ In progress (models/routes present and capability-gated; deeper workflow parity and tests still pending)
+- Phase 4: ✅ Implemented at API level (physical printer validation still environment-dependent)
+- Phase 5: ✅ Implemented for must-have API/runtime pieces; broader multi-terminal E2E depth remains a hardening area
+- Phase 6: ⚠️ In progress (shortcut overlay + theme baseline implemented; accessibility/touch hardening still open)
+- Phase 7: ✅ Implemented at route/contract level with RBAC intelligence endpoints
+- Phase 8: ⚠️ Partially implemented (core security endpoints/features done; ops/runbook/release-gate items remain)
+
+### Execution Plan Addendum (Sub-Agent Ready)
+
+This addendum is the concrete implementation plan for Phase 3, 5, 6, and 8.
+Execution mode: one packet at a time, starting from Phase 8.
+
+#### Phase 3 - Vertical Plugin Pack (Hardening Plan)
+Objective:
+- Move Phase 3 from route/model completeness to workflow parity with integration and E2E proof.
+
+Workstreams:
+- `P3-A FEFO + Expiry/Lot`: test FEFO ordering, lot transfer integrity, expiry-alert contract.
+- `P3-B Restaurant Flow`: table lifecycle + kitchen ticket lifecycle + near-real-time queue updates.
+- `P3-C Pharmacy Controls`: prescription validity/refill constraints, interaction checks, pharmacist override audit trail.
+- `P3-D Receiving`: discrepancy lifecycle (short/over/damaged), receiving completion reconciliation into inventory.
+- `P3-E Profile Matrix`: supermarket/restaurant/pharmacy smoke suites with fail-closed assertions.
+
+Required deliverables:
+- Integration tests for each plugin workflow branch.
+- E2E coverage for at least one critical scenario per vertical.
+- CI profile matrix for fail-closed behavior when capabilities are disabled.
+
+Acceptance criteria:
+- FEFO deduction deterministically picks oldest-expiry lot first when multiple lots exist.
+- Restaurant order -> kitchen ticket -> completion flow is role/capability gated and test-covered.
+- Pharmacy constraints block unsafe sale finalization unless valid prescription/override exists.
+- Receiving completion writes deterministic inventory transactions and discrepancy audit.
+- Profile switch + capability disablement enforces 403 on protected endpoints.
+
+Validation commands:
+```bash
+cd backend
+npx jest --runInBand --testPathPattern="integration|e2e"
+```
+
+Rollback:
+- Disable capability flags per vertical (`inventory.expiry`, `restaurant.kds`, `pharmacy.*`, `procurement.receiving`) to fail closed without data loss.
+
+#### Phase 5 - Offline and Sync Reliability (Hardening Plan)
+Objective:
+- Keep current API/runtime implementation and close determinism, observability, and multi-terminal test gaps.
+
+Workstreams:
+- `P5-A Idempotency`: replay-safe duplicate handling by `offlineOpId`.
+- `P5-B Deterministic conflict E2E`: multi-terminal overlapping inventory simulation.
+- `P5-C Dead-letter operations`: replay flow quality and role restrictions.
+- `P5-D Operator telemetry`: sync latency/conflict visibility and alertable metrics.
+
+Required deliverables:
+- Deterministic multi-terminal E2E tests (winner/loser conflict outcome is auditable).
+- Regression tests for immutable `receiptPublicId` before and after sync mapping.
+- Dead-letter replay coverage with retry/error states.
+
+Acceptance criteria:
+- Same offline operation replay does not duplicate sale/payment.
+- Cross-terminal conflicts produce deterministic outcomes and dead-letter evidence.
+- `receiptPublicId` remains stable in API responses, history, and reprint lookup.
+- Operator can see pending/conflict/synced counts.
+
+Validation commands:
+```bash
+cd backend
+npx jest --runInBand --testPathPattern="sync|offline|dead-letter"
+```
+
+Rollback:
+- Disable sync-related UI interactions and keep online transaction path active while preserving queued records.
+
+#### Phase 6 - UX and Professional Polish (Completion Plan)
+Objective:
+- Convert baseline shortcut/theme implementation into signed-off accessibility/touch/performance quality.
+
+Workstreams:
+- `P6-A Accessibility`: focus order, labels, keyboard-only checks, live-region consistency.
+- `P6-B Touch ergonomics`: 44x44 minimum (48x48 preferred) tap target enforcement across checkout-critical actions.
+- `P6-C Theme parity`: remove hardcoded palette remnants; enforce tokenized light/dark contrast.
+- `P6-D Perf budgets`: search-to-render and tap-to-feedback responsiveness validation.
+
+Required deliverables:
+- WCAG 2.1 AA checklist sign-off for checkout-critical flows.
+- Touch-target audit report (with before/after evidence).
+- Token migration pass for hardcoded colors in checkout/cart/modals.
+
+Acceptance criteria:
+- Keyboard and touch independently complete end-to-end checkout.
+- No critical contrast/focus regressions in light or dark mode.
+- Performance budgets met on standard POS tablet profile.
+
+Validation commands:
+```bash
+cd frontend
+npm run build
+```
+
+Rollback:
+- Feature-flag or isolate non-critical UI polish changes while preserving stable checkout interaction paths.
+
+#### Phase 8 - Security, Compliance, Ops (Execution Plan)
+Objective:
+- Keep implemented security endpoints/features and complete missing ops controls, release gates, and compliance evidence automation.
+
+Workstreams:
+- `P8-A Backup/Restore`: daily encrypted backups + weekly restore simulations + evidence persistence.
+- `P8-B Alerting`: thresholds for auth spikes, security status failures, cert expiry, backup failures.
+- `P8-C Release gates`: migration drift CI gate, pre-release health gate, post-release security evidence gate.
+- `P8-D Rotation policy`: enforce quarterly cadence policy for JWT/DB/Redis secrets.
+
+Required deliverables:
+- Automated backup + restore drill runbook evidence.
+- Alert rule definitions + routing policy.
+- CI gates for migration status and release evidence checks.
+- Policy-level key rotation cadence enforcement artifacts.
+
+Acceptance criteria:
+- Security endpoints remain green and auditable.
+- Ops checklist unchecked items are converted to automated or documented controls with evidence.
+- Deploy pipeline fails closed on migration drift/security gate violations.
+
+Validation commands:
+```bash
+cd backend
+npx jest --runInBand --testPathPattern="security|health"
+npx prisma migrate status
+```
+
+Rollback:
+- Revert newly added release gates/alerts to previous stable baseline while retaining security event and notification data.
+
+### Phase 8 Security Implementation Map (Current Code Evidence)
+
+Implemented now (code-backed):
+- Security status route: `GET /api/security/status` in `backend/src/routes/security.ts`.
+- Security event stream: `GET /api/security/events` in `backend/src/routes/security.ts`.
+- Key rotation history: `GET /api/security/key-rotations` in `backend/src/routes/security.ts`.
+- Key rotation workflow: `POST /api/security/rotate-keys` in `backend/src/routes/security.ts`.
+- Health dependency + security posture surface: `GET /api/health` in `backend/src/routes/health.ts`.
+- Security event logging helpers: `backend/src/lib/securityCompliance.ts`.
+- Security/admin notification fanout: `backend/src/lib/notificationService.ts`.
+- P8-B alert rule persistence + thresholds: `backend/src/lib/alertService.ts`.
+- P8-B alert management APIs:
+  - `GET /api/security/alert-rules`
+  - `PUT /api/security/alert-rules`
+  - `POST /api/security/alert-rules/evaluate`
+  in `backend/src/routes/security.ts`.
+- P8-B alert threshold UI controls + evaluation trigger: `frontend/src/pages/settings/SecuritySettings.tsx` and `frontend/src/lib/securityAPI.ts`.
+- Security persistence models: `SecurityEvent`, `KeyRotationLog`, `Notification`, `SystemSecurityStatus` in `backend/prisma/schema.prisma`.
+- Security Settings UI (TLS posture, rotation history, event stream, notifications): `frontend/src/pages/settings/SecuritySettings.tsx`.
+
+Partially implemented (exists but not fully operationalized):
+- Key rotation endpoint logging is present, but quarterly enforcement policy automation is still pending.
+- Health and security status checks exist, but threshold-driven alert automation is pending.
+- Security event and notification history exist, but release evidence automation remains pending.
+
+Remaining for full Phase 8 closeout:
+- Daily encrypted backup automation + weekly restore drill evidence.
+- Migration drift CI gate and pre/post release evidence gates.
+- Dedicated and LAN TLS profile runbooks.
+
+### Phase 8 First Packet (Start Here With Sub-Agent)
+
+Packet name:
+- `P8-01 Backup/Restore and Release Evidence Foundation`
+
+Goal:
+- Implement the highest-risk missing ops controls first: backup/restore drill workflow and evidence capture.
+
+Scope:
+- Included:
+  - Backup scheduling implementation artifacts.
+  - Restore simulation procedure and evidence persistence.
+  - Security/ops event evidence path for drill outcomes.
+- Excluded:
+  - Alert threshold implementation.
+  - Migration drift and post-release gate automation.
+
+Required changes:
+1. Add backup/restore runbook doc and executable checklist.
+2. Add script/task for restore simulation in non-prod.
+3. Persist backup/restore drill outcomes as security/ops events.
+
+Acceptance criteria:
+- [ ] Daily backup process is defined and executable.
+- [ ] Weekly restore simulation procedure is executable and produces evidence.
+- [ ] Drill outcomes are queryable in security/ops history.
+
+Validation:
+- Commands:
+  - `cd backend && npx jest --runInBand --testPathPattern="security|health"`
+  - `cd backend && npx prisma migrate status`
+
+Risks:
+- Environment-specific backup tooling may vary by deployment target.
+
+Rollback plan:
+- Disable scheduled backup job changes while keeping event/audit routes intact.
+
 ### Phase 0 - Stabilization and Contract Cleanup (1-2 weeks)
 Tasks:
 - Standardize route prefixes to `/api/*`
@@ -185,6 +387,9 @@ Exit criteria:
 - Tax is configuration-driven and test-covered
 
 ### Phase 2 - Plugin Platform MVP (2 weeks)
+Status:
+- Completed in current codebase.
+
 Tasks:
 - Plugin registry schema and migrations
 - Capability middleware (fail-closed)
@@ -193,15 +398,15 @@ Tasks:
 - Dependency/conflict validation
 
 Exit criteria:
-- Per-tenant feature toggles work without redeploy
-- Disabled capability blocks both API and UI usage
-- Plugin runtime contract is implemented (`registerRoutes`, `registerHooks`, `registerUIExtensions`, `healthCheck`)
-- Event hook bus is operational for all core hooks in section 6.4
-- Vertical profile seeds exist for supermarket, restaurant, and pharmacy
+- ✅ Per-tenant feature toggles work without redeploy.
+- ✅ Disabled capability blocks API usage and UI entry points.
+- ✅ Plugin runtime contract is implemented (`registerRoutes`, `registerHooks`, `registerUIExtensions`, `healthCheck`).
+- ✅ Event hook bus is operational for core hooks in section 6.4.
+- ✅ Vertical profile seeds exist for supermarket, restaurant, and pharmacy.
 
 ### Phase 3 - Vertical Plugin Pack (4-5 weeks)
 Dependency gate:
-- Phase 2 must be complete before Phase 3 starts (plugin registry, capability middleware, feature flags, and hook bus are required foundations).
+- ✅ Satisfied. Phase 2 foundations (plugin registry, capability middleware, feature flags, hook bus) are in place.
 
 #### Phase 3.1 - Expiry and Lot Plugin with FEFO (1-1.5 weeks)
 Tasks:
@@ -270,6 +475,10 @@ Exit criteria:
 - Feature disablement blocks both API usage and UI entry points
 - Profile test matrix passes in CI
 
+Current implementation note:
+- Profile-level capability bundles and fail-closed API gating are implemented.
+- Remaining work is workflow depth, validation breadth, and CI matrix hardening.
+
 ### Phase 4 - Payments, Receipts, Hardware (2 weeks)
 Status:
 - Completed (implementation pass with dummy-provider mode and settings-driven controls)
@@ -298,6 +507,8 @@ Exit criteria:
 - Receipt print/email pipeline functional
 
 ### Phase 5 - Offline and Sync Reliability (2 weeks)
+Status:
+- Must-have backend/frontend sync surfaces are implemented, including dead-letter replay and role restriction.
 Objective:
 - Make offline checkout and recovery deterministic across multiple terminals without changing printed receipt identity.
 
@@ -327,7 +538,7 @@ API scope (Phase 5):
 - `GET /api/receipts/:receiptPublicId`
   - Always resolves by immutable printed ID and includes mapped `saleId` when synced
 - `POST /api/sync/dead-letter/:id/replay`
-  - Manual retry endpoint for supervisor/admin role
+  - Manual retry endpoint for supervisor/manager/admin role
 
 Multi-terminal offline strategy (collision prevention + deterministic reconciliation):
 - Receipt identity generation:
@@ -376,7 +587,13 @@ Acceptance criteria:
 - Dead-lettered operations are queryable, replayable, and role-restricted.
 - Operators can complete offline checkout, print receipts, and later locate synced sales using printed receipt ID only.
 
+Current implementation note:
+- Implemented: immutable `receiptPublicId`, `offlineOpId` idempotency, deterministic ordering, dead-letter persistence, replay endpoint, sync status surfaces.
+- Remaining hardening: expanded multi-terminal conflict E2E coverage and operational telemetry depth.
+
 ### Phase 6 - UX and Professional Polish (2 weeks)
+Status:
+- In progress. Core shortcut overlay behavior and theme toggle persistence are implemented.
 Tasks:
 - Checkout productivity UX (keyboard + touch parity):
   - Add a persistent shortcut cue panel inside the product-entry area (largest checkout box where products are shown).
@@ -420,6 +637,10 @@ Definition of done (Phase 6):
 - Checkout UI is optimized for tablet/touch devices with no critical tap-target or overflow issues.
 - Accessibility baseline checks pass for key checkout workflows.
 
+Current implementation note:
+- Completed: shortcut cue overlay idle/fade behavior, keyboard bindings, and app-level theme persistence.
+- Remaining: full tap-target audit, contrast/focus validation, and complete accessibility baseline sign-off.
+
 Exit criteria:
 - Operator checkout/product-entry workflows are faster and clearer on keyboard and touch.
 - Search-driven shortcut cues behave exactly as specified (idle visible, active-search faded).
@@ -427,6 +648,8 @@ Exit criteria:
 - Performance and accessibility budgets pass for checkout-critical paths.
 
 ### Phase 7 - Reporting and Intelligence (2 weeks)
+Status:
+- Implemented in backend routes with role-scoped visibility and intelligence endpoints.
 Objective:
 - Deliver production-safe reporting and intelligence endpoints with strict role-based visibility and deterministic, explainable recommendation logic.
 
@@ -541,6 +764,10 @@ Exit criteria:
 - Recommendation endpoint returns deterministic recommendations with explainability metadata.
 - Integration tests for Phase 7 reporting RBAC/intelligence pass in CI.
 
+Current implementation note:
+- Visibility routes and intelligence endpoints are live under `backend/src/routes/reportingIntelligence.ts`.
+- Ongoing work should focus on contract-depth regression tests and rollout observability/SLO enforcement.
+
 ### Phase 8 - Security, Compliance, Ops (2 weeks)
 Tasks:
 - Secrets and key rotation execution
@@ -579,9 +806,8 @@ Tasks:
   - [x] Add Security Settings UI panel that shows TLS/HTTPS posture, key rotation history, security event stream, and notification history.
 
 Exit criteria:
-- Phase 8 checklist items above are all complete.
-- Security, key rotation, and health endpoints are test-covered and passing in CI.
-- Release gate evidence (backup drill, health checks, notification history) is attached to deployment records.
+- Core security, key rotation, notification history, and health endpoints are implemented and test-covered.
+- Remaining items are the unchecked ops/process controls in the checklist above (rotation policy cadence, backup/restore drills, release-gate evidence automation).
 
 ## 10. Core Module Requirements (Merged)
 
@@ -678,12 +904,12 @@ Single measurable outcome.
 ```
 
 ## 14. Immediate Next Tickets
-1. Route contract normalization (`/api/*`) + contract tests.
-2. Inventory route activation (replace stubs) + integration tests.
-3. Plugin foundation (schema + loader + capability middleware + admin toggles).
-4. Phase 5 must-have: immutable `receiptPublicId` mapping + `GET /api/receipts/:receiptPublicId` lookup/reprint contract.
-5. Phase 5 must-have: `POST /api/sync/batch` idempotency (`offlineOpId`) + deterministic multi-terminal ordering and conflict classification.
-6. Phase 5 must-have: `SyncDeadLetter` persistence + supervisor replay endpoint + operator sync/conflict status surfaces.
+1. Phase 3 workflow hardening: FEFO/receiving/restaurant/pharmacy lifecycle parity + deeper integration/E2E coverage.
+2. Phase 6 completion: touch target audit, accessibility baseline validation (WCAG 2.1 AA), and contrast/focus sign-off.
+3. Phase 7 operationalization: KPI/recommendation SLO monitoring and contract regression expansion.
+4. Phase 8 ops completion: backup/restore drills, alert thresholds, migration drift CI gate, and release evidence automation.
+5. Payment receipt transport completion: close remaining email receipt TODO implementation and validate provider parity paths.
+6. Profile CI matrix: supermarket/restaurant/pharmacy smoke suites with fail-closed assertions for disabled capabilities.
 
 ## 15. Program Definition of Done
 - One codebase runs supermarket, restaurant, and pharmacy via profile + capability toggles.

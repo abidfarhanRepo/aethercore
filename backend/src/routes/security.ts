@@ -3,9 +3,16 @@ import { FastifyInstance } from 'fastify'
 import { requireAuth, requireRole } from '../plugins/authMiddleware'
 import {
   collectAndPersistSecurityStatus,
+  logBackupDrillEvent,
   logSecurityEventRecord,
   logKeyRotation,
 } from '../lib/securityCompliance'
+import {
+  evaluateAlertRules,
+  getAlertRulesConfig,
+  saveAlertRulesConfig,
+  type AlertRuleType,
+} from '../lib/alertService'
 import {
   createKeyRotationNotification,
   createSecurityStatusFailureNotification,
@@ -22,6 +29,31 @@ interface RotateKeysBody {
   notes?: string
 }
 
+interface BackupDrillListQuery {
+  limit?: string
+  drillType?: 'daily_backup' | 'weekly_restore_simulation'
+  status?: 'in_progress' | 'completed' | 'failed'
+}
+
+interface BackupDrillSimulationBody {
+  snapshotId?: string
+  expectedMinRecords?: number
+  simulateFailure?: boolean
+}
+
+interface AlertRulePatch {
+  enabled?: boolean
+  threshold?: number
+  windowMinutes?: number
+}
+
+interface AlertRulesUpdateBody {
+  routingPolicy?: {
+    notifyAdminManager?: boolean
+  }
+  rules?: Partial<Record<AlertRuleType, AlertRulePatch>>
+}
+
 const ALLOWED_ROTATION_COMPONENTS = new Set(['jwt_access', 'jwt_refresh', 'encryption', 'tls', 'settings'])
 
 export default async function securityRoutes(fastify: FastifyInstance) {
@@ -34,7 +66,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
         return status
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
-        const actorId = (req as any).user?.id as string | undefined
+        const actorId = req.user?.id
 
         await logSecurityEventRecord({
           eventType: SecurityEventType.SECURITY_STATUS_CHECK_FAILED,
@@ -113,7 +145,7 @@ export default async function securityRoutes(fastify: FastifyInstance) {
     { preHandler: [requireAuth, requireRole('ADMIN')] },
     async (req, reply) => {
       const body = (req.body || {}) as RotateKeysBody
-      const actorId = (req as any).user?.id as string | undefined
+      const actorId = req.user?.id
 
       if (!body.component || !ALLOWED_ROTATION_COMPONENTS.has(body.component)) {
         return reply.code(400).send({
@@ -210,6 +242,209 @@ export default async function securityRoutes(fastify: FastifyInstance) {
           error: 'Failed to rotate keys',
           details: message,
         })
+      }
+    }
+  )
+
+  fastify.get(
+    '/api/security/backup-drills',
+    { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
+    async (req, reply) => {
+      const query = (req.query || {}) as BackupDrillListQuery
+      const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200)
+
+      try {
+        const rawEvents = await prisma.securityEvent.findMany({
+          where: {
+            OR: [
+              { source: 'api/security/backup-drills' },
+              { source: 'cli/security/backup-drills' },
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        })
+
+        const items = rawEvents.filter((event) => {
+          const details = (event.details || {}) as Record<string, unknown>
+          const drillType = typeof details.drillType === 'string' ? details.drillType : undefined
+          const status = typeof details.status === 'string' ? details.status : undefined
+
+          if (query.drillType && drillType !== query.drillType) {
+            return false
+          }
+
+          if (query.status && status !== query.status) {
+            return false
+          }
+
+          return true
+        })
+
+        return {
+          items,
+          meta: { limit, count: items.length },
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return reply.code(500).send({
+          error: 'Failed to fetch backup drill history',
+          details: message,
+        })
+      }
+    }
+  )
+
+  fastify.post(
+    '/api/security/backup-drills/simulate-restore',
+    { preHandler: [requireAuth, requireRole('ADMIN')] },
+    async (req, reply) => {
+      const actorId = req.user?.id
+      const body = (req.body || {}) as BackupDrillSimulationBody
+
+      if (process.env.NODE_ENV === 'production') {
+        return reply.code(403).send({
+          error: 'Restore simulation is blocked in production environments',
+        })
+      }
+
+      const drillId = `restore-sim-${Date.now()}`
+      const snapshotId = body.snapshotId || 'latest-backup'
+      const startedAt = Date.now()
+
+      try {
+        await logBackupDrillEvent({
+          drillId,
+          drillType: 'weekly_restore_simulation',
+          eventKind: 'RESTORE_SIMULATION_INITIATED',
+          status: 'in_progress',
+          summary: `Restore simulation initiated from snapshot ${snapshotId}`,
+          details: {
+            snapshotId,
+            environment: process.env.NODE_ENV || 'development',
+          },
+          actorId,
+          ipAddress: req.ip,
+        })
+
+        await prisma.$queryRaw`SELECT 1`
+
+        const [saleCount, productCount, userCount] = await Promise.all([
+          prisma.sale.count(),
+          prisma.product.count(),
+          prisma.user.count(),
+        ])
+
+        const totalRecords = saleCount + productCount + userCount
+
+        if (typeof body.expectedMinRecords === 'number' && totalRecords < body.expectedMinRecords) {
+          throw new Error(
+            `Record validation failed. total=${totalRecords}, expectedMin=${body.expectedMinRecords}`
+          )
+        }
+
+        if (body.simulateFailure === true) {
+          throw new Error('Forced failure requested by simulateFailure=true')
+        }
+
+        const durationMs = Date.now() - startedAt
+
+        await logBackupDrillEvent({
+          drillId,
+          drillType: 'weekly_restore_simulation',
+          eventKind: 'RESTORE_SIMULATION_COMPLETED',
+          status: 'completed',
+          summary: 'Restore simulation completed successfully',
+          details: {
+            snapshotId,
+            durationMs,
+            counts: {
+              sales: saleCount,
+              products: productCount,
+              users: userCount,
+            },
+            dataValidated: true,
+          },
+          actorId,
+          ipAddress: req.ip,
+        })
+
+        return reply.send({
+          drillId,
+          status: 'completed',
+          snapshotId,
+          durationMs,
+          counts: {
+            sales: saleCount,
+            products: productCount,
+            users: userCount,
+          },
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+
+        await logBackupDrillEvent({
+          drillId,
+          drillType: 'weekly_restore_simulation',
+          eventKind: 'RESTORE_SIMULATION_FAILED',
+          status: 'failed',
+          summary: `Restore simulation failed: ${message}`,
+          details: {
+            snapshotId,
+            error: message,
+          },
+          actorId,
+          ipAddress: req.ip,
+        }).catch(() => {})
+
+        return reply.code(500).send({
+          error: 'Restore simulation failed',
+          details: message,
+          drillId,
+        })
+      }
+    }
+  )
+
+  fastify.get(
+    '/api/security/alert-rules',
+    { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
+    async (_req, reply) => {
+      try {
+        const config = await getAlertRulesConfig()
+        return { config }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return reply.code(500).send({ error: 'Failed to fetch alert rules', details: message })
+      }
+    }
+  )
+
+  fastify.put(
+    '/api/security/alert-rules',
+    { preHandler: [requireAuth, requireRole('ADMIN')] },
+    async (req, reply) => {
+      const body = (req.body || {}) as AlertRulesUpdateBody
+      try {
+        const config = await saveAlertRulesConfig(body, req.user?.id)
+        return { config }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return reply.code(500).send({ error: 'Failed to update alert rules', details: message })
+      }
+    }
+  )
+
+  fastify.post(
+    '/api/security/alert-rules/evaluate',
+    { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
+    async (req, reply) => {
+      try {
+        const evaluation = await evaluateAlertRules(req.user?.id, req.ip)
+        return { evaluation }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return reply.code(500).send({ error: 'Failed to evaluate alert rules', details: message })
       }
     }
   )

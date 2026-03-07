@@ -392,7 +392,10 @@ export class PayPalAdapter {
         return this.handlePaymentDeclined(event.resource)
       default:
         console.log(`Unhandled PayPal event type: ${event.event_type}`)
-        return null
+        return {
+          type: 'unhandled_event',
+          eventType: event.event_type,
+        }
     }
   }
 

@@ -259,6 +259,9 @@ export function getExponentialBackoff(attemptNumber: number): number {
  */
 export async function clearAllBruteForceRecords(): Promise<void> {
   try {
+    if (!redis) {
+      return
+    }
     const keys = await redis.keys('bruteforce:*')
     if (keys.length > 0) {
       await redis.del(...keys)
@@ -277,6 +280,14 @@ export async function getBruteForceStats(): Promise<{
   timestamp: number
 }> {
   try {
+    if (!redis) {
+      return {
+        totalLockedIPs: 0,
+        totalLockedUsers: 0,
+        timestamp: Date.now(),
+      }
+    }
+
     const lockedIPs = await redis.keys('bruteforce:ip:*:locked')
     const lockedUsers = await redis.keys('bruteforce:user:*:locked')
     

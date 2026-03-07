@@ -297,7 +297,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
                 expiryYear,
                 cvc: cvv,
                 cardholderName,
-                customerId: sale.customerId,
+                customerId: sale.customerId || undefined,
               },
               stripeCustomerId
             )
@@ -1101,8 +1101,9 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
     Body: any
   }>('/api/payments/webhooks/square', async (req, reply) => {
     try {
+      const bodyData = req.body as any
       const signature = req.headers['x-square-hmac-sha256'] as string
-      const body = JSON.stringify(req.body)
+      const body = JSON.stringify(bodyData)
 
       const proc = getProcessor('SQUARE') as SquareAdapter
 
@@ -1112,22 +1113,22 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: 'Invalid signature' })
       }
 
-      const event = req.body.data.object as any
+      const event = bodyData.data?.object as any
 
       // Store webhook event
       await prisma.paymentWebhookEvent.create({
         data: {
           processor: 'SQUARE',
-          eventId: req.body.id,
-          eventType: req.body.type,
-          payload: req.body as any,
+          eventId: bodyData.id,
+          eventType: bodyData.type,
+          payload: bodyData,
           signature,
           status: 'VERIFIED',
         },
       })
 
       // Handle event
-      const result = await proc.handleWebhookEvent(req.body.type, req.body)
+      const result = await proc.handleWebhookEvent(bodyData.type, bodyData)
 
       return reply.code(200).send({ received: true })
     } catch (error) {
@@ -1144,17 +1145,20 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
     Body: any
   }>('/api/payments/webhooks/paypal', async (req, reply) => {
     try {
+      const bodyData = req.body as any
       const transmissionId = req.headers['paypal-transmission-id'] as string
       const transmissionTime = req.headers['paypal-transmission-time'] as string
       const certUrl = req.headers['paypal-cert-url'] as string
       const signature = req.headers['paypal-auth-algo'] as string
-      const body = JSON.stringify(req.body)
+      const body = JSON.stringify(bodyData)
+      const webhookId = process.env.PAYPAL_WEBHOOK_ID || ''
 
       const proc = getProcessor('PAYPAL') as PayPalAdapter
 
       // Verify signature
       if (
         !proc.verifyWebhookSignature(
+          webhookId,
           body,
           req.headers['paypal-transmission-sig'] as string,
           transmissionId,
@@ -1169,18 +1173,18 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       await prisma.paymentWebhookEvent.create({
         data: {
           processor: 'PAYPAL',
-          eventId: req.body.id,
-          eventType: req.body.event_type,
-          payload: req.body as any,
+          eventId: bodyData.id,
+          eventType: bodyData.event_type,
+          payload: bodyData,
           signature: req.headers['paypal-transmission-sig'] as string,
           status: 'VERIFIED',
         },
       })
 
       // Handle event
-      const result = await proc.handleWebhookEvent(req.body)
+      const result = await proc.handleWebhookEvent(bodyData)
 
-      return reply.code(200).send({ id: req.body.id })
+      return reply.code(200).send({ id: bodyData.id })
     } catch (error) {
       fastify.log.error(error)
       reply.code(500).send({ error: 'Webhook processing failed' })

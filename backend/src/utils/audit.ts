@@ -70,7 +70,7 @@ export async function logAudit(
  * Log authentication event
  */
 export async function logAuthEvent(
-  action: 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'PASSWORD_CHANGE',
+  action: 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'PASSWORD_CHANGE' | 'USER_REGISTERED',
   userId: string | undefined,
   request: FastifyRequest,
   details?: string

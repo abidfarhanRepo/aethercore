@@ -68,6 +68,35 @@ export async function logKeyRotation(args: {
   })
 }
 
+export async function logBackupDrillEvent(args: {
+  drillId: string
+  drillType: 'daily_backup' | 'weekly_restore_simulation'
+  eventKind: 'BACKUP_INITIATED' | 'BACKUP_COMPLETED' | 'BACKUP_FAILED' | 'RESTORE_SIMULATION_INITIATED' | 'RESTORE_SIMULATION_COMPLETED' | 'RESTORE_SIMULATION_FAILED'
+  status: 'in_progress' | 'completed' | 'failed'
+  source?: string
+  summary?: string
+  details?: Record<string, unknown>
+  actorId?: string
+  ipAddress?: string
+}) {
+  const severity = args.status === 'failed' ? SecuritySeverity.HIGH : SecuritySeverity.LOW
+  return logSecurityEventRecord({
+    eventType: SecurityEventType.UNKNOWN,
+    severity,
+    source: args.source || 'api/security/backup-drills',
+    message: args.summary || `${args.eventKind} (${args.drillType})`,
+    details: {
+      drillId: args.drillId,
+      drillType: args.drillType,
+      eventKind: args.eventKind,
+      status: args.status,
+      ...(args.details || {}),
+    },
+    actorId: args.actorId,
+    ipAddress: args.ipAddress,
+  })
+}
+
 export async function collectAndPersistSecurityStatus(request?: FastifyRequest) {
   const httpsEnv = resolveFirstEnv(['ENFORCE_HTTPS', 'HTTPS_ONLY'])
   const tlsKeyEnv = resolveFirstEnv(['TLS_KEY_PATH', 'SSL_KEY_PATH'])

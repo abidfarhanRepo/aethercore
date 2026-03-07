@@ -9,7 +9,7 @@ import {
 
 export default async function notificationRoutes(fastify: FastifyInstance) {
   fastify.get('/api/notifications', { preHandler: [requireAuth] }, async (req, reply) => {
-    const user = (req as any).user
+    const user = req.user
     const query = (req.query || {}) as {
       includeArchived?: string
       unreadOnly?: string
@@ -35,7 +35,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
   })
 
   fastify.get('/api/notifications/unread-count', { preHandler: [requireAuth] }, async (req, reply) => {
-    const user = (req as any).user
+    const user = req.user
     if (!user?.id) {
       return reply.code(401).send({ error: 'unauthenticated' })
     }
@@ -45,7 +45,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
   })
 
   fastify.patch('/api/notifications/:id/read', { preHandler: [requireAuth] }, async (req, reply) => {
-    const user = (req as any).user
+    const user = req.user
     const { id } = req.params as { id: string }
 
     if (!user?.id) {
@@ -61,7 +61,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
   })
 
   fastify.patch('/api/notifications/:id/archive', { preHandler: [requireAuth] }, async (req, reply) => {
-    const user = (req as any).user
+    const user = req.user
     const { id } = req.params as { id: string }
 
     if (!user?.id) {

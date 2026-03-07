@@ -9,7 +9,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.get(
     '/api/admin/users',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
-    async (_request: FastifyRequest, reply: FastifyReply) => {
+    async (_request: any, reply: FastifyReply) => {
       try {
         const users = await prisma.user.findMany({
           select: {
@@ -34,7 +34,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.get<{ Querystring: { role?: string; department?: string; search?: string; limit?: string; offset?: string } }>(
     '/api/users',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const query = request.query as any
         const { role, department, search, limit = '50', offset = '0' } = query
@@ -86,7 +86,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.get<{ Params: { id: string } }>(
     '/api/users/:id',
     { preHandler: requireAuth },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const params = request.params as any
         const { id } = params
@@ -127,7 +127,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.post<{ Body: any }>(
     '/api/users',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const body = request.body as any
         const { email, password, firstName, lastName, phone, role, department, managerId } = body
@@ -192,7 +192,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.put<{ Params: { id: string }; Body: any }>(
     '/api/users/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const { firstName, lastName, phone, role, department, managerId, isActive } = request.body
@@ -243,7 +243,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.delete<{ Params: { id: string } }>(
     '/api/users/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const user = await prisma.user.findUnique({ where: { id } })
@@ -282,7 +282,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.post<{ Params: { id: string }; Body: any }>(
     '/api/users/:id/change-password',
     { preHandler: requireAuth },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const { currentPassword, newPassword } = request.body
@@ -344,7 +344,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.post<{ Params: { id: string } }>(
     '/api/users/:id/reset-password',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const user = await prisma.user.findUnique({ where: { id } })
@@ -387,7 +387,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.post<{ Params: { id: string } }>(
     '/api/users/:id/unlock',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const user = await prisma.user.findUnique({ where: { id } })
@@ -423,7 +423,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.put<{ Params: { id: string }; Body: any }>(
     '/api/users/:id/roles',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const { customRoleIds } = request.body
@@ -466,7 +466,7 @@ export default async function userRoutes(server: FastifyInstance) {
   server.get<{ Params: { id: string }; Querystring: { limit?: string; offset?: string } }>(
     '/api/users/:id/audit-log',
     { preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const { limit = '50', offset = '0' } = request.query

@@ -1,6 +1,5 @@
 import { FastifyInstance } from 'fastify'
 import { prisma } from '../utils/db'
-import { auditLog } from '../utils/audit'
 
 export default async function auditRoutes(fastify: FastifyInstance){
   fastify.get('/api/audits', async () => {

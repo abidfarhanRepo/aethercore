@@ -91,8 +91,8 @@ export default function EditProductModal({ product, onClose, onProductUpdated }:
     : 0
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-md p-6 max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+      <div className="bg-card border border-border rounded-lg w-full max-w-md p-6 max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Edit Product</h2>
           <button
@@ -103,7 +103,7 @@ export default function EditProductModal({ product, onClose, onProductUpdated }:
           </button>
         </div>
 
-        <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm">
+        <div className="bg-muted p-3 rounded-md mb-4 text-sm">
           <p className="text-muted-foreground">SKU: <span className="font-mono font-semibold text-foreground">{product.sku}</span></p>
         </div>
 
@@ -195,7 +195,7 @@ export default function EditProductModal({ product, onClose, onProductUpdated }:
             </div>
           )}
 
-          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
             <input
               type="checkbox"
               id="isActive"

@@ -61,7 +61,7 @@ export async function findProductsOptimized(
             orderBy: { createdAt: 'desc' },
             take: 1, // Get most recent location only
           },
-        },
+        } as any,
         orderBy: { createdAt: 'desc' },
       }),
       prisma.product.count(),
@@ -111,7 +111,7 @@ export async function batchLoadProductInventory(productIds: string[]) {
         locationId: true,
         qty: true,
         warehouseCode: true,
-      },
+      } as any,
     });
 
     const queryTime = Number(process.hrtime.bigint() - startTime) / 1000000;
@@ -189,7 +189,7 @@ export async function findSalesOptimized(options: PaginationOptions = {}) {
               },
             },
           },
-        },
+        } as any,
         orderBy: { createdAt: 'desc' },
         // Add index hint if supported (depends on DB)
       }),
@@ -249,7 +249,7 @@ export async function findUserWithRelations(userId: string) {
             },
           },
         },
-      },
+      } as any,
     });
 
     const queryTime = Number(process.hrtime.bigint() - startTime) / 1000000;

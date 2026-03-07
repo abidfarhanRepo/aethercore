@@ -118,7 +118,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
           type: 'object',
           required: ['value'],
           properties: {
-            value: { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+            value: { anyOf: [{ type: 'boolean' }, { type: 'number' }, { type: 'string' }] },
             category: { type: 'string' },
             type: { type: 'string', enum: ['string', 'number', 'boolean', 'json'] },
             label: { type: 'string' },
@@ -162,10 +162,19 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         }
         finalValue = String(num)
       } else if (inferredType === 'boolean') {
-        if (typeof value !== 'boolean') {
+        const normalizedBooleanValue =
+          typeof value === 'boolean'
+            ? value
+            : value === 'true'
+              ? true
+              : value === 'false'
+                ? false
+                : null
+
+        if (normalizedBooleanValue === null) {
           return reply.code(400).send({ error: 'Invalid value for boolean type' })
         }
-        finalValue = String(value)
+        finalValue = String(normalizedBooleanValue)
       }
 
       const data = {
@@ -250,7 +259,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
                 required: ['key', 'value'],
                 properties: {
                   key: { type: 'string' },
-                  value: { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] },
+                  value: { anyOf: [{ type: 'boolean' }, { type: 'number' }, { type: 'string' }] },
                 },
               },
             },
@@ -291,7 +300,16 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
             }
             finalValue = String(num)
           } else if (existing.type === 'boolean') {
-            if (typeof update.value !== 'boolean') {
+            const normalizedBooleanValue =
+              typeof update.value === 'boolean'
+                ? update.value
+                : update.value === 'true'
+                  ? true
+                  : update.value === 'false'
+                    ? false
+                    : null
+
+            if (normalizedBooleanValue === null) {
               results.push({
                 key: update.key,
                 success: false,
@@ -299,7 +317,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
               })
               continue
             }
-            finalValue = String(update.value)
+            finalValue = String(normalizedBooleanValue)
           }
 
           const updated = await prisma.settings.update({

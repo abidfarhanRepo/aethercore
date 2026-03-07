@@ -22,7 +22,7 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
     backup_frequency: 'daily',
   })
 
-  const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR', 'MXN', 'BRL']
+  const CURRENCIES = ['USD', 'QAR', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR', 'MXN', 'BRL']
   const TIMEZONES = [
     'UTC',
     'America/New_York',

@@ -65,7 +65,7 @@ export class StripeAdapter {
 
   constructor(config: StripeConfig) {
     this.stripe = new Stripe(config.apiKey, {
-      apiVersion: '2024-04-10',
+      apiVersion: '2023-10-16',
       httpClient: undefined,
     })
     this.webhookSecret = config.webhookSecret
@@ -182,7 +182,7 @@ export class StripeAdapter {
           card: {
             token: input.cardToken,
           },
-        }
+        } as any
       }
 
       const paymentIntent = await this.stripe.paymentIntents.create(
@@ -201,8 +201,8 @@ export class StripeAdapter {
         result.actionUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/3d-secure/${paymentIntent.id}`
       }
 
-      if (paymentIntent.charges.data.length > 0) {
-        result.transactionId = paymentIntent.charges.data[0].id
+      if (typeof paymentIntent.latest_charge === 'string') {
+        result.transactionId = paymentIntent.latest_charge
       }
 
       return result
@@ -249,8 +249,8 @@ export class StripeAdapter {
         clientSecret: paymentIntent.client_secret,
       }
 
-      if (paymentIntent.charges.data.length > 0) {
-        result.transactionId = paymentIntent.charges.data[0].id
+      if (typeof paymentIntent.latest_charge === 'string') {
+        result.transactionId = paymentIntent.latest_charge
       }
 
       return result
@@ -276,7 +276,8 @@ export class StripeAdapter {
 
       return {
         status: paymentIntent.status,
-        transactionId: paymentIntent.charges.data[0]?.id || '',
+        transactionId:
+          typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : '',
       }
     } catch (error) {
       console.error('Error capturing Stripe payment:', error)
@@ -304,7 +305,7 @@ export class StripeAdapter {
 
       return {
         refundId: refund.id,
-        status: refund.status,
+        status: refund.status || 'unknown',
         amountCents: refund.amount,
       }
     } catch (error) {

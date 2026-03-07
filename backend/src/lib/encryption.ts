@@ -121,7 +121,7 @@ export function generateAPIKey(): string {
  * Create signed request token for sensitive operations
  */
 export function createSignedToken(data: Record<string, any>, expiresIn?: number): string {
-  const payload = {
+  const payload: Record<string, any> = {
     ...data,
     iat: Math.floor(Date.now() / 1000),
   }

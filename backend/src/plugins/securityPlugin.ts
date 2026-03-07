@@ -96,7 +96,7 @@ export async function registerSecurityPlugin(
     
     // This would be handled by the Redis-based rate limiter
     // For now, just tracking
-    request.user = { ip } as any
+    void key
   })
   
   // 5. Add security context to request
@@ -129,19 +129,4 @@ export async function registerSecurityPlugin(
   console.log(`  - CSP: ${config.enableCSP ? 'enabled' : 'disabled'}`)
   console.log(`  - Rate Limiting: ${config.enableRateLimit ? 'enabled' : 'disabled'}`)
   console.log(`  - Max Request Size: ${config.maxRequestSize} bytes`)
-}
-
-/**
- * Extend Fastify request to include security context
- */
-declare global {
-  namespace FastifyInstance {
-    interface FastifyRequest {
-      security?: {
-        ip: string
-        userAgent: string
-        origin: string
-      }
-    }
-  }
 }

@@ -114,14 +114,14 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b flex justify-between items-center">
           <h2 className="text-lg font-semibold">Sync Status</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-muted-foreground hover:text-foreground text-2xl"
           >
             ×
           </button>
@@ -129,36 +129,36 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
 
         {/* Progress */}
         {progress && (
-          <div className="px-6 py-4 border-b bg-gray-50">
+          <div className="px-6 py-4 border-b bg-muted">
             <div className="grid grid-cols-4 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold text-blue-600">{progress.total}</div>
-                <div className="text-xs text-gray-600">Total</div>
+                <div className="text-xs text-muted-foreground">Total</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-green-600">{progress.completed}</div>
-                <div className="text-xs text-gray-600">Synced</div>
+                <div className="text-xs text-muted-foreground">Synced</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-yellow-600">{progress.inProgress}</div>
-                <div className="text-xs text-gray-600">In Progress</div>
+                <div className="text-xs text-muted-foreground">In Progress</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-red-600">{progress.failed}</div>
-                <div className="text-xs text-gray-600">Failed</div>
+                <div className="text-xs text-muted-foreground">Failed</div>
               </div>
             </div>
           </div>
         )}
 
         {/* Filters */}
-        <div className="px-6 py-3 bg-gray-50 border-b flex gap-2">
+        <div className="px-6 py-3 bg-muted border-b flex gap-2">
           <button
             onClick={() => setFilter('all')}
             className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
               filter === 'all'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-muted text-foreground hover:bg-muted/80'
             }`}
           >
             All
@@ -168,7 +168,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
             className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
               filter === 'pending'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-muted text-foreground hover:bg-muted/80'
             }`}
           >
             Pending
@@ -178,7 +178,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
             className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
               filter === 'failed'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-muted text-foreground hover:bg-muted/80'
             }`}
           >
             Failed
@@ -189,11 +189,11 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
           <section>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-800">Queue</h3>
-              <span className="text-xs text-gray-500">{filteredItems.length} item(s)</span>
+              <h3 className="text-sm font-semibold text-foreground">Queue</h3>
+              <span className="text-xs text-muted-foreground">{filteredItems.length} item(s)</span>
             </div>
             {filteredItems.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 rounded border border-gray-200 bg-gray-50">
+              <div className="text-center py-6 text-muted-foreground rounded border border-border bg-muted">
                 {filter === 'all' ? 'No pending operations' : `No ${filter} operations`}
               </div>
             ) : (
@@ -201,7 +201,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
                 {filteredItems.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-start gap-3 p-3 rounded border border-gray-200 bg-gray-50"
+                    className="flex items-start gap-3 p-3 rounded border border-border bg-muted"
                   >
                     <div className="mt-1">
                       {item.status === 'syncing' && (
@@ -222,7 +222,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
                       <div className="font-medium text-sm">
                         {item.type} {item.endpoint}
                       </div>
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="text-xs text-muted-foreground mt-1">
                         {new Date(item.timestamp).toLocaleTimeString()}
                         {item.retries > 0 && ` • Retries: ${item.retries}`}
                       </div>
@@ -247,18 +247,18 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
 
           <section>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-800">Dead Letter</h3>
-              <span className="text-xs text-gray-500">{deadLetterItems.length} open</span>
+              <h3 className="text-sm font-semibold text-foreground">Dead Letter</h3>
+              <span className="text-xs text-muted-foreground">{deadLetterItems.length} open</span>
             </div>
 
             {deadLetterItems.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 rounded border border-gray-200 bg-gray-50">
+              <div className="text-center py-6 text-muted-foreground rounded border border-border bg-muted">
                 No unresolved dead-letter items
               </div>
             ) : (
-              <div className="rounded border border-gray-200 overflow-x-auto">
+              <div className="rounded border border-border overflow-x-auto">
                 <table className="min-w-full text-xs">
-                  <thead className="bg-gray-50 text-gray-600">
+                  <thead className="bg-muted text-muted-foreground">
                     <tr>
                       <th className="text-left px-2 py-2 font-semibold">Operation</th>
                       <th className="text-left px-2 py-2 font-semibold">Terminal</th>
@@ -270,14 +270,14 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
                   </thead>
                   <tbody>
                     {deadLetterItems.map((item) => (
-                      <tr key={item.id} className="border-t border-gray-200 align-top">
+                      <tr key={item.id} className="border-t border-border align-top">
                         <td className="px-2 py-2">
-                          <div className="font-medium text-gray-900">{item.operationType} {item.endpoint}</div>
-                          <div className="text-gray-500">{item.offlineOpId || item.id}</div>
+                          <div className="font-medium text-foreground">{item.operationType} {item.endpoint}</div>
+                          <div className="text-muted-foreground">{item.offlineOpId || item.id}</div>
                         </td>
-                        <td className="px-2 py-2 text-gray-700">{item.terminalId || '-'}</td>
-                        <td className="px-2 py-2 text-gray-700">{item.attemptCount}</td>
-                        <td className="px-2 py-2 text-gray-700 whitespace-nowrap">
+                        <td className="px-2 py-2 text-foreground">{item.terminalId || '-'}</td>
+                        <td className="px-2 py-2 text-foreground">{item.attemptCount}</td>
+                        <td className="px-2 py-2 text-foreground whitespace-nowrap">
                           {new Date(item.lastFailedAt).toLocaleString()}
                         </td>
                         <td className="px-2 py-2 text-red-700 max-w-xs">
@@ -299,7 +299,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
                               {replayingId === item.id ? 'Replaying...' : 'Replay'}
                             </button>
                           ) : (
-                            <span className="text-gray-400">Restricted</span>
+                            <span className="text-muted-foreground">Restricted</span>
                           )}
                         </td>
                       </tr>
@@ -312,7 +312,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 border-t bg-gray-50 flex gap-2 justify-between">
+        <div className="px-6 py-4 border-t bg-muted flex gap-2 justify-between">
           <div className="flex gap-2">
             {progress && progress.failed > 0 && (
               <button
@@ -325,7 +325,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
             {progress && progress.total > 0 && (
               <button
                 onClick={handleClearAll}
-                className="px-3 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 font-medium"
+                className="px-3 py-2 text-sm bg-secondary text-secondary-foreground rounded hover:opacity-90 font-medium"
               >
                 Clear All
               </button>
@@ -335,7 +335,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-100 font-medium"
+              className="px-4 py-2 text-sm border border-border text-foreground rounded hover:bg-muted/80 font-medium"
             >
               Close
             </button>
@@ -344,7 +344,7 @@ const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClose }) =>
               disabled={syncing || !progress || progress.total === 0}
               className={`px-4 py-2 text-sm rounded font-medium text-white ${
                 syncing || !progress || progress.total === 0
-                  ? 'bg-gray-400 cursor-not-allowed'
+                  ? 'bg-muted-foreground/40 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700'
               }`}
             >

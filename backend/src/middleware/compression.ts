@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { createGzip, createBrotli } from 'zlib';
+import { createGzip, createBrotliCompress, constants as zlibConstants } from 'zlib';
 import { logger } from '../utils/logger';
 
 // Minimum size before compressing (1KB)
@@ -154,10 +154,16 @@ export async function compressionMiddleware(
           gzip.end(buffer);
         } else {
           // Brotli compression
-          const brotli = createBrotli({ params: { lgwin: 22, lgblock: 24, quality: 11 } });
+          const brotli = createBrotliCompress({
+            params: {
+              [zlibConstants.BROTLI_PARAM_LGWIN]: 22,
+              [zlibConstants.BROTLI_PARAM_LGBLOCK]: 24,
+              [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+            },
+          });
           const chunks: Buffer[] = [];
 
-          brotli.on('data', (chunk) => chunks.push(chunk));
+          brotli.on('data', (chunk: Buffer) => chunks.push(chunk));
           brotli.on('end', () => {
             const compressed = Buffer.concat(chunks);
             const ratio = ((1 - compressed.length / buffer.length) * 100).toFixed(2);
@@ -202,10 +208,10 @@ export async function compressData(
       gzip.on('error', reject);
       gzip.end(buffer);
     } else {
-      const brotli = createBrotli();
+      const brotli = createBrotliCompress();
       const chunks: Buffer[] = [];
 
-      brotli.on('data', (chunk) => chunks.push(chunk));
+      brotli.on('data', (chunk: Buffer) => chunks.push(chunk));
       brotli.on('end', () => resolve(Buffer.concat(chunks)));
       brotli.on('error', reject);
       brotli.end(buffer);

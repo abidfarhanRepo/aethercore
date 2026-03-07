@@ -138,7 +138,7 @@ export class SquareAdapter {
         statementDescriptorSuffix: input.statementDescriptor?.substring(0, 20),
         receiptUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/receipt`,
         note: input.metadata?.note,
-      })
+      } as any)
 
       if (!result.payment) {
         throw new Error('No payment result returned')
@@ -168,7 +168,7 @@ export class SquareAdapter {
     lineItems: Array<{ name: string; quantity: number; amount: number }>
   ): Promise<string> {
     try {
-      const { result } = await this.client.ordersApi.createOrder(this.locationId, {
+      const { result } = await (this.client.ordersApi as any).createOrder(this.locationId, {
         customerId,
         lineItems: lineItems.map((item) => ({
           name: item.name,
@@ -211,7 +211,7 @@ export class SquareAdapter {
             }
           : undefined,
         reason: input.reason,
-      })
+      } as any)
 
       if (!result.refund) {
         throw new Error('No refund result returned')
@@ -248,8 +248,8 @@ export class SquareAdapter {
    */
   async searchPayments(customerId: string, beginTime?: number): Promise<any[]> {
     try {
-      const { result } = await this.client.paymentsApi.listPayments(
-        beginTime,
+      const { result } = await (this.client.paymentsApi as any).listPayments(
+        beginTime ? String(beginTime) : undefined,
         100,
         undefined,
         customerId

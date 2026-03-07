@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { rolesAPI } from '@/lib/api'
 import { X } from 'lucide-react'
 
@@ -106,8 +106,8 @@ export default function RolePermissionMatrix({ role, onClose }: RolePermissionMa
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-2xl p-6 max-h-96 overflow-auto">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+      <div className="bg-card rounded-lg w-full max-w-2xl p-6 max-h-96 overflow-auto border border-border">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold">{role.name}</h2>

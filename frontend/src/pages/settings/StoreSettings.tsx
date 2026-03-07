@@ -47,35 +47,12 @@ export default function StoreSettings({ settings, onSave }: StoreSettingsProps) 
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const requiredFields: Array<keyof typeof formData> = [
-    'store_name',
-    'store_address',
-    'store_phone',
-    'store_email',
-  ]
-
-  const fieldLabelMap: Record<keyof typeof formData, string> = {
-    store_name: 'Store Name',
-    store_address: 'Store Address',
-    store_phone: 'Store Phone',
-    store_email: 'Store Email',
-    store_website: 'Store Website',
-    business_registration: 'Business Registration Number',
-    store_logo_url: 'Store Logo URL',
-  }
-
   const changedFields = (Object.keys(formData) as Array<keyof typeof formData>).filter(
     (key) => formData[key] !== initialData[key]
   )
 
   const handleSaveAll = async () => {
     setSuccess(null)
-
-    const invalidRequiredField = requiredFields.find((field) => !formData[field].trim())
-    if (invalidRequiredField) {
-      setError(`${fieldLabelMap[invalidRequiredField]} cannot be empty`)
-      return
-    }
 
     if (changedFields.length === 0) {
       setError('No changes to save')

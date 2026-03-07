@@ -5,7 +5,16 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/lib/auth'
 import { notificationAPI, AppNotification } from '@/lib/notificationAPI'
-import { securityAPI, SecurityEventItem, KeyRotationItem, SecurityStatusResponse, HealthResponse } from '@/lib/securityAPI'
+import {
+  securityAPI,
+  SecurityEventItem,
+  KeyRotationItem,
+  SecurityStatusResponse,
+  HealthResponse,
+  AlertRulesConfig,
+  AlertRuleType,
+  AlertEvaluationResult,
+} from '@/lib/securityAPI'
 
 const COMPONENT_OPTIONS: Array<{ value: 'jwt_access' | 'jwt_refresh' | 'encryption' | 'tls' | 'settings'; label: string }> = [
   { value: 'jwt_access', label: 'JWT Access Secret' },
@@ -20,6 +29,13 @@ const badgeBySeverity: Record<string, string> = {
   MEDIUM: 'bg-amber-50 text-amber-700',
   HIGH: 'bg-orange-50 text-orange-800',
   CRITICAL: 'bg-red-50 text-red-700',
+}
+
+const ALERT_RULE_LABELS: Record<AlertRuleType, string> = {
+  auth_spike: 'Auth Spike',
+  security_status_failure: 'Security Status Failure',
+  cert_expiry: 'Certificate Expiry (days)',
+  backup_failure: 'Backup Failure',
 }
 
 export default function SecuritySettings() {
@@ -38,8 +54,13 @@ export default function SecuritySettings() {
   const [newVersion, setNewVersion] = useState('')
   const [notes, setNotes] = useState('')
   const [rotationMessage, setRotationMessage] = useState<string | null>(null)
+  const [alertRules, setAlertRules] = useState<AlertRulesConfig | null>(null)
+  const [alertsMessage, setAlertsMessage] = useState<string | null>(null)
+  const [alertEvaluation, setAlertEvaluation] = useState<AlertEvaluationResult | null>(null)
+  const [savingAlerts, setSavingAlerts] = useState(false)
 
   const isAdmin = user?.role === 'ADMIN'
+  const isOpsReader = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const loadData = async () => {
     try {
@@ -60,6 +81,11 @@ export default function SecuritySettings() {
       setRotations(rotationsRes.data.items)
       setNotifications(notificationsRes.data.notifications)
       setUnreadCount(unreadRes.data.unreadCount)
+
+      if (isOpsReader) {
+        const alertsRes = await securityAPI.getAlertRules()
+        setAlertRules(alertsRes.data.config)
+      }
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Failed to load security data')
     } finally {
@@ -91,6 +117,57 @@ export default function SecuritySettings() {
       await loadData()
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Rotation logging failed')
+    }
+  }
+
+  const updateRuleField = (rule: AlertRuleType, field: 'enabled' | 'threshold' | 'windowMinutes', value: boolean | number) => {
+    setAlertRules((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        rules: {
+          ...prev.rules,
+          [rule]: {
+            ...prev.rules[rule],
+            [field]: value,
+          },
+        },
+      }
+    })
+  }
+
+  const saveAlertRules = async () => {
+    if (!alertRules || !isAdmin) return
+
+    try {
+      setSavingAlerts(true)
+      setError(null)
+      setAlertsMessage(null)
+      const response = await securityAPI.updateAlertRules(alertRules)
+      setAlertRules(response.data.config)
+      setAlertsMessage('Alert rules updated.')
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.message || 'Failed to update alert rules')
+    } finally {
+      setSavingAlerts(false)
+    }
+  }
+
+  const evaluateAlerts = async () => {
+    if (!isOpsReader) return
+
+    try {
+      setError(null)
+      const response = await securityAPI.evaluateAlertRules()
+      setAlertEvaluation(response.data.evaluation)
+      setAlertsMessage(
+        response.data.evaluation.triggered.length > 0
+          ? `${response.data.evaluation.triggered.length} alert(s) triggered.`
+          : 'Alert evaluation completed with no triggers.'
+      )
+      await loadData()
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.message || 'Failed to evaluate alert rules')
     }
   }
 
@@ -179,7 +256,7 @@ export default function SecuritySettings() {
               <select
                 className="px-3 py-2 border border-border rounded-md bg-background text-sm"
                 value={component}
-                onChange={(e) => setComponent(e.target.value as any)}
+                onChange={(e) => setComponent(e.target.value as 'jwt_access' | 'jwt_refresh' | 'encryption' | 'tls' | 'settings')}
               >
                 {COMPONENT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -204,6 +281,85 @@ export default function SecuritySettings() {
                 Logging a rotation does not hot-swap process secrets. Update secret provider values and redeploy services.
               </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isOpsReader && alertRules && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">P8-B Alert Rules and Thresholds</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(Object.keys(alertRules.rules) as AlertRuleType[]).map((rule) => (
+                <div key={rule} className="border border-border rounded-md p-3 space-y-2">
+                  <p className="text-sm font-medium">{ALERT_RULE_LABELS[rule]}</p>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={alertRules.rules[rule].enabled}
+                      disabled={!isAdmin}
+                      onChange={(e) => updateRuleField(rule, 'enabled', e.target.checked)}
+                    />
+                    Enabled
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={alertRules.rules[rule].threshold}
+                    disabled={!isAdmin}
+                    onChange={(e) => updateRuleField(rule, 'threshold', Number(e.target.value || 1))}
+                    placeholder="Threshold"
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={alertRules.rules[rule].windowMinutes}
+                    disabled={!isAdmin}
+                    onChange={(e) => updateRuleField(rule, 'windowMinutes', Number(e.target.value || 1))}
+                    placeholder="Window (minutes)"
+                  />
+                </div>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={alertRules.routingPolicy.notifyAdminManager}
+                disabled={!isAdmin}
+                onChange={(e) =>
+                  setAlertRules((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          routingPolicy: {
+                            ...prev.routingPolicy,
+                            notifyAdminManager: e.target.checked,
+                          },
+                        }
+                      : prev
+                  )
+                }
+              />
+              Notify Admin/Manager recipients
+            </label>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Button variant="outline" onClick={() => void saveAlertRules()} disabled={savingAlerts}>
+                  Save Alert Rules
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => void evaluateAlerts()}>
+                Evaluate Now
+              </Button>
+            </div>
+            {alertsMessage && <p className="text-sm text-muted-foreground">{alertsMessage}</p>}
+            {alertEvaluation && (
+              <div className="text-sm text-muted-foreground">
+                Last evaluated: {new Date(alertEvaluation.checkedAt).toLocaleString()} ({alertEvaluation.triggered.length} triggered)
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

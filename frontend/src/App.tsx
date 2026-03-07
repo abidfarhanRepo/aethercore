@@ -14,6 +14,8 @@ import RestaurantTables from '@/pages/RestaurantTables'
 import KitchenBoard from '@/pages/KitchenBoard'
 import PharmacyConsole from '@/pages/PharmacyConsole'
 import ReceivingCenter from '@/pages/ReceivingCenter'
+import SalesTransactions from '@/pages/SalesTransactions'
+import PurchasesTransactions from '@/pages/PurchasesTransactions'
 import ActivityLog from '@/components/ActivityLog'
 import { Button } from '@/components/ui/Button'
 import {
@@ -30,6 +32,8 @@ import {
   ClipboardList,
   Pill,
   Truck,
+  Receipt,
+  ShoppingBag,
   Menu,
   X,
 } from 'lucide-react'
@@ -93,6 +97,8 @@ const MENU_ITEMS: MenuItem[] = [
   { label: 'Kitchen', icon: <ClipboardList className="h-4 w-4" />, path: '/kitchen', allowedRoles: ['ADMIN', 'MANAGER', 'CASHIER'] },
   { label: 'Pharmacy', icon: <Pill className="h-4 w-4" />, path: '/pharmacy', allowedRoles: ['ADMIN', 'MANAGER', 'SUPERVISOR'] },
   { label: 'Receiving', icon: <Truck className="h-4 w-4" />, path: '/receiving', allowedRoles: ['ADMIN', 'MANAGER', 'STOCK_CLERK'] },
+  { label: 'Sales Txns', icon: <Receipt className="h-4 w-4" />, path: '/reports/sales-transactions', allowedRoles: ['ADMIN', 'MANAGER'] },
+  { label: 'Purchase Txns', icon: <ShoppingBag className="h-4 w-4" />, path: '/reports/purchases-transactions', allowedRoles: ['ADMIN', 'MANAGER'] },
   { label: 'Settings', icon: <Settings className="h-4 w-4" />, path: '/settings', allowedRoles: ['ADMIN', 'MANAGER'] },
 ]
 
@@ -335,6 +341,8 @@ function AppContent({ featureFlags, settingsLoading }: { featureFlags: FeatureFl
           <Route path="/kitchen" element={hasPermission(['ADMIN', 'MANAGER', 'CASHIER'], '/kitchen') ? <KitchenBoard /> : <Navigate to="/" replace />} />
           <Route path="/pharmacy" element={hasPermission(['ADMIN', 'MANAGER', 'SUPERVISOR'], '/pharmacy') ? <PharmacyConsole /> : <Navigate to="/" replace />} />
           <Route path="/receiving" element={hasPermission(['ADMIN', 'MANAGER', 'STOCK_CLERK'], '/receiving') ? <ReceivingCenter /> : <Navigate to="/" replace />} />
+          <Route path="/reports/sales-transactions" element={hasPermission(['ADMIN', 'MANAGER'], '/reports/sales-transactions') ? <SalesTransactions /> : <Navigate to="/" replace />} />
+          <Route path="/reports/purchases-transactions" element={hasPermission(['ADMIN', 'MANAGER'], '/reports/purchases-transactions') ? <PurchasesTransactions /> : <Navigate to="/" replace />} />
           <Route path="/settings" element={hasPermission(['ADMIN', 'MANAGER'], '/settings') ? <SettingsPage /> : <Navigate to="/" replace />} />
           <Route path="/" element={<Navigate to="/checkout" replace />} />
         </>

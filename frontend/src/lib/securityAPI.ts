@@ -73,6 +73,32 @@ export interface HealthResponse {
   }
 }
 
+export type AlertRuleType = 'auth_spike' | 'security_status_failure' | 'cert_expiry' | 'backup_failure'
+
+export interface AlertRuleConfig {
+  enabled: boolean
+  threshold: number
+  windowMinutes: number
+}
+
+export interface AlertRulesConfig {
+  routingPolicy: {
+    notifyAdminManager: boolean
+  }
+  rules: Record<AlertRuleType, AlertRuleConfig>
+}
+
+export interface AlertEvaluationResult {
+  checkedAt: string
+  triggered: Array<{
+    rule: AlertRuleType
+    value: number
+    threshold: number
+    windowMinutes: number
+    message: string
+  }>
+}
+
 export const securityAPI = {
   getStatus: () => api.get<SecurityStatusResponse>('/api/security/status'),
   getEvents: (limit = 50) => api.get<{ items: SecurityEventItem[]; meta: { limit: number; count: number } }>(`/api/security/events?limit=${limit}`),
@@ -80,5 +106,9 @@ export const securityAPI = {
     api.get<{ items: KeyRotationItem[]; meta: { limit: number; count: number } }>(`/api/security/key-rotations?limit=${limit}`),
   rotateKeys: (payload: { component: 'jwt_access' | 'jwt_refresh' | 'encryption' | 'tls' | 'settings'; newVersion: string; notes?: string }) =>
     api.post('/api/security/rotate-keys', payload),
+  getAlertRules: () => api.get<{ config: AlertRulesConfig }>('/api/security/alert-rules'),
+  updateAlertRules: (payload: Partial<AlertRulesConfig>) =>
+    api.put<{ config: AlertRulesConfig }>('/api/security/alert-rules', payload),
+  evaluateAlertRules: () => api.post<{ evaluation: AlertEvaluationResult }>('/api/security/alert-rules/evaluate'),
   getHealth: () => api.get<HealthResponse>('/api/health'),
 }

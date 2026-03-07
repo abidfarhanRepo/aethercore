@@ -4,6 +4,10 @@ import { prisma } from '../utils/db'
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me'
 
+interface JwtAccessPayload {
+  id: string
+}
+
 // Permission Matrix
 export const PERMISSION_MATRIX: Record<string, string[]> = {
   ADMIN: [
@@ -105,7 +109,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   if (!auth) return reply.code(401).send({ error: 'missing auth' })
   const token = auth.replace(/^Bearer\s+/, '')
   try {
-    const payload: any = jwt.verify(token, JWT_ACCESS_SECRET)
+    const payload = jwt.verify(token, JWT_ACCESS_SECRET) as JwtAccessPayload
     // Fetch full user data
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
@@ -125,7 +129,15 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
     }
 
     // attach user to request
-    ;(req as any).user = user
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      isActive: user.isActive,
+    }
   } catch (e) {
     return reply.code(401).send({ error: 'invalid token' })
   }
@@ -133,7 +145,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
 
 export function requireRole(...allowedRoles: string[]) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    const user = (req as any).user
+    const user = req.user
     if (!user) return reply.code(401).send({ error: 'unauthenticated' })
 
     if (!allowedRoles.includes(user.role) && user.role !== 'ADMIN') {
@@ -146,7 +158,7 @@ export function requireRole(...allowedRoles: string[]) {
 
 export function requirePermission(...permissions: string[]) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    const user = (req as any).user
+    const user = req.user
     if (!user) return reply.code(401).send({ error: 'unauthenticated' })
 
     // Check if user has permission

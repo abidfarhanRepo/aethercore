@@ -7,7 +7,7 @@ export default async function roleRoutes(server: FastifyInstance) {
   server.get<{ Querystring: { limit?: string; offset?: string } }>(
     '/api/roles',
     { preHandler: requireAuth },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { limit = '50', offset = '0' } = request.query
         const limitNum = Math.min(parseInt(limit), 100)
@@ -109,7 +109,7 @@ export default async function roleRoutes(server: FastifyInstance) {
   server.get<{ Params: { id: string } }>(
     '/api/roles/:id',
     { preHandler: requireAuth },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
 
@@ -263,7 +263,7 @@ export default async function roleRoutes(server: FastifyInstance) {
   server.post<{ Body: any }>(
     '/api/roles',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { name, description, permissions } = request.body
 
@@ -307,7 +307,7 @@ export default async function roleRoutes(server: FastifyInstance) {
   server.put<{ Params: { id: string }; Body: any }>(
     '/api/roles/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
         const { description, permissions } = request.body
@@ -354,7 +354,7 @@ export default async function roleRoutes(server: FastifyInstance) {
   server.delete<{ Params: { id: string } }>(
     '/api/roles/:id',
     { preHandler: [requireAuth, requireRole('ADMIN')] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request: any, reply: FastifyReply) => {
       try {
         const { id } = request.params
 
