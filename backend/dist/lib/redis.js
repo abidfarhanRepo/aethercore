@@ -10,11 +10,13 @@ const logger_1 = require("../utils/logger");
 let client = null;
 let initPromise = null;
 async function initRedis() {
+    let redis = null;
     try {
-        const redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379', {
+        redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379', {
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             connectTimeout: 5000,
+            retryStrategy: () => null,
         });
         redis.on('error', (error) => {
             logger_1.logger.warn({ error }, 'Redis client error');
@@ -24,6 +26,10 @@ async function initRedis() {
         return redis;
     }
     catch (error) {
+        // Ensure failed clients are closed so test/process shutdown is not blocked by reconnect timers.
+        if (redis) {
+            redis.disconnect();
+        }
         logger_1.logger.warn({ error }, 'Redis unavailable; idempotency fallback will be used');
         return null;
     }

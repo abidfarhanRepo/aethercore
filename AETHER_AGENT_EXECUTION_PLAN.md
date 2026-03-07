@@ -53,7 +53,7 @@
 ---
 
 ### TICKET W1-02 — Replace Idempotency Utility with Redis-Backed Store
-**Status:** `[~]`  
+**Status:** `[x]`  
 **Priority:** CRITICAL  
 **Depends on:** W1-01  
 **Files:**
