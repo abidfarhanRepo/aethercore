@@ -79,7 +79,7 @@
 ---
 
 ### TICKET W1-03 — Implement Email Receipt Delivery
-**Status:** `[ ]`  
+**Status:** `[~]`  
 **Priority:** CRITICAL  
 **Depends on:** W1-01  
 **Files:**

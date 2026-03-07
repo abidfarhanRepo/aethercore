@@ -15,6 +15,7 @@ import {
   detectCardBrand,
 } from '../lib/payments'
 import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
+import { sendReceiptEmail } from '../lib/emailService'
 
 // Payment processor instances (initialized when needed)
 const processors: Record<string, any> = {}
@@ -816,19 +817,57 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
       const payment = await prisma.payment.findUnique({
         where: { id },
-        include: { sale: { include: { items: true } } },
+        include: {
+          sale: {
+            include: {
+              items: {
+                include: {
+                  product: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       })
 
       if (!payment) {
         return reply.code(404).send({ error: 'Payment not found' })
       }
 
-      // TODO: Implement email sending logic
-      // For now, just acknowledge the request
+      const itemsMarkup =
+        payment.sale?.items
+          .map((item) => {
+            const lineTotal = (item.unitPrice * item.qty) / 100
+            return `<tr><td>${item.product.name}</td><td>${item.qty}</td><td>$${lineTotal.toFixed(2)}</td></tr>`
+          })
+          .join('') || ''
+
+      const receiptHtml = `
+<html>
+  <body>
+    <h2>Receipt ${id}</h2>
+    <p><strong>Subtotal:</strong> $${((payment.sale?.subtotalCents || 0) / 100).toFixed(2)}</p>
+    <p><strong>Tax:</strong> $${((payment.sale?.taxCents || 0) / 100).toFixed(2)}</p>
+    <p><strong>Total:</strong> $${(payment.amountCents / 100).toFixed(2)}</p>
+    <table border="1" cellspacing="0" cellpadding="6">
+      <thead>
+        <tr><th>Item</th><th>Qty</th><th>Line Total</th></tr>
+      </thead>
+      <tbody>${itemsMarkup}</tbody>
+    </table>
+  </body>
+</html>
+      `.trim()
+
+      await sendReceiptEmail(recipientEmail, id, receiptHtml)
 
       return reply.send({
         success: true,
-        message: 'Receipt email queued',
+        message: 'Receipt email sent',
       })
     } catch (error) {
       fastify.log.error(error)
