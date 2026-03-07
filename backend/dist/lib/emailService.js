@@ -3,6 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.setEmailTransportForTests = setEmailTransportForTests;
+exports.createEtherealTransport = createEtherealTransport;
 exports.sendReceiptEmail = sendReceiptEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const db_1 = require("../utils/db");
@@ -10,6 +12,9 @@ const logger_1 = require("../utils/logger");
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = 2000;
 let transport = null;
+function setEmailTransportForTests(nextTransport) {
+    transport = nextTransport;
+}
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -28,24 +33,32 @@ function getTransport() {
     });
     return transport;
 }
+async function createEtherealTransport() {
+    const account = await nodemailer_1.default.createTestAccount();
+    return nodemailer_1.default.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+            user: account.user,
+            pass: account.pass,
+        },
+    });
+}
 function buildReceiptSubject(receiptId) {
     return `Aether POS Receipt ${receiptId}`;
 }
 async function queueFailedEmail(to, receiptId, html, error) {
-    // Persist as an in-app notification record so failed delivery can be replayed by ops tools.
-    await db_1.prisma.notification.create({
+    await db_1.prisma.notificationQueue.create({
         data: {
-            title: `failed_email:${receiptId}`,
-            message: `Receipt email delivery failed for ${to}`,
-            metadata: {
-                type: 'failed_email',
-                receiptId,
-                to,
-                html,
-                error,
-            },
-            type: 'SYSTEM',
-            severity: 'MEDIUM',
+            type: 'failed_email',
+            receiptId,
+            recipientEmail: to,
+            subject: buildReceiptSubject(receiptId),
+            htmlContent: html,
+            status: 'pending',
+            attempts: MAX_ATTEMPTS,
+            error,
         },
     });
 }

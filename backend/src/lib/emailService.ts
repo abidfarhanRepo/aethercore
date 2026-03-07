@@ -7,6 +7,10 @@ const BACKOFF_MS = 2000
 
 let transport: Transporter | null = null
 
+export function setEmailTransportForTests(nextTransport: Transporter | null): void {
+  transport = nextTransport
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -30,6 +34,19 @@ function getTransport(): Transporter {
   return transport
 }
 
+export async function createEtherealTransport(): Promise<Transporter> {
+  const account = await nodemailer.createTestAccount()
+  return nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    secure: false,
+    auth: {
+      user: account.user,
+      pass: account.pass,
+    },
+  })
+}
+
 function buildReceiptSubject(receiptId: string): string {
   return `Aether POS Receipt ${receiptId}`
 }
@@ -40,20 +57,16 @@ async function queueFailedEmail(
   html: string,
   error: string
 ): Promise<void> {
-  // Persist as an in-app notification record so failed delivery can be replayed by ops tools.
-  await prisma.notification.create({
+  await prisma.notificationQueue.create({
     data: {
-      title: `failed_email:${receiptId}`,
-      message: `Receipt email delivery failed for ${to}`,
-      metadata: {
-        type: 'failed_email',
-        receiptId,
-        to,
-        html,
-        error,
-      },
-      type: 'SYSTEM',
-      severity: 'MEDIUM',
+      type: 'failed_email',
+      receiptId,
+      recipientEmail: to,
+      subject: buildReceiptSubject(receiptId),
+      htmlContent: html,
+      status: 'pending',
+      attempts: MAX_ATTEMPTS,
+      error,
     },
   })
 }

@@ -141,6 +141,26 @@ model Notification {
   @@index([createdAt])
 }
 
+model NotificationQueue {
+  id             String   @id @default(cuid())
+  type           String   @default("failed_email")
+  receiptId      String
+  recipientEmail String
+  subject        String
+  htmlContent    String
+  status         String   @default("pending")
+  attempts       Int      @default(1)
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([receiptId])
+  @@index([recipientEmail])
+  @@index([createdAt])
+}
+
 model SystemSecurityStatus {
   id                    String   @id @default(cuid())
   httpsEnforced         Boolean
