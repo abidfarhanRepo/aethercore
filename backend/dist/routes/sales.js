@@ -5,11 +5,23 @@ const db_1 = require("../utils/db");
 const discountEngine_1 = require("../utils/discountEngine");
 const paymentEngine_1 = require("../utils/paymentEngine");
 const hookBus_1 = require("../lib/hookBus");
+const idempotency_1 = require("../utils/idempotency");
 async function salesRoutes(fastify) {
     // ============ POST /sales - Create Sale ============
     fastify.post('/api/sales', async (req, reply) => {
         const body = req.body;
+        const idempotencyHeader = req.headers['idempotency-key'];
+        const idempotencyKey = typeof idempotencyHeader === 'string' && idempotencyHeader.trim()
+            ? idempotencyHeader.trim()
+            : null;
         try {
+            if (idempotencyKey) {
+                const cached = await (0, idempotency_1.checkIdempotency)(idempotencyKey);
+                if (cached.exists) {
+                    fastify.log.info({ idempotencyKey }, 'Returning cached sale response');
+                    return reply.code(200).send(cached.result);
+                }
+            }
             let actorUserId = body.userId;
             // Prefer authenticated user when token is provided.
             try {
@@ -273,6 +285,9 @@ async function salesRoutes(fastify) {
                 saleId: result.id,
                 userId: actorUserId,
             });
+            if (idempotencyKey) {
+                await (0, idempotency_1.saveIdempotency)(idempotencyKey, result);
+            }
             return reply.code(201).send(result);
         }
         catch (e) {

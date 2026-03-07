@@ -14,6 +14,7 @@ import {
   validateProcessorConfig,
   detectCardBrand,
 } from '../lib/payments'
+import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
 
 // Payment processor instances (initialized when needed)
 const processors: Record<string, any> = {}
@@ -252,7 +253,17 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         })
       }
 
-      const idempotencyKey = generateIdempotencyKey()
+      const idempotencyHeader = req.headers['idempotency-key']
+      const idempotencyKey =
+        (typeof idempotencyHeader === 'string' && idempotencyHeader.trim()) ||
+        generateIdempotencyKey()
+
+      const cached = await checkIdempotency(idempotencyKey)
+      if (cached.exists) {
+        fastify.log.info({ idempotencyKey }, 'Returning cached payment response')
+        return reply.code(200).send(cached.result)
+      }
+
       const dummyMode = await getBooleanSetting(
         paymentProviderDummyKey(normalizedProcessor),
         true
@@ -433,7 +444,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
           paymentRecord.status === 'CAPTURED' ? 'success' : 'pending'
         )
 
-        return reply.code(201).send({
+        const responsePayload = {
           success: true,
           paymentId: paymentRecord.id,
           transactionId,
@@ -441,7 +452,11 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
           requiresAction: paymentResult.requiresAction,
           clientSecret: paymentResult.clientSecret,
           actionUrl: paymentResult.actionUrl,
-        })
+        }
+
+        await saveIdempotency(idempotencyKey, responsePayload)
+
+        return reply.code(201).send(responsePayload)
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error)

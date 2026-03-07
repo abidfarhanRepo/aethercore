@@ -15,13 +15,27 @@ import {
   PaymentInput,
 } from '../utils/paymentEngine'
 import { coreHookBus } from '../lib/hookBus'
+import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
 
 export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales - Create Sale ============
   fastify.post('/api/sales', async (req, reply) => {
     const body = req.body as any
+    const idempotencyHeader = req.headers['idempotency-key']
+    const idempotencyKey =
+      typeof idempotencyHeader === 'string' && idempotencyHeader.trim()
+        ? idempotencyHeader.trim()
+        : null
 
     try {
+      if (idempotencyKey) {
+        const cached = await checkIdempotency(idempotencyKey)
+        if (cached.exists) {
+          fastify.log.info({ idempotencyKey }, 'Returning cached sale response')
+          return reply.code(200).send(cached.result)
+        }
+      }
+
       let actorUserId: string | undefined = body.userId
 
       // Prefer authenticated user when token is provided.
@@ -324,6 +338,10 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         saleId: result.id,
         userId: actorUserId,
       })
+
+      if (idempotencyKey) {
+        await saveIdempotency(idempotencyKey, result)
+      }
 
       return reply.code(201).send(result)
     } catch (e: any) {

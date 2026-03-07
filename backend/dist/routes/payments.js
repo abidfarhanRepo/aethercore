@@ -6,6 +6,7 @@ const stripe_1 = require("../lib/payments/stripe");
 const square_1 = require("../lib/payments/square");
 const paypal_1 = require("../lib/payments/paypal");
 const payments_1 = require("../lib/payments");
+const idempotency_1 = require("../utils/idempotency");
 // Payment processor instances (initialized when needed)
 const processors = {};
 const SUPPORTED_PROCESSORS = ['STRIPE', 'SQUARE', 'PAYPAL'];
@@ -172,7 +173,14 @@ async function paymentRoutes(fastify) {
                     error: `${normalizedProcessor} is disabled in settings`,
                 });
             }
-            const idempotencyKey = (0, payments_1.generateIdempotencyKey)();
+            const idempotencyHeader = req.headers['idempotency-key'];
+            const idempotencyKey = (typeof idempotencyHeader === 'string' && idempotencyHeader.trim()) ||
+                (0, payments_1.generateIdempotencyKey)();
+            const cached = await (0, idempotency_1.checkIdempotency)(idempotencyKey);
+            if (cached.exists) {
+                fastify.log.info({ idempotencyKey }, 'Returning cached payment response');
+                return reply.code(200).send(cached.result);
+            }
             const dummyMode = await getBooleanSetting(paymentProviderDummyKey(normalizedProcessor), true);
             const proc = !dummyMode ? getProcessor(normalizedProcessor) : null;
             try {
@@ -311,7 +319,7 @@ async function paymentRoutes(fastify) {
                 });
                 // Log payment attempt
                 (0, payments_1.logPaymentAttempt)(transactionId, normalizedProcessor, amount, cardNumber ? (0, payments_1.getCardLastFour)(cardNumber) : 'xxxx', paymentRecord.status === 'CAPTURED' ? 'success' : 'pending');
-                return reply.code(201).send({
+                const responsePayload = {
                     success: true,
                     paymentId: paymentRecord.id,
                     transactionId,
@@ -319,7 +327,9 @@ async function paymentRoutes(fastify) {
                     requiresAction: paymentResult.requiresAction,
                     clientSecret: paymentResult.clientSecret,
                     actionUrl: paymentResult.actionUrl,
-                });
+                };
+                await (0, idempotency_1.saveIdempotency)(idempotencyKey, responsePayload);
+                return reply.code(201).send(responsePayload);
             }
             catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);

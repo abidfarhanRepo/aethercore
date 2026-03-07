@@ -66,6 +66,7 @@ const rateLimit_1 = __importDefault(require("./plugins/rateLimit"));
 const securityPlugin_1 = require("./plugins/securityPlugin");
 const errorHandler_1 = require("./middleware/errorHandler");
 const logger_1 = require("./utils/logger");
+const redis_1 = require("./lib/redis");
 const server = (0, fastify_1.default)({
     logger: {
         level: process.env.LOG_LEVEL || 'info',
@@ -77,6 +78,7 @@ const server = (0, fastify_1.default)({
 });
 // IMPORTANT: Register security plugin first, before all other middleware
 const initializeSecurityAndRoutes = async () => {
+    await (0, redis_1.getRedisClient)();
     // Ensure each request carries a request ID and propagate it to response headers.
     server.addHook('onRequest', async (request, reply) => {
         const headerRequestId = request.headers['x-request-id'];
@@ -187,12 +189,14 @@ const start = async () => {
 process.on('SIGTERM', async () => {
     server.log.info('SIGTERM received, gracefully shutting down...');
     await server.close();
+    await (0, redis_1.closeRedisClient)();
     await db_1.prisma.$disconnect();
     process.exit(0);
 });
 process.on('SIGINT', async () => {
     server.log.info('SIGINT received, gracefully shutting down...');
     await server.close();
+    await (0, redis_1.closeRedisClient)();
     await db_1.prisma.$disconnect();
     process.exit(0);
 });

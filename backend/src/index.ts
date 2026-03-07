@@ -29,6 +29,7 @@ import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
 import { setupErrorHandler } from './middleware/errorHandler'
 import { logger } from './utils/logger'
+import { getRedisClient, closeRedisClient } from './lib/redis'
 
 const server = Fastify({
   logger: {
@@ -43,6 +44,8 @@ const server = Fastify({
 
 // IMPORTANT: Register security plugin first, before all other middleware
 const initializeSecurityAndRoutes = async () => {
+  await getRedisClient()
+
   // Ensure each request carries a request ID and propagate it to response headers.
   server.addHook('onRequest', async (request, reply) => {
     const headerRequestId = request.headers['x-request-id']
@@ -170,6 +173,7 @@ const start = async () => {
 process.on('SIGTERM', async () => {
   server.log.info('SIGTERM received, gracefully shutting down...')
   await server.close()
+  await closeRedisClient()
   await prisma.$disconnect()
   process.exit(0)
 })
@@ -177,6 +181,7 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
   server.log.info('SIGINT received, gracefully shutting down...')
   await server.close()
+  await closeRedisClient()
   await prisma.$disconnect()
   process.exit(0)
 })
