@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SquareAdapter = void 0;
 const square_1 = require("square");
+const logger_1 = require("../../utils/logger");
 class SquareAdapter {
     constructor(config) {
         this.client = new square_1.Client({
@@ -42,7 +43,7 @@ class SquareAdapter {
             return newCustomer.customer?.id || '';
         }
         catch (error) {
-            console.error('Error creating Square customer:', error);
+            logger_1.logger.error({ error }, 'Error creating Square customer');
             throw new Error(`Failed to create Square customer: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -61,7 +62,7 @@ class SquareAdapter {
             };
         }
         catch (error) {
-            console.error('Error tokenizing payment method:', error);
+            logger_1.logger.error({ error }, 'Error tokenizing payment method');
             throw new Error(`Payment method tokenization failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -94,7 +95,7 @@ class SquareAdapter {
             };
         }
         catch (error) {
-            console.error('Error processing Square payment:', error);
+            logger_1.logger.error({ error }, 'Error processing Square payment');
             throw new Error(`Payment processing failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -121,7 +122,7 @@ class SquareAdapter {
             return result.order?.id || '';
         }
         catch (error) {
-            console.error('Error creating order:', error);
+            logger_1.logger.error({ error }, 'Error creating order');
             throw new Error(`Order creation failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -150,7 +151,7 @@ class SquareAdapter {
             };
         }
         catch (error) {
-            console.error('Error refunding Square payment:', error);
+            logger_1.logger.error({ error }, 'Error refunding Square payment');
             throw new Error(`Payment refund failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -163,7 +164,7 @@ class SquareAdapter {
             return result.payment;
         }
         catch (error) {
-            console.error('Error retrieving payment:', error);
+            logger_1.logger.error({ error }, 'Error retrieving payment');
             throw error;
         }
     }
@@ -176,7 +177,7 @@ class SquareAdapter {
             return result.payments || [];
         }
         catch (error) {
-            console.error('Error searching payments:', error);
+            logger_1.logger.error({ error }, 'Error searching payments');
             throw error;
         }
     }
@@ -196,7 +197,7 @@ class SquareAdapter {
             case 'refund.updated':
                 return this.handleRefundUpdated(payload);
             default:
-                console.log(`Unhandled Square event type: ${eventType}`);
+                logger_1.logger.info({ eventType }, 'Unhandled Square event type');
                 return null;
         }
     }

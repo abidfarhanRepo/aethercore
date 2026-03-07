@@ -10,6 +10,7 @@ exports.requirePermission = requirePermission;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = require("../utils/db");
 Object.defineProperty(exports, "prisma", { enumerable: true, get: function () { return db_1.prisma; } });
+const logger_1 = require("../utils/logger");
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me';
 // Permission Matrix
 exports.PERMISSION_MATRIX = {
@@ -186,6 +187,6 @@ async function logPermissionDenial(userId, action, permission, granted, req) {
     }
     catch (e) {
         // Silently fail audit logging
-        console.error('Failed to log permission:', e);
+        logger_1.logger.error({ error: e }, 'Failed to log permission');
     }
 }

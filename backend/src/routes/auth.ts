@@ -8,6 +8,7 @@ import { onLoginSuccess, onLoginFailure } from '../middleware/brute-force'
 import { logAuthEvent } from '../utils/audit'
 import { createFailedLoginNotification } from '../lib/notificationService'
 import { logSecurityEventRecord } from '../lib/securityCompliance'
+import { logger } from '../utils/logger'
 
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -119,7 +120,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         message: 'User registered successfully'
       }
     } catch (error) {
-      console.error('Registration error:', error)
+      logger.error({ error }, 'Registration error')
       return reply.status(500).send({ error: 'Registration failed' })
     }
   })
@@ -160,10 +161,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
           details: { email },
           ipAddress: req.ip,
         }).catch((error) => {
-          console.error('Failed to persist failed-login security event:', error)
+          logger.error({ error }, 'Failed to persist failed-login security event')
         })
         await createFailedLoginNotification(email, req.ip).catch((error) => {
-          console.error('Failed to persist failed-login notification:', error)
+          logger.error({ error }, 'Failed to persist failed-login notification')
         })
         // Don't reveal if user exists
         return reply.status(401).send({ error: 'Invalid credentials' })
@@ -217,10 +218,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
           actorId: user.id,
           ipAddress: req.ip,
         }).catch((error) => {
-          console.error('Failed to persist failed-login security event:', error)
+          logger.error({ error }, 'Failed to persist failed-login security event')
         })
         await createFailedLoginNotification(email, req.ip).catch((error) => {
-          console.error('Failed to persist failed-login notification:', error)
+          logger.error({ error }, 'Failed to persist failed-login notification')
         })
         
         if (lockStatus.locked) {
@@ -288,7 +289,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
     } catch (error) {
-      console.error('Login error:', error)
+      logger.error({ error }, 'Login error')
       return reply.status(500).send({ error: 'Authentication failed' })
     }
   })
@@ -307,7 +308,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       // Verify refresh token structure before rotation
       const refreshPayload = verifyRefreshToken(refreshToken)
       if (!refreshPayload || !refreshPayload.id) {
-        console.warn('Invalid refresh token attempt:', { hasPayload: !!refreshPayload })
+        logger.warn({ hasPayload: !!refreshPayload }, 'Invalid refresh token attempt')
         return reply.status(401).send({ error: 'Invalid or expired refresh token' })
       }
       
@@ -353,7 +354,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         expiresIn: newTokens.expiresIn,
       }
     } catch (error) {
-      console.error('Token refresh error:', error)
+      logger.error({ error }, 'Token refresh error')
       return reply.status(401).send({ error: 'Token refresh failed' })
     }
   })
@@ -388,7 +389,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       
       return { ok: true, message: 'Logged out successfully' }
     } catch (error) {
-      console.error('Logout error:', error)
+      logger.error({ error }, 'Logout error')
       return reply.status(500).send({ error: 'Logout failed' })
     }
   })
@@ -430,7 +431,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         lastName: user.lastName || '',
       }
     } catch (error) {
-      console.error('Auth me error:', error)
+      logger.error({ error }, 'Auth me error')
       return reply.status(401).send({ error: 'Token verification failed' })
     }
   })

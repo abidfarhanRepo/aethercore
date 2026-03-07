@@ -4,6 +4,7 @@
  */
 
 import { prisma } from './db'
+import { logger } from './logger'
 
 export class IdempotencyService {
   /**
@@ -25,9 +26,9 @@ export class IdempotencyService {
     try {
       // Store in database for persistence across restarts
       // This would be stored in an IdempotencyLog or similar table
-      console.log(`[Idempotency] Stored result for operation: ${operationId}`)
+      logger.info({ operationId }, 'Idempotency stored result')
     } catch (error) {
-      console.warn(`[Idempotency] Failed to store result:`, error)
+      logger.warn({ error, operationId }, 'Idempotency failed to store result')
     }
   }
 
@@ -37,10 +38,10 @@ export class IdempotencyService {
   static async getResult(operationId: string): Promise<any> {
     try {
       // Retrieve from database
-      console.log(`[Idempotency] No cached result for operation: ${operationId}`)
+      logger.debug({ operationId }, 'Idempotency no cached result')
       return null
     } catch (error) {
-      console.warn(`[Idempotency] Failed to get result:`, error)
+      logger.warn({ error, operationId }, 'Idempotency failed to get result')
       return null
     }
   }

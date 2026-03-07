@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { logger } from '../../utils/logger'
 
 /**
  * Payment utilities for encryption, validation, and helper functions
@@ -25,7 +26,7 @@ export function encryptSensitiveData(data: string): string {
     // Return iv:encrypted so we can decrypt later
     return `${iv.toString('hex')}:${encrypted}`
   } catch (error) {
-    console.error('Encryption error:', error)
+    logger.error({ error }, 'Encryption error')
     throw new Error('Failed to encrypt data')
   }
 }
@@ -48,7 +49,7 @@ export function decryptSensitiveData(encryptedData: string): string {
 
     return decrypted
   } catch (error) {
-    console.error('Decryption error:', error)
+    logger.error({ error }, 'Decryption error')
     throw new Error('Failed to decrypt data')
   }
 }
@@ -207,7 +208,7 @@ export function logPaymentAttempt(
     errorMessage,
   }
 
-  console.log(`[PAYMENT] ${JSON.stringify(logEntry)}`)
+  logger.info({ paymentLog: logEntry }, 'Payment attempt')
 
   // In production, send to logging service (e.g., CloudWatch, ELK)
 }

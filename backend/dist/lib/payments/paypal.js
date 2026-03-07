@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayPalAdapter = void 0;
 const axios_1 = __importDefault(require("axios"));
 const crypto_1 = __importDefault(require("crypto"));
+const logger_1 = require("../../utils/logger");
 class PayPalAdapter {
     constructor(config) {
         this.accessToken = null;
@@ -44,7 +45,7 @@ class PayPalAdapter {
             return this.accessToken;
         }
         catch (error) {
-            console.error('Error getting PayPal access token:', error);
+            logger_1.logger.error({ error }, 'Error getting PayPal access token');
             throw new Error(`Failed to obtain PayPal access token: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -91,7 +92,7 @@ class PayPalAdapter {
             };
         }
         catch (error) {
-            console.error('Error creating PayPal order:', error);
+            logger_1.logger.error({ error }, 'Error creating PayPal order');
             throw new Error(`Order creation failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -120,7 +121,7 @@ class PayPalAdapter {
             };
         }
         catch (error) {
-            console.error('Error capturing PayPal order:', error);
+            logger_1.logger.error({ error }, 'Error capturing PayPal order');
             throw new Error(`Order capture failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -152,7 +153,7 @@ class PayPalAdapter {
             };
         }
         catch (error) {
-            console.error('Error refunding PayPal payment:', error);
+            logger_1.logger.error({ error }, 'Error refunding PayPal payment');
             throw new Error(`Refund failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -189,7 +190,7 @@ class PayPalAdapter {
             };
         }
         catch (error) {
-            console.error('Error creating PayPal subscription:', error);
+            logger_1.logger.error({ error }, 'Error creating PayPal subscription');
             throw new Error(`Subscription creation failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -207,7 +208,7 @@ class PayPalAdapter {
             return response.data;
         }
         catch (error) {
-            console.error('Error retrieving order:', error);
+            logger_1.logger.error({ error }, 'Error retrieving order');
             throw error;
         }
     }
@@ -219,7 +220,7 @@ class PayPalAdapter {
             // Expected signature format: v1=<hash>
             const [algorithm, expectedHash] = signature.split('=');
             if (algorithm !== 'v1') {
-                console.error('Unsupported signature algorithm:', algorithm);
+                logger_1.logger.error({ algorithm }, 'Unsupported signature algorithm');
                 return false;
             }
             // Create message to verify
@@ -232,7 +233,7 @@ class PayPalAdapter {
             return hash === expectedHash;
         }
         catch (error) {
-            console.error('Webhook signature verification failed:', error);
+            logger_1.logger.error({ error }, 'Webhook signature verification failed');
             return false;
         }
     }
@@ -252,7 +253,7 @@ class PayPalAdapter {
             case 'PAYMENT.CAPTURE.DECLINED':
                 return this.handlePaymentDeclined(event.resource);
             default:
-                console.log(`Unhandled PayPal event type: ${event.event_type}`);
+                logger_1.logger.info({ eventType: event.event_type }, 'Unhandled PayPal event type');
                 return {
                     type: 'unhandled_event',
                     eventType: event.event_type,

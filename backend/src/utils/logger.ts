@@ -1,46 +1,27 @@
-/**
- * Simple logger utility - stub implementation
- * Provides basic logging methods for the application
- */
+import pino, { type Logger, type LoggerOptions } from 'pino'
 
-export interface LogLevel {
-  level: string
+const baseOptions: LoggerOptions = {
+  level: process.env.LOG_LEVEL || 'info',
+  base: undefined,
 }
 
-export interface LoggerOptions {
-  level?: string
-}
+const transport =
+  process.env.NODE_ENV !== 'production'
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined
 
-class Logger {
-  private level: string
+export const logger: Logger = pino({
+  ...baseOptions,
+  transport,
+})
 
-  constructor(options: LoggerOptions = {}) {
-    this.level = options.level || 'info'
-  }
+export const createLogger = (bindings?: Record<string, unknown>): Logger => logger.child(bindings || {})
 
-  info(message: string, data?: any) {
-    console.log(`[INFO] ${message}`, data || '')
-  }
-
-  error(message: string, error?: any) {
-    console.error(`[ERROR] ${message}`, error || '')
-  }
-
-  warn(message: string, data?: any) {
-    console.warn(`[WARN] ${message}`, data || '')
-  }
-
-  debug(message: string, data?: any) {
-    if (this.level === 'debug') {
-      console.log(`[DEBUG] ${message}`, data || '')
-    }
-  }
-}
-
-export const createLogger = (options?: LoggerOptions) => {
-  return new Logger(options)
-}
-
-export const logger = new Logger()
-
-export default Logger
+export default logger

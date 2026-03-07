@@ -9,6 +9,7 @@ const security_1 = require("../middleware/security");
 const cors_1 = require("../middleware/cors");
 const brute_force_1 = require("../middleware/brute-force");
 const sanitizer_1 = require("../utils/sanitizer");
+const logger_1 = require("../utils/logger");
 /**
  * Register security plugin
  */
@@ -20,22 +21,22 @@ async function registerSecurityPlugin(fastify, options = {}) {
         maxRequestSize: 10 * 1024 * 1024, // 10MB
         ...options,
     };
-    console.log('📋 Registering security plugin...');
+    logger_1.logger.info('Registering security plugin');
     // 1. Register security headers
     try {
         await (0, security_1.registerSecurityHeaders)(fastify);
-        console.log('✓ Security headers registered (Helmet.js)');
+        logger_1.logger.info('Security headers registered (Helmet.js)');
     }
     catch (error) {
-        console.error('✗ Failed to register security headers:', error);
+        logger_1.logger.error({ error }, 'Failed to register security headers');
     }
     // 2. Register CORS
     try {
         await (0, cors_1.registerCORS)(fastify);
-        console.log('✓ CORS middleware registered');
+        logger_1.logger.info('CORS middleware registered');
     }
     catch (error) {
-        console.error('✗ Failed to register CORS:', error);
+        logger_1.logger.error({ error }, 'Failed to register CORS');
     }
     // 3. Add request validation hooks
     fastify.addHook('onRequest', async (request, reply) => {
@@ -95,9 +96,10 @@ async function registerSecurityPlugin(fastify, options = {}) {
             reply.header('X-XSS-Protection', '1; mode=block');
         }
     });
-    console.log('✓ Security plugin registered successfully');
-    console.log(`  - HTTPS Enforcement: ${config.enableHTTPS ? 'enabled' : 'disabled'}`);
-    console.log(`  - CSP: ${config.enableCSP ? 'enabled' : 'disabled'}`);
-    console.log(`  - Rate Limiting: ${config.enableRateLimit ? 'enabled' : 'disabled'}`);
-    console.log(`  - Max Request Size: ${config.maxRequestSize} bytes`);
+    logger_1.logger.info({
+        httpsEnforcement: config.enableHTTPS,
+        csp: config.enableCSP,
+        rateLimiting: config.enableRateLimit,
+        maxRequestSize: config.maxRequestSize,
+    }, 'Security plugin registered successfully');
 }

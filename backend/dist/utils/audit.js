@@ -17,6 +17,7 @@ exports.archiveAuditLogs = archiveAuditLogs;
 exports.verifyAuditLogIntegrity = verifyAuditLogIntegrity;
 exports.getAuditSummary = getAuditSummary;
 const db_1 = require("./db");
+const logger_1 = require("./logger");
 /**
  * Sensitive actions that must be audited
  */
@@ -50,9 +51,9 @@ async function logAudit(entry, request) {
         return log.id;
     }
     catch (error) {
-        // Log to console as fallback if database fails
-        console.error('Failed to write audit log:', error);
-        console.warn('Audit entry:', entry);
+        // Log to application logger as fallback if database fails.
+        logger_1.logger.error({ error }, 'Failed to write audit log');
+        logger_1.logger.warn({ entry }, 'Audit entry fallback');
         throw error;
     }
 }
@@ -151,7 +152,7 @@ async function getAuditLogs(filters) {
         return { logs, total };
     }
     catch (error) {
-        console.error('Failed to retrieve audit logs:', error);
+        logger_1.logger.error({ error }, 'Failed to retrieve audit logs');
         throw error;
     }
 }
@@ -204,7 +205,7 @@ async function exportAuditLogs(startDate, endDate, format = 'json') {
         }
     }
     catch (error) {
-        console.error('Failed to export audit logs:', error);
+        logger_1.logger.error({ error }, 'Failed to export audit logs');
         throw error;
     }
 }
@@ -227,7 +228,7 @@ async function archiveAuditLogs(startDate, endDate) {
         return logs.length;
     }
     catch (error) {
-        console.error('Failed to archive audit logs:', error);
+        logger_1.logger.error({ error }, 'Failed to archive audit logs');
         throw error;
     }
 }
@@ -249,7 +250,7 @@ async function verifyAuditLogIntegrity(logId) {
         return true;
     }
     catch (error) {
-        console.error('Failed to verify audit log integrity:', error);
+        logger_1.logger.error({ error }, 'Failed to verify audit log integrity');
         return false;
     }
 }
@@ -285,7 +286,7 @@ async function getAuditSummary(days = 30) {
         };
     }
     catch (error) {
-        console.error('Failed to get audit summary:', error);
+        logger_1.logger.error({ error }, 'Failed to get audit summary');
         throw error;
     }
 }

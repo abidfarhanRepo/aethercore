@@ -13,6 +13,7 @@ const brute_force_1 = require("../middleware/brute-force");
 const audit_1 = require("../utils/audit");
 const notificationService_1 = require("../lib/notificationService");
 const securityCompliance_1 = require("../lib/securityCompliance");
+const logger_1 = require("../utils/logger");
 async function authRoutes(fastify) {
     async function ensureDevAdminUser(email) {
         if (process.env.NODE_ENV === 'production') {
@@ -107,7 +108,7 @@ async function authRoutes(fastify) {
             };
         }
         catch (error) {
-            console.error('Registration error:', error);
+            logger_1.logger.error({ error }, 'Registration error');
             return reply.status(500).send({ error: 'Registration failed' });
         }
     });
@@ -144,10 +145,10 @@ async function authRoutes(fastify) {
                     details: { email },
                     ipAddress: req.ip,
                 }).catch((error) => {
-                    console.error('Failed to persist failed-login security event:', error);
+                    logger_1.logger.error({ error }, 'Failed to persist failed-login security event');
                 });
                 await (0, notificationService_1.createFailedLoginNotification)(email, req.ip).catch((error) => {
-                    console.error('Failed to persist failed-login notification:', error);
+                    logger_1.logger.error({ error }, 'Failed to persist failed-login notification');
                 });
                 // Don't reveal if user exists
                 return reply.status(401).send({ error: 'Invalid credentials' });
@@ -194,10 +195,10 @@ async function authRoutes(fastify) {
                     actorId: user.id,
                     ipAddress: req.ip,
                 }).catch((error) => {
-                    console.error('Failed to persist failed-login security event:', error);
+                    logger_1.logger.error({ error }, 'Failed to persist failed-login security event');
                 });
                 await (0, notificationService_1.createFailedLoginNotification)(email, req.ip).catch((error) => {
-                    console.error('Failed to persist failed-login notification:', error);
+                    logger_1.logger.error({ error }, 'Failed to persist failed-login notification');
                 });
                 if (lockStatus.locked) {
                     return reply.status(429).send({
@@ -258,7 +259,7 @@ async function authRoutes(fastify) {
             };
         }
         catch (error) {
-            console.error('Login error:', error);
+            logger_1.logger.error({ error }, 'Login error');
             return reply.status(500).send({ error: 'Authentication failed' });
         }
     });
@@ -273,7 +274,7 @@ async function authRoutes(fastify) {
             // Verify refresh token structure before rotation
             const refreshPayload = (0, jwt_1.verifyRefreshToken)(refreshToken);
             if (!refreshPayload || !refreshPayload.id) {
-                console.warn('Invalid refresh token attempt:', { hasPayload: !!refreshPayload });
+                logger_1.logger.warn({ hasPayload: !!refreshPayload }, 'Invalid refresh token attempt');
                 return reply.status(401).send({ error: 'Invalid or expired refresh token' });
             }
             // Verify and rotate token
@@ -314,7 +315,7 @@ async function authRoutes(fastify) {
             };
         }
         catch (error) {
-            console.error('Token refresh error:', error);
+            logger_1.logger.error({ error }, 'Token refresh error');
             return reply.status(401).send({ error: 'Token refresh failed' });
         }
     });
@@ -343,7 +344,7 @@ async function authRoutes(fastify) {
             return { ok: true, message: 'Logged out successfully' };
         }
         catch (error) {
-            console.error('Logout error:', error);
+            logger_1.logger.error({ error }, 'Logout error');
             return reply.status(500).send({ error: 'Logout failed' });
         }
     });
@@ -379,7 +380,7 @@ async function authRoutes(fastify) {
             };
         }
         catch (error) {
-            console.error('Auth me error:', error);
+            logger_1.logger.error({ error }, 'Auth me error');
             return reply.status(401).send({ error: 'Token verification failed' });
         }
     });

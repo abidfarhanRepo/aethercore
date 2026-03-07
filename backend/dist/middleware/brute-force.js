@@ -19,6 +19,7 @@ exports.getExponentialBackoff = getExponentialBackoff;
 exports.clearAllBruteForceRecords = clearAllBruteForceRecords;
 exports.getBruteForceStats = getBruteForceStats;
 const ioredis_1 = __importDefault(require("ioredis"));
+const logger_1 = require("../utils/logger");
 // Allow Redis to be disabled for development
 const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true';
 let redis = null;
@@ -26,7 +27,7 @@ let redis = null;
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
     redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379');
     redis.on('error', (err) => {
-        console.warn('Redis client error:', err);
+        logger_1.logger.warn({ err }, 'Redis client error');
         // Gracefully degrade if Redis fails
     });
 }
@@ -81,7 +82,7 @@ async function recordFailedAttempt(identifier, type = 'ip', config = {}) {
         };
     }
     catch (error) {
-        console.error('Failed to record failed attempt:', error);
+        logger_1.logger.error({ error }, 'Failed to record failed attempt');
         // Fail open - don't block on Redis errors
         return {
             attempts: 1,
@@ -111,7 +112,7 @@ async function isLockedOut(identifier, type = 'ip') {
         return { locked: false };
     }
     catch (error) {
-        console.error('Failed to check lockout status:', error);
+        logger_1.logger.error({ error }, 'Failed to check lockout status');
         // Fail open - don't block on Redis errors
         return { locked: false };
     }
@@ -130,7 +131,7 @@ async function resetFailedAttempts(identifier, type = 'ip') {
         await redis.del(key, lockKey);
     }
     catch (error) {
-        console.error('Failed to reset failed attempts:', error);
+        logger_1.logger.error({ error }, 'Failed to reset failed attempts');
     }
 }
 /**
@@ -147,7 +148,7 @@ async function getAttemptCount(identifier, type = 'ip') {
         return parseInt(count || '0', 10);
     }
     catch (error) {
-        console.error('Failed to get attempt count:', error);
+        logger_1.logger.error({ error }, 'Failed to get attempt count');
         return 0;
     }
 }
@@ -220,7 +221,7 @@ async function clearAllBruteForceRecords() {
         }
     }
     catch (error) {
-        console.error('Failed to clear brute force records:', error);
+        logger_1.logger.error({ error }, 'Failed to clear brute force records');
     }
 }
 /**
@@ -244,7 +245,7 @@ async function getBruteForceStats() {
         };
     }
     catch (error) {
-        console.error('Failed to get brute force stats:', error);
+        logger_1.logger.error({ error }, 'Failed to get brute force stats');
         return {
             totalLockedIPs: 0,
             totalLockedUsers: 0,

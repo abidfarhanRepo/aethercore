@@ -4,6 +4,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import fastifyCors from '@fastify/cors'
+import { logger } from '../utils/logger'
 
 /**
  * Parse allowed origins from environment variable
@@ -33,7 +34,7 @@ export async function registerCORS(fastify: FastifyInstance): Promise<void> {
   const allowedOrigins = getAllowedOrigins()
   
   if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
-    console.warn('⚠️ No ALLOWED_ORIGINS configured for production. CORS will be restricted.')
+    logger.warn('No ALLOWED_ORIGINS configured for production. CORS will be restricted.')
   }
   
   await fastify.register(fastifyCors, {

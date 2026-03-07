@@ -1,4 +1,5 @@
 import { Client, Environment } from 'square'
+import { logger } from '../../utils/logger'
 
 /**
  * Square Payment Processor Adapter
@@ -82,7 +83,7 @@ export class SquareAdapter {
 
       return newCustomer.customer?.id || ''
     } catch (error) {
-      console.error('Error creating Square customer:', error)
+      logger.error({ error }, 'Error creating Square customer')
       throw new Error(
         `Failed to create Square customer: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -107,7 +108,7 @@ export class SquareAdapter {
         brand: 'UNKNOWN', // Would be determined from token response
       }
     } catch (error) {
-      console.error('Error tokenizing payment method:', error)
+      logger.error({ error }, 'Error tokenizing payment method')
       throw new Error(
         `Payment method tokenization failed: ${
           error instanceof Error ? error.message : String(error)
@@ -151,7 +152,7 @@ export class SquareAdapter {
         receiptUrl: result.payment.receiptUrl,
       }
     } catch (error) {
-      console.error('Error processing Square payment:', error)
+      logger.error({ error }, 'Error processing Square payment')
       throw new Error(
         `Payment processing failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -186,7 +187,7 @@ export class SquareAdapter {
 
       return result.order?.id || ''
     } catch (error) {
-      console.error('Error creating order:', error)
+      logger.error({ error }, 'Error creating order')
       throw new Error(
         `Order creation failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -223,7 +224,7 @@ export class SquareAdapter {
         amountCents: Number(result.refund.amountMoney?.amount || 0),
       }
     } catch (error) {
-      console.error('Error refunding Square payment:', error)
+      logger.error({ error }, 'Error refunding Square payment')
       throw new Error(
         `Payment refund failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -238,7 +239,7 @@ export class SquareAdapter {
       const { result } = await this.client.paymentsApi.getPayment(paymentId)
       return result.payment
     } catch (error) {
-      console.error('Error retrieving payment:', error)
+      logger.error({ error }, 'Error retrieving payment')
       throw error
     }
   }
@@ -256,7 +257,7 @@ export class SquareAdapter {
       )
       return result.payments || []
     } catch (error) {
-      console.error('Error searching payments:', error)
+      logger.error({ error }, 'Error searching payments')
       throw error
     }
   }
@@ -277,7 +278,7 @@ export class SquareAdapter {
       case 'refund.updated':
         return this.handleRefundUpdated(payload)
       default:
-        console.log(`Unhandled Square event type: ${eventType}`)
+        logger.info({ eventType }, 'Unhandled Square event type')
         return null
     }
   }

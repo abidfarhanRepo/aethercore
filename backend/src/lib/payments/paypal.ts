@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import crypto from 'crypto'
+import { logger } from '../../utils/logger'
 
 /**
  * PayPal Payment Processor Adapter
@@ -101,7 +102,7 @@ export class PayPalAdapter {
 
       return this.accessToken
     } catch (error) {
-      console.error('Error getting PayPal access token:', error)
+      logger.error({ error }, 'Error getting PayPal access token')
       throw new Error(
         `Failed to obtain PayPal access token: ${
           error instanceof Error ? error.message : String(error)
@@ -165,7 +166,7 @@ export class PayPalAdapter {
         approvalUrl: approvalLink?.href || '',
       }
     } catch (error) {
-      console.error('Error creating PayPal order:', error)
+      logger.error({ error }, 'Error creating PayPal order')
       throw new Error(
         `Order creation failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -208,7 +209,7 @@ export class PayPalAdapter {
         amount: parseInt(capture.amount?.value) * 100,
       }
     } catch (error) {
-      console.error('Error capturing PayPal order:', error)
+      logger.error({ error }, 'Error capturing PayPal order')
       throw new Error(
         `Order capture failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -253,7 +254,7 @@ export class PayPalAdapter {
         amountCents: Math.round(parseFloat(refund.amount?.value) * 100),
       }
     } catch (error) {
-      console.error('Error refunding PayPal payment:', error)
+      logger.error({ error }, 'Error refunding PayPal payment')
       throw new Error(
         `Refund failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -308,7 +309,7 @@ export class PayPalAdapter {
         status: response.data.status,
       }
     } catch (error) {
-      console.error('Error creating PayPal subscription:', error)
+      logger.error({ error }, 'Error creating PayPal subscription')
       throw new Error(
         `Subscription creation failed: ${
           error instanceof Error ? error.message : String(error)
@@ -332,7 +333,7 @@ export class PayPalAdapter {
 
       return response.data
     } catch (error) {
-      console.error('Error retrieving order:', error)
+      logger.error({ error }, 'Error retrieving order')
       throw error
     }
   }
@@ -353,7 +354,7 @@ export class PayPalAdapter {
       const [algorithm, expectedHash] = signature.split('=')
 
       if (algorithm !== 'v1') {
-        console.error('Unsupported signature algorithm:', algorithm)
+        logger.error({ algorithm }, 'Unsupported signature algorithm')
         return false
       }
 
@@ -368,7 +369,7 @@ export class PayPalAdapter {
 
       return hash === expectedHash
     } catch (error) {
-      console.error('Webhook signature verification failed:', error)
+      logger.error({ error }, 'Webhook signature verification failed')
       return false
     }
   }
@@ -391,7 +392,7 @@ export class PayPalAdapter {
       case 'PAYMENT.CAPTURE.DECLINED':
         return this.handlePaymentDeclined(event.resource)
       default:
-        console.log(`Unhandled PayPal event type: ${event.event_type}`)
+        logger.info({ eventType: event.event_type }, 'Unhandled PayPal event type')
         return {
           type: 'unhandled_event',
           eventType: event.event_type,

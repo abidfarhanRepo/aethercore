@@ -19,6 +19,7 @@ exports.extractUserId = extractUserId;
 exports.decodeTokenWithoutVerification = decodeTokenWithoutVerification;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const ioredis_1 = __importDefault(require("ioredis"));
+const logger_1 = require("../utils/logger");
 // Allow Redis to be disabled for development
 const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true';
 let redis = null;
@@ -26,7 +27,7 @@ let redis = null;
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
     redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379');
     redis.on('error', (err) => {
-        console.warn('Redis client error:', err);
+        logger_1.logger.warn({ err }, 'Redis client error');
         // Gracefully degrade if Redis fails
     });
 }
@@ -112,14 +113,14 @@ function verifyRefreshToken(token) {
 async function revokeToken(token, expiresIn = 900) {
     try {
         if (!redis) {
-            console.warn('Redis not available - token revocation skipped');
+            logger_1.logger.warn('Redis not available - token revocation skipped');
             return;
         }
         const jti = `revoked:${token}`;
         await redis.setex(jti, expiresIn, '1');
     }
     catch (error) {
-        console.error('Failed to revoke token:', error);
+        logger_1.logger.error({ error }, 'Failed to revoke token');
         // Don't throw - token revocation failure shouldn't break auth
     }
 }
@@ -136,7 +137,7 @@ async function isTokenRevoked(token) {
         return revoked !== null;
     }
     catch (error) {
-        console.error('Failed to check token revocation:', error);
+        logger_1.logger.error({ error }, 'Failed to check token revocation');
         return false;
     }
 }

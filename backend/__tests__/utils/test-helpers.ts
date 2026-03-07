@@ -2,6 +2,8 @@
  * Common test assertions and helpers
  */
 
+import { logger } from '../../src/utils/logger'
+
 /**
  * Assert response has expected structure
  */
@@ -182,7 +184,7 @@ export function assertResponseTime(
 ) {
   const elapsed = Date.now() - startTime
   expect(elapsed).toBeLessThan(maxMs)
-  console.log(`✓ ${operation} completed in ${elapsed}ms (target: <${maxMs}ms)`)
+  logger.info({ operation, elapsed, targetMs: maxMs }, 'Performance assertion completed')
 }
 
 /**

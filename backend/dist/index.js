@@ -65,22 +65,33 @@ const plugins_1 = __importDefault(require("./routes/plugins"));
 const rateLimit_1 = __importDefault(require("./plugins/rateLimit"));
 const securityPlugin_1 = require("./plugins/securityPlugin");
 const errorHandler_1 = require("./middleware/errorHandler");
+const logger_1 = require("./utils/logger");
 const server = (0, fastify_1.default)({
     logger: {
         level: process.env.LOG_LEVEL || 'info',
-        transport: process.env.NODE_ENV === 'development'
+        transport: process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty' }
-            : undefined
+            : undefined,
     },
-    requestIdLogLabel: 'requestId'
+    requestIdLogLabel: 'requestId',
 });
 // IMPORTANT: Register security plugin first, before all other middleware
 const initializeSecurityAndRoutes = async () => {
-    // Add request ID generation
-    server.addHook('onRequest', async (request) => {
-        if (!request.id) {
-            request.id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        }
+    // Ensure each request carries a request ID and propagate it to response headers.
+    server.addHook('onRequest', async (request, reply) => {
+        const headerRequestId = request.headers['x-request-id'];
+        const requestId = (typeof headerRequestId === 'string' && headerRequestId.trim()) ||
+            `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+        request.headers['x-request-id'] = requestId;
+        reply.header('X-Request-ID', requestId);
+    });
+    server.addHook('onResponse', async (request, reply) => {
+        request.log.info({
+            requestId: request.id,
+            method: request.method,
+            url: request.url,
+            statusCode: reply.statusCode,
+        }, 'request completed');
     });
     // Register comprehensive security plugin
     await (0, securityPlugin_1.registerSecurityPlugin)(server, {
@@ -154,20 +165,17 @@ const start = async () => {
         await initializeSecurityAndRoutes();
         // Start server
         await server.listen({ port: Number(process.env.PORT) || 4000, host: '0.0.0.0' });
-        console.log(`
-╔════════════════════════════════════════════╗
-║      🔐 Aether POS Security Hardened      ║
-║                                            ║
-║  ✓ Security headers enabled                ║
-║  ✓ JWT token rotation enabled              ║
-║  ✓ Input sanitization active               ║
-║  ✓ Audit logging enabled                   ║
-║  ✓ Brute force protection active           ║
-║  ✓ CORS whitelist enforced                 ║
-║                                            ║
-║  Server running on port ${process.env.PORT || 4000}            ║
-╚════════════════════════════════════════════╝
-    `);
+        logger_1.logger.info({
+            port: Number(process.env.PORT) || 4000,
+            security: {
+                headers: true,
+                jwtRotation: true,
+                inputSanitization: true,
+                auditLogging: true,
+                bruteForceProtection: true,
+                corsWhitelist: true,
+            },
+        }, 'Aether POS Security Hardened');
         server.log.info(`Server started on port ${process.env.PORT || 4000}`);
     }
     catch (err) {

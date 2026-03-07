@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
+import { logger } from '../../src/utils/logger'
 
 const prisma = new PrismaClient()
 
@@ -75,7 +76,7 @@ export async function cleanupDatabase() {
     createdRecords.warehouses = []
     createdRecords.inventoryLocations = []
   } catch (error) {
-    console.error('Cleanup error:', error)
+    logger.error({ error }, 'Cleanup error')
   }
 }
 

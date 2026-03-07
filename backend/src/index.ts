@@ -28,24 +28,42 @@ import pluginRoutes from './routes/plugins'
 import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
 import { setupErrorHandler } from './middleware/errorHandler'
+import { logger } from './utils/logger'
 
-const server = Fastify({ 
+const server = Fastify({
   logger: {
     level: process.env.LOG_LEVEL || 'info',
-    transport: process.env.NODE_ENV === 'development' 
-      ? { target: 'pino-pretty' }
-      : undefined
+    transport:
+      process.env.NODE_ENV !== 'production'
+        ? { target: 'pino-pretty' }
+        : undefined,
   },
-  requestIdLogLabel: 'requestId'
+  requestIdLogLabel: 'requestId',
 })
 
 // IMPORTANT: Register security plugin first, before all other middleware
 const initializeSecurityAndRoutes = async () => {
-  // Add request ID generation
-  server.addHook('onRequest', async (request) => {
-    if (!request.id) {
-      request.id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }
+  // Ensure each request carries a request ID and propagate it to response headers.
+  server.addHook('onRequest', async (request, reply) => {
+    const headerRequestId = request.headers['x-request-id']
+    const requestId =
+      (typeof headerRequestId === 'string' && headerRequestId.trim()) ||
+      `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+
+    request.headers['x-request-id'] = requestId
+    reply.header('X-Request-ID', requestId)
+  })
+
+  server.addHook('onResponse', async (request, reply) => {
+    request.log.info(
+      {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+      },
+      'request completed'
+    )
   })
   
   // Register comprehensive security plugin
@@ -127,20 +145,20 @@ const start = async () => {
     
     // Start server
     await server.listen({ port: Number(process.env.PORT) || 4000, host: '0.0.0.0' })
-    console.log(`
-╔════════════════════════════════════════════╗
-║      🔐 Aether POS Security Hardened      ║
-║                                            ║
-║  ✓ Security headers enabled                ║
-║  ✓ JWT token rotation enabled              ║
-║  ✓ Input sanitization active               ║
-║  ✓ Audit logging enabled                   ║
-║  ✓ Brute force protection active           ║
-║  ✓ CORS whitelist enforced                 ║
-║                                            ║
-║  Server running on port ${process.env.PORT || 4000}            ║
-╚════════════════════════════════════════════╝
-    `)
+    logger.info(
+      {
+        port: Number(process.env.PORT) || 4000,
+        security: {
+          headers: true,
+          jwtRotation: true,
+          inputSanitization: true,
+          auditLogging: true,
+          bruteForceProtection: true,
+          corsWhitelist: true,
+        },
+      },
+      'Aether POS Security Hardened'
+    )
     server.log.info(`Server started on port ${process.env.PORT || 4000}`)
   } catch (err) {
     server.log.error(err)

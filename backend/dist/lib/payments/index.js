@@ -24,6 +24,7 @@ exports.shouldRetryPayment = shouldRetryPayment;
 exports.getRetryTimeout = getRetryTimeout;
 exports.validateProcessorConfig = validateProcessorConfig;
 const crypto_1 = __importDefault(require("crypto"));
+const logger_1 = require("../../utils/logger");
 /**
  * Payment utilities for encryption, validation, and helper functions
  */
@@ -42,7 +43,7 @@ function encryptSensitiveData(data) {
         return `${iv.toString('hex')}:${encrypted}`;
     }
     catch (error) {
-        console.error('Encryption error:', error);
+        logger_1.logger.error({ error }, 'Encryption error');
         throw new Error('Failed to encrypt data');
     }
 }
@@ -59,7 +60,7 @@ function decryptSensitiveData(encryptedData) {
         return decrypted;
     }
     catch (error) {
-        console.error('Decryption error:', error);
+        logger_1.logger.error({ error }, 'Decryption error');
         throw new Error('Failed to decrypt data');
     }
 }
@@ -187,7 +188,7 @@ function logPaymentAttempt(transactionId, processor, amount, cardLast4, status, 
         status,
         errorMessage,
     };
-    console.log(`[PAYMENT] ${JSON.stringify(logEntry)}`);
+    logger_1.logger.info({ paymentLog: logEntry }, 'Payment attempt');
     // In production, send to logging service (e.g., CloudWatch, ELK)
 }
 /**

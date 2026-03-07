@@ -4,6 +4,7 @@
 
 import jwt from 'jsonwebtoken'
 import Redis from 'ioredis'
+import { logger } from '../utils/logger'
 
 // Allow Redis to be disabled for development
 const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true'
@@ -13,7 +14,7 @@ let redis: Redis | null = null
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
   redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
   redis.on('error', (err) => {
-    console.warn('Redis client error:', err);
+    logger.warn({ err }, 'Redis client error')
     // Gracefully degrade if Redis fails
   })
 }
@@ -120,13 +121,13 @@ export function verifyRefreshToken(token: string): Record<string, any> | null {
 export async function revokeToken(token: string, expiresIn: number = 900): Promise<void> {
   try {
     if (!redis) {
-      console.warn('Redis not available - token revocation skipped')
+      logger.warn('Redis not available - token revocation skipped')
       return
     }
     const jti = `revoked:${token}`
     await redis.setex(jti, expiresIn, '1')
   } catch (error) {
-    console.error('Failed to revoke token:', error)
+    logger.error({ error }, 'Failed to revoke token')
     // Don't throw - token revocation failure shouldn't break auth
   }
 }
@@ -143,7 +144,7 @@ export async function isTokenRevoked(token: string): Promise<boolean> {
     const revoked = await redis.get(jti)
     return revoked !== null
   } catch (error) {
-    console.error('Failed to check token revocation:', error)
+    logger.error({ error }, 'Failed to check token revocation')
     return false
   }
 }

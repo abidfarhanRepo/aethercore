@@ -11,6 +11,7 @@ exports.validateCORSHeaders = validateCORSHeaders;
 exports.handlePreflight = handlePreflight;
 exports.getCORSConfig = getCORSConfig;
 const cors_1 = __importDefault(require("@fastify/cors"));
+const logger_1 = require("../utils/logger");
 /**
  * Parse allowed origins from environment variable
  */
@@ -34,7 +35,7 @@ function getAllowedOrigins() {
 async function registerCORS(fastify) {
     const allowedOrigins = getAllowedOrigins();
     if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
-        console.warn('⚠️ No ALLOWED_ORIGINS configured for production. CORS will be restricted.');
+        logger_1.logger.warn('No ALLOWED_ORIGINS configured for production. CORS will be restricted.');
     }
     await fastify.register(cors_1.default, {
         origin: (origin, callback) => {

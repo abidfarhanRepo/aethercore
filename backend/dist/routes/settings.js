@@ -5,6 +5,7 @@ const db_1 = require("../utils/db");
 const authMiddleware_1 = require("../plugins/authMiddleware");
 const client_1 = require("@prisma/client");
 const securityCompliance_1 = require("../lib/securityCompliance");
+const logger_1 = require("../utils/logger");
 async function settingsRoutes(fastify) {
     const requireManagerRole = (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER');
     // GET all settings grouped by category
@@ -146,7 +147,7 @@ async function settingsRoutes(fastify) {
                     updatedBy: request.user?.id,
                 },
             }).catch((error) => {
-                console.error('Failed to persist key rotation log:', error);
+                logger_1.logger.error({ error }, 'Failed to persist key rotation log');
             });
             await (0, securityCompliance_1.logSecurityEventRecord)({
                 eventType: client_1.SecurityEventType.KEY_ROTATION,
@@ -160,7 +161,7 @@ async function settingsRoutes(fastify) {
                 actorId: request.user?.id,
                 ipAddress: request.ip,
             }).catch((error) => {
-                console.error('Failed to persist key rotation security event:', error);
+                logger_1.logger.error({ error }, 'Failed to persist key rotation security event');
             });
         }
         return reply.code(existing ? 200 : 201).send({

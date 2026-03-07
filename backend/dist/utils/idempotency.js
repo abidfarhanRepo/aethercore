@@ -5,6 +5,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IdempotencyService = void 0;
+const logger_1 = require("./logger");
 class IdempotencyService {
     /**
      * Generate idempotency key for a request
@@ -19,10 +20,10 @@ class IdempotencyService {
         try {
             // Store in database for persistence across restarts
             // This would be stored in an IdempotencyLog or similar table
-            console.log(`[Idempotency] Stored result for operation: ${operationId}`);
+            logger_1.logger.info({ operationId }, 'Idempotency stored result');
         }
         catch (error) {
-            console.warn(`[Idempotency] Failed to store result:`, error);
+            logger_1.logger.warn({ error, operationId }, 'Idempotency failed to store result');
         }
     }
     /**
@@ -31,11 +32,11 @@ class IdempotencyService {
     static async getResult(operationId) {
         try {
             // Retrieve from database
-            console.log(`[Idempotency] No cached result for operation: ${operationId}`);
+            logger_1.logger.debug({ operationId }, 'Idempotency no cached result');
             return null;
         }
         catch (error) {
-            console.warn(`[Idempotency] Failed to get result:`, error);
+            logger_1.logger.warn({ error, operationId }, 'Idempotency failed to get result');
             return null;
         }
     }

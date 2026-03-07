@@ -3,6 +3,7 @@ import { prisma } from '../utils/db'
 import { requireAuth, requireRole } from '../plugins/authMiddleware'
 import { SecurityEventType, SecuritySeverity } from '@prisma/client'
 import { logKeyRotation, logSecurityEventRecord } from '../lib/securityCompliance'
+import { logger } from '../utils/logger'
 
 interface SettingsRequest extends FastifyRequest {
   user?: any
@@ -216,7 +217,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
             updatedBy: request.user?.id,
           },
         }).catch((error) => {
-          console.error('Failed to persist key rotation log:', error)
+          logger.error({ error }, 'Failed to persist key rotation log')
         })
 
         await logSecurityEventRecord({
@@ -231,7 +232,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
           actorId: request.user?.id,
           ipAddress: request.ip,
         }).catch((error) => {
-          console.error('Failed to persist key rotation security event:', error)
+          logger.error({ error }, 'Failed to persist key rotation security event')
         })
       }
 

@@ -1,32 +1,28 @@
 "use strict";
-/**
- * Simple logger utility - stub implementation
- * Provides basic logging methods for the application
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.logger = exports.createLogger = void 0;
-class Logger {
-    constructor(options = {}) {
-        this.level = options.level || 'info';
-    }
-    info(message, data) {
-        console.log(`[INFO] ${message}`, data || '');
-    }
-    error(message, error) {
-        console.error(`[ERROR] ${message}`, error || '');
-    }
-    warn(message, data) {
-        console.warn(`[WARN] ${message}`, data || '');
-    }
-    debug(message, data) {
-        if (this.level === 'debug') {
-            console.log(`[DEBUG] ${message}`, data || '');
-        }
-    }
-}
-const createLogger = (options) => {
-    return new Logger(options);
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createLogger = exports.logger = void 0;
+const pino_1 = __importDefault(require("pino"));
+const baseOptions = {
+    level: process.env.LOG_LEVEL || 'info',
+    base: undefined,
+};
+const transport = process.env.NODE_ENV !== 'production'
+    ? {
+        target: 'pino-pretty',
+        options: {
+            colorize: true,
+            translateTime: 'SYS:standard',
+            ignore: 'pid,hostname',
+        },
+    }
+    : undefined;
+exports.logger = (0, pino_1.default)({
+    ...baseOptions,
+    transport,
+});
+const createLogger = (bindings) => exports.logger.child(bindings || {});
 exports.createLogger = createLogger;
-exports.logger = new Logger();
-exports.default = Logger;
+exports.default = exports.logger;

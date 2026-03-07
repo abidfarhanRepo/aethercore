@@ -6,6 +6,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify'
 import Redis from 'ioredis'
+import { logger } from '../utils/logger'
 
 // Allow Redis to be disabled for development
 const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true'
@@ -16,7 +17,7 @@ let redis: Redis | null = null
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
   redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
   redis.on('error', (err) => {
-    console.warn('Redis client error:', err);
+    logger.warn({ err }, 'Redis client error')
     // Gracefully degrade if Redis fails
   })
 }
@@ -91,7 +92,7 @@ export async function recordFailedAttempt(
       locked: false,
     }
   } catch (error) {
-    console.error('Failed to record failed attempt:', error)
+    logger.error({ error }, 'Failed to record failed attempt')
     // Fail open - don't block on Redis errors
     return {
       attempts: 1,
@@ -128,7 +129,7 @@ export async function isLockedOut(
     
     return { locked: false }
   } catch (error) {
-    console.error('Failed to check lockout status:', error)
+    logger.error({ error }, 'Failed to check lockout status')
     // Fail open - don't block on Redis errors
     return { locked: false }
   }
@@ -152,7 +153,7 @@ export async function resetFailedAttempts(
   try {
     await redis.del(key, lockKey)
   } catch (error) {
-    console.error('Failed to reset failed attempts:', error)
+    logger.error({ error }, 'Failed to reset failed attempts')
   }
 }
 
@@ -174,7 +175,7 @@ export async function getAttemptCount(
     const count = await redis.get(key)
     return parseInt(count || '0', 10)
   } catch (error) {
-    console.error('Failed to get attempt count:', error)
+    logger.error({ error }, 'Failed to get attempt count')
     return 0
   }
 }
@@ -267,7 +268,7 @@ export async function clearAllBruteForceRecords(): Promise<void> {
       await redis.del(...keys)
     }
   } catch (error) {
-    console.error('Failed to clear brute force records:', error)
+    logger.error({ error }, 'Failed to clear brute force records')
   }
 }
 
@@ -297,7 +298,7 @@ export async function getBruteForceStats(): Promise<{
       timestamp: Date.now(),
     }
   } catch (error) {
-    console.error('Failed to get brute force stats:', error)
+    logger.error({ error }, 'Failed to get brute force stats')
     return {
       totalLockedIPs: 0,
       totalLockedUsers: 0,

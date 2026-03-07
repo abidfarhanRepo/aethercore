@@ -8,6 +8,7 @@ import { registerSecurityHeaders, additionalSecurityHeaders, enforceHTTPS, disab
 import { registerCORS, validateCORSHeaders } from '../middleware/cors'
 import { bruteForceProtection } from '../middleware/brute-force'
 import { validateRequestSize } from '../utils/sanitizer'
+import { logger } from '../utils/logger'
 
 /**
  * Plugin configuration
@@ -35,22 +36,22 @@ export async function registerSecurityPlugin(
     ...options,
   }
   
-  console.log('📋 Registering security plugin...')
+  logger.info('Registering security plugin')
   
   // 1. Register security headers
   try {
     await registerSecurityHeaders(fastify)
-    console.log('✓ Security headers registered (Helmet.js)')
+    logger.info('Security headers registered (Helmet.js)')
   } catch (error) {
-    console.error('✗ Failed to register security headers:', error)
+    logger.error({ error }, 'Failed to register security headers')
   }
   
   // 2. Register CORS
   try {
     await registerCORS(fastify)
-    console.log('✓ CORS middleware registered')
+    logger.info('CORS middleware registered')
   } catch (error) {
-    console.error('✗ Failed to register CORS:', error)
+    logger.error({ error }, 'Failed to register CORS')
   }
   
   // 3. Add request validation hooks
@@ -124,9 +125,13 @@ export async function registerSecurityPlugin(
     }
   })
   
-  console.log('✓ Security plugin registered successfully')
-  console.log(`  - HTTPS Enforcement: ${config.enableHTTPS ? 'enabled' : 'disabled'}`)
-  console.log(`  - CSP: ${config.enableCSP ? 'enabled' : 'disabled'}`)
-  console.log(`  - Rate Limiting: ${config.enableRateLimit ? 'enabled' : 'disabled'}`)
-  console.log(`  - Max Request Size: ${config.maxRequestSize} bytes`)
+  logger.info(
+    {
+      httpsEnforcement: config.enableHTTPS,
+      csp: config.enableCSP,
+      rateLimiting: config.enableRateLimit,
+      maxRequestSize: config.maxRequestSize,
+    },
+    'Security plugin registered successfully'
+  )
 }

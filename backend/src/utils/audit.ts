@@ -5,6 +5,7 @@
 
 import { FastifyRequest } from 'fastify'
 import { prisma } from './db'
+import { logger } from './logger'
 
 /**
  * Audit log entry type
@@ -59,9 +60,9 @@ export async function logAudit(
     
     return log.id
   } catch (error) {
-    // Log to console as fallback if database fails
-    console.error('Failed to write audit log:', error)
-    console.warn('Audit entry:', entry)
+    // Log to application logger as fallback if database fails.
+    logger.error({ error }, 'Failed to write audit log')
+    logger.warn({ entry }, 'Audit entry fallback')
     throw error
   }
 }
@@ -231,7 +232,7 @@ export async function getAuditLogs(
     
     return { logs, total }
   } catch (error) {
-    console.error('Failed to retrieve audit logs:', error)
+    logger.error({ error }, 'Failed to retrieve audit logs')
     throw error
   }
 }
@@ -290,7 +291,7 @@ export async function exportAuditLogs(
       return JSON.stringify(logs, null, 2)
     }
   } catch (error) {
-    console.error('Failed to export audit logs:', error)
+    logger.error({ error }, 'Failed to export audit logs')
     throw error
   }
 }
@@ -317,7 +318,7 @@ export async function archiveAuditLogs(
     
     return logs.length
   } catch (error) {
-    console.error('Failed to archive audit logs:', error)
+    logger.error({ error }, 'Failed to archive audit logs')
     throw error
   }
 }
@@ -341,7 +342,7 @@ export async function verifyAuditLogIntegrity(logId: string): Promise<boolean> {
     
     return true
   } catch (error) {
-    console.error('Failed to verify audit log integrity:', error)
+    logger.error({ error }, 'Failed to verify audit log integrity')
     return false
   }
 }
@@ -380,7 +381,7 @@ export async function getAuditSummary(days: number = 30) {
       period: { startDate, endDate: new Date() },
     }
   } catch (error) {
-    console.error('Failed to get audit summary:', error)
+    logger.error({ error }, 'Failed to get audit summary')
     throw error
   }
 }

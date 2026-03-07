@@ -17,6 +17,7 @@ exports.generateAPIKey = generateAPIKey;
 exports.createSignedToken = createSignedToken;
 exports.verifySignedToken = verifySignedToken;
 const crypto_1 = __importDefault(require("crypto"));
+const logger_1 = require("../utils/logger");
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default_32_char_key_change_in_prod';
 const ALGORITHM = 'aes-256-gcm';
 /**
@@ -27,7 +28,7 @@ function ensureKeyLength() {
         if (process.env.NODE_ENV === 'production') {
             throw new Error('ENCRYPTION_KEY must be at least 32 characters in production');
         }
-        console.warn('ENCRYPTION_KEY is less than 32 characters. This is insecure. Set ENCRYPTION_KEY env var.');
+        logger_1.logger.warn('ENCRYPTION_KEY is less than 32 characters. This is insecure. Set ENCRYPTION_KEY env var.');
         // Pad key to 32 bytes for development only 
         return ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32);
     }
@@ -50,7 +51,7 @@ function encryptData(plaintext) {
         return Buffer.from(combined).toString('base64');
     }
     catch (error) {
-        console.error('Encryption error:', error);
+        logger_1.logger.error({ error }, 'Encryption error');
         throw new Error('Failed to encrypt data');
     }
 }
@@ -71,7 +72,7 @@ function decryptData(encryptedBase64) {
         return decrypted;
     }
     catch (error) {
-        console.error('Decryption error:', error);
+        logger_1.logger.error({ error }, 'Decryption error');
         throw new Error('Failed to decrypt data');
     }
 }

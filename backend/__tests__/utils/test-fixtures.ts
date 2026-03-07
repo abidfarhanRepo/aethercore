@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { logger } from '../../src/utils/logger'
 
 const prisma = new PrismaClient()
 
@@ -218,6 +219,6 @@ export async function cleanupTestFixtures() {
     await prisma.warehouse.deleteMany({})
     await prisma.user.deleteMany({})
   } catch (error) {
-    console.error('Cleanup error:', error)
+    logger.error({ error }, 'Cleanup error')
   }
 }

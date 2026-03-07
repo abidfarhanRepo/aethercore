@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { Stripe } from 'stripe'
+import { logger } from '../../utils/logger'
 
 /**
  * Stripe Payment Processor Adapter
@@ -101,7 +102,7 @@ export class StripeAdapter {
 
       return customer.id
     } catch (error) {
-      console.error('Error creating Stripe customer:', error)
+      logger.error({ error }, 'Error creating Stripe customer')
       throw new Error(`Failed to create Stripe customer: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -140,7 +141,7 @@ export class StripeAdapter {
         brand: cardDetails?.brand?.toUpperCase() || 'UNKNOWN',
       }
     } catch (error) {
-      console.error('Error tokenizing card:', error)
+      logger.error({ error }, 'Error tokenizing card')
       throw new Error(
         `Card tokenization failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -207,7 +208,7 @@ export class StripeAdapter {
 
       return result
     } catch (error) {
-      console.error('Error processing Stripe payment:', error)
+      logger.error({ error }, 'Error processing Stripe payment')
       throw new Error(
         `Payment processing failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -255,7 +256,7 @@ export class StripeAdapter {
 
       return result
     } catch (error) {
-      console.error('Error authorizing Stripe payment:', error)
+      logger.error({ error }, 'Error authorizing Stripe payment')
       throw new Error(
         `Payment authorization failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -280,7 +281,7 @@ export class StripeAdapter {
           typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : '',
       }
     } catch (error) {
-      console.error('Error capturing Stripe payment:', error)
+      logger.error({ error }, 'Error capturing Stripe payment')
       throw new Error(
         `Payment capture failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -309,7 +310,7 @@ export class StripeAdapter {
         amountCents: refund.amount,
       }
     } catch (error) {
-      console.error('Error refunding Stripe payment:', error)
+      logger.error({ error }, 'Error refunding Stripe payment')
       throw new Error(
         `Payment refund failed: ${error instanceof Error ? error.message : String(error)}`
       )
@@ -331,7 +332,7 @@ export class StripeAdapter {
       )
       return event as WebhookPayload
     } catch (error) {
-      console.error('Webhook signature verification failed:', error)
+      logger.error({ error }, 'Webhook signature verification failed')
       return null
     }
   }
@@ -350,7 +351,7 @@ export class StripeAdapter {
       case 'charge.dispute.created':
         return this.handleChargeDispute(event.data.object)
       default:
-        console.log(`Unhandled event type: ${event.type}`)
+        logger.info({ eventType: event.type }, 'Unhandled Stripe event type')
         return null
     }
   }
@@ -410,7 +411,7 @@ export class StripeAdapter {
     try {
       return await this.stripe.paymentIntents.retrieve(paymentIntentId)
     } catch (error) {
-      console.error('Error retrieving payment intent:', error)
+      logger.error({ error }, 'Error retrieving payment intent')
       throw error
     }
   }
@@ -426,7 +427,7 @@ export class StripeAdapter {
       })
       return paymentMethods.data
     } catch (error) {
-      console.error('Error retrieving payment methods:', error)
+      logger.error({ error }, 'Error retrieving payment methods')
       throw error
     }
   }
@@ -438,7 +439,7 @@ export class StripeAdapter {
     try {
       await this.stripe.paymentMethods.detach(paymentMethodId)
     } catch (error) {
-      console.error('Error deleting payment method:', error)
+      logger.error({ error }, 'Error deleting payment method')
       throw error
     }
   }

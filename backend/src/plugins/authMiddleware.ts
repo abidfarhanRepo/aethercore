@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../utils/db'
+import { logger } from '../utils/logger'
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me'
 
@@ -205,7 +206,7 @@ async function logPermissionDenial(
     })
   } catch (e) {
     // Silently fail audit logging
-    console.error('Failed to log permission:', e)
+    logger.error({ error: e }, 'Failed to log permission')
   }
 }
 
