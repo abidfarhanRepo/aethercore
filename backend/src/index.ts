@@ -4,6 +4,8 @@ dotenv.config()
 
 import Fastify from 'fastify'
 import fastifyCookie from '@fastify/cookie'
+import fastifyRateLimit from '@fastify/rate-limit'
+import jwt from 'jsonwebtoken'
 import { prisma } from './utils/db'
 import authRoutes from './routes/auth'
 import productRoutes from './routes/products'
@@ -25,11 +27,38 @@ import securityRoutes from './routes/security'
 import notificationRoutes from './routes/notifications'
 import healthRoutes from './routes/health'
 import pluginRoutes from './routes/plugins'
-import rateLimitPlugin from './plugins/rateLimit'
 import { registerSecurityPlugin } from './plugins/securityPlugin'
 import { setupErrorHandler } from './middleware/errorHandler'
 import { logger } from './utils/logger'
 import { getRedisClient, closeRedisClient } from './lib/redis'
+import { registerGlobalValidationHook } from './lib/validation'
+
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me'
+const RATE_LIMIT_GLOBAL = Number(process.env.RATE_LIMIT_GLOBAL || 200)
+const RATE_LIMIT_AUTH = Number(process.env.RATE_LIMIT_AUTH || 10)
+const RATE_LIMIT_TENANT = 1000
+
+type JwtRateLimitPayload = {
+  tenantId?: string | null
+}
+
+function getTenantIdFromAuthHeader(authorizationHeader: string | string[] | undefined): string | null {
+  if (!authorizationHeader || Array.isArray(authorizationHeader)) {
+    return null
+  }
+
+  const token = authorizationHeader.replace(/^Bearer\s+/, '').trim()
+  if (!token) {
+    return null
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_ACCESS_SECRET) as JwtRateLimitPayload
+    return payload?.tenantId || null
+  } catch {
+    return null
+  }
+}
 
 const server = Fastify({
   logger: {
@@ -41,6 +70,7 @@ const server = Fastify({
   },
   requestIdLogLabel: 'requestId',
 })
+
 
 // IMPORTANT: Register security plugin first, before all other middleware
 const initializeSecurityAndRoutes = async () => {
@@ -83,6 +113,9 @@ const initializeSecurityAndRoutes = async () => {
       'request completed'
     )
   })
+
+  // Global request validation hook. Route-level Zod schemas are attached in route config.zod.
+  registerGlobalValidationHook(server)
   
   // Register comprehensive security plugin
   await registerSecurityPlugin(server, {
@@ -96,7 +129,42 @@ const initializeSecurityAndRoutes = async () => {
   
   // Register plugins and routes
   server.register(fastifyCookie)
-  server.register(rateLimitPlugin)
+  server.register(fastifyRateLimit, {
+    global: true,
+    timeWindow: '1 minute',
+    max: (request) => {
+      const path = request.url.split('?')[0]
+      if (path.startsWith('/api/v1/auth/')) {
+        return RATE_LIMIT_AUTH
+      }
+      return RATE_LIMIT_GLOBAL
+    },
+    keyGenerator: (request) => request.ip,
+    errorResponseBuilder: (_request, context) => ({
+      error: 'Too Many Requests',
+      message: `Rate limit exceeded, retry in ${context.after}`,
+      statusCode: 429,
+    }),
+  })
+
+  // Enforce an additional tenant-wide ceiling to limit aggregate abuse per tenant.
+  server.register(fastifyRateLimit, {
+    global: true,
+    timeWindow: '1 minute',
+    max: RATE_LIMIT_TENANT,
+    keyGenerator: (request) => {
+      const tenantId = getTenantIdFromAuthHeader(request.headers.authorization)
+      if (tenantId) {
+        return `tenant:${tenantId}`
+      }
+      return `anon:${request.ip}`
+    },
+    errorResponseBuilder: (_request, context) => ({
+      error: 'Too Many Requests',
+      message: `Tenant rate limit exceeded, retry in ${context.after}`,
+      statusCode: 429,
+    }),
+  })
   
   // Health check endpoint
   server.get('/health', async () => ({ 

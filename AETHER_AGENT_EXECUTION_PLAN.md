@@ -128,7 +128,7 @@
 ---
 
 ### TICKET W1-05 — Add Global Request Validation Middleware
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Depends on:** W1-04  
 **Files:**
@@ -151,7 +151,7 @@
 ---
 
 ### TICKET W1-06 — Add Rate Limiting to All Endpoints
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Depends on:** W1-04  
 **Files:**
