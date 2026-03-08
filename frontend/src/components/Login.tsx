@@ -20,9 +20,22 @@ export default function Login(){
     setIsLoading(true)
     try{
       const res = await authAPI.login(email, password)
-      const { accessToken, refreshToken, user } = res.data
+      const { accessToken, refreshToken, user, requiresMfa, tempSessionToken, mfaEnrollmentRequired } = res.data
+
+      if (requiresMfa && tempSessionToken) {
+        sessionStorage.setItem('mfaTempSessionToken', tempSessionToken)
+        navigate('/auth/mfa-challenge')
+        return
+      }
+
       setTokens(accessToken, refreshToken)
       setUser(user)
+
+      if (mfaEnrollmentRequired) {
+        navigate('/auth/mfa-setup')
+        return
+      }
+
       navigate('/checkout')
     }catch(e:any){
       console.error('Login error:', e)

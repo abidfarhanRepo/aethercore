@@ -175,7 +175,7 @@
 ---
 
 ### TICKET W1-07 — Implement TOTP MFA for Admin and Manager Roles
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Files:**
 - `backend/src/routes/auth.ts` ← add MFA enroll and verify endpoints

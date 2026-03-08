@@ -47,6 +47,8 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 // Import legacy components (temporary for backward compatibility)
 import LoginComponent from './components/Login'
 import RegisterComponent from './components/Register'
+import MfaSetup from '@/pages/auth/MfaSetup'
+import MfaChallenge from '@/pages/auth/MfaChallenge'
 
 interface MenuItem {
   label: string
@@ -326,6 +328,7 @@ function AppContent({ featureFlags, settingsLoading }: { featureFlags: FeatureFl
       {/* Auth Routes */}
       <Route path="/login" element={<LoginComponent />} />
       <Route path="/register" element={<RegisterComponent />} />
+      <Route path="/auth/mfa-challenge" element={<MfaChallenge />} />
 
       {/* Protected Routes */}
       {user ? (
@@ -344,6 +347,7 @@ function AppContent({ featureFlags, settingsLoading }: { featureFlags: FeatureFl
           <Route path="/reports/sales-transactions" element={hasPermission(['ADMIN', 'MANAGER'], '/reports/sales-transactions') ? <SalesTransactions /> : <Navigate to="/" replace />} />
           <Route path="/reports/purchases-transactions" element={hasPermission(['ADMIN', 'MANAGER'], '/reports/purchases-transactions') ? <PurchasesTransactions /> : <Navigate to="/" replace />} />
           <Route path="/settings" element={hasPermission(['ADMIN', 'MANAGER'], '/settings') ? <SettingsPage /> : <Navigate to="/" replace />} />
+          <Route path="/auth/mfa-setup" element={<MfaSetup />} />
           <Route path="/" element={<Navigate to="/checkout" replace />} />
         </>
       ) : (

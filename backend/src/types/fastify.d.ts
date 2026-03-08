@@ -18,6 +18,7 @@ declare module 'fastify' {
       firstName?: string | null
       lastName?: string | null
       isActive?: boolean
+      mfaEnabled?: boolean
     }
     security?: {
       ip: string

@@ -229,6 +229,10 @@ export const authAPI = {
     api.post('/api/v1/auth/register', { email, password }),
   login: (email: string, password: string) =>
     api.post('/api/v1/auth/login', { email, password }),
+  enrollMfa: () => api.post('/api/v1/auth/mfa/enroll', {}),
+  verifyMfa: (token: string) => api.post('/api/v1/auth/mfa/verify', { token }),
+  completeMfaChallenge: (payload: { tempSessionToken: string; token?: string; recoveryCode?: string }) =>
+    api.post('/api/v1/auth/mfa/challenge', payload),
   refresh: (refreshToken: string) =>
     api.post('/api/v1/auth/refresh', { refreshToken }),
   revoke: (refreshToken: string) =>

@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import { prisma } from '../utils/db'
 import { SecurityEventType, SecuritySeverity } from '@prisma/client'
 import { generateTokenPair, rotateRefreshToken, revokeToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt'
@@ -9,9 +10,15 @@ import { logAuthEvent } from '../utils/audit'
 import { createFailedLoginNotification } from '../lib/notificationService'
 import { logSecurityEventRecord } from '../lib/securityCompliance'
 import { logger } from '../utils/logger'
+import { requireAuth } from '../plugins/authMiddleware'
+import { consumeRecoveryCode, generateMfaEnrollment, verifyTotpToken } from '../lib/mfaService'
 import {
   loginBodySchema,
   LoginBody,
+  mfaChallengeBodySchema,
+  MfaChallengeBody,
+  mfaVerifyBodySchema,
+  MfaVerifyBody,
   logoutBodySchema,
   LogoutBody,
   refreshBodySchema,
@@ -22,6 +29,9 @@ import {
 
 
 export default async function authRoutes(fastify: FastifyInstance) {
+  const JWT_MFA_SESSION_SECRET =
+    process.env.JWT_MFA_SESSION_SECRET || process.env.JWT_ACCESS_SECRET || 'change_me_mfa_session_secret'
+
   async function ensureDevAdminUser(email: string) {
     if (process.env.NODE_ENV === 'production') {
       return null
@@ -237,6 +247,24 @@ export default async function authRoutes(fastify: FastifyInstance) {
           lastLogin: new Date(),
         },
       })
+
+      if (user.mfaEnabled) {
+        const tempSessionToken = jwt.sign(
+          {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            type: 'mfa_temp',
+          },
+          JWT_MFA_SESSION_SECRET,
+          { expiresIn: '5m', algorithm: 'HS256' }
+        )
+
+        return reply.send({
+          requiresMfa: true,
+          tempSessionToken,
+        })
+      }
       
       // Generate secure token pair
       const { accessToken, refreshToken } = generateTokenPair({
@@ -275,11 +303,188 @@ export default async function authRoutes(fastify: FastifyInstance) {
           role: user.role,
           firstName: user.firstName || '',
           lastName: user.lastName || '',
-        }
+          mfaEnabled: user.mfaEnabled,
+        },
+        mfaEnrollmentRequired: (user.role === 'ADMIN' || user.role === 'MANAGER') && !user.mfaEnabled,
       }
     } catch (error) {
       logger.error({ error }, 'Login error')
       return reply.status(500).send({ error: 'Authentication failed' })
+    }
+  })
+
+  fastify.post('/api/v1/auth/mfa/enroll', {
+    preHandler: [requireAuth],
+  }, async (req, reply) => {
+    try {
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Unauthorized' })
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { id: true, email: true, mfaEnabled: true },
+      })
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' })
+      }
+
+      if (user.mfaEnabled) {
+        return reply.status(409).send({ error: 'MFA is already enabled for this account' })
+      }
+
+      const enrollment = await generateMfaEnrollment(user.email)
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          mfaSecret: enrollment.secret,
+          mfaRecoveryCodes: enrollment.recoveryCodes,
+          mfaEnabled: false,
+        },
+      })
+
+      return reply.send({
+        secret: enrollment.secret,
+        qrCode: enrollment.qrCodeBase64,
+        recoveryCodes: enrollment.recoveryCodes,
+      })
+    } catch (error) {
+      logger.error({ error }, 'MFA enroll error')
+      return reply.status(500).send({ error: 'Failed to enroll MFA' })
+    }
+  })
+
+  fastify.post('/api/v1/auth/mfa/verify', {
+    preHandler: [requireAuth],
+    config: { zod: { body: mfaVerifyBodySchema } },
+  }, async (req, reply) => {
+    try {
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Unauthorized' })
+      }
+
+      const { token } = req.body as MfaVerifyBody
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { id: true, mfaSecret: true, mfaEnabled: true },
+      })
+
+      if (!user || !user.mfaSecret) {
+        return reply.status(400).send({ error: 'MFA enrollment not initialized' })
+      }
+
+      if (!verifyTotpToken(user.mfaSecret, token)) {
+        return reply.status(401).send({ error: 'Invalid MFA token' })
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          mfaEnabled: true,
+        },
+      })
+
+      await logAuthEvent('MFA_ENABLED', user.id, req, 'User enabled MFA')
+      return reply.send({ success: true })
+    } catch (error) {
+      logger.error({ error }, 'MFA verify error')
+      return reply.status(500).send({ error: 'Failed to verify MFA token' })
+    }
+  })
+
+  fastify.post('/api/v1/auth/mfa/challenge', {
+    config: { zod: { body: mfaChallengeBodySchema } },
+  }, async (req, reply) => {
+    try {
+      const { tempSessionToken, token, recoveryCode } = req.body as MfaChallengeBody
+
+      let decoded: Record<string, unknown>
+      try {
+        decoded = jwt.verify(tempSessionToken, JWT_MFA_SESSION_SECRET, {
+          algorithms: ['HS256'],
+        }) as Record<string, unknown>
+      } catch {
+        return reply.status(401).send({ error: 'Invalid or expired MFA session token' })
+      }
+
+      if (decoded.type !== 'mfa_temp' || !decoded.id || typeof decoded.id !== 'string') {
+        return reply.status(401).send({ error: 'Invalid MFA session token' })
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+      })
+
+      if (!user || !user.isActive || !user.mfaEnabled || !user.mfaSecret) {
+        return reply.status(401).send({ error: 'MFA challenge is not available for this account' })
+      }
+
+      let challengePassed = false
+      let nextRecoveryCodes = user.mfaRecoveryCodes
+
+      if (token) {
+        challengePassed = verifyTotpToken(user.mfaSecret, token)
+      } else if (recoveryCode) {
+        const recoveryResult = consumeRecoveryCode(user.mfaRecoveryCodes, recoveryCode)
+        challengePassed = recoveryResult.isValid
+        nextRecoveryCodes = recoveryResult.remainingCodes
+      }
+
+      if (!challengePassed) {
+        await logAuthEvent('LOGIN_FAILED', user.id, req, 'Failed MFA challenge')
+        return reply.status(401).send({ error: 'Invalid MFA code' })
+      }
+
+      if (recoveryCode) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { mfaRecoveryCodes: nextRecoveryCodes },
+        })
+      }
+
+      const { accessToken, refreshToken } = generateTokenPair({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      })
+
+      await prisma.refreshToken.create({
+        data: {
+          token: refreshToken,
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      })
+
+      reply.setCookie('refreshToken', refreshToken, {
+        path: '/api/v1/auth',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60,
+      })
+
+      await logAuthEvent('LOGIN', user.id, req, 'User completed MFA challenge')
+
+      return reply.send({
+        accessToken,
+        refreshToken,
+        expiresIn: 15 * 60,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          mfaEnabled: user.mfaEnabled,
+        },
+      })
+    } catch (error) {
+      logger.error({ error }, 'MFA challenge error')
+      return reply.status(500).send({ error: 'MFA challenge failed' })
     }
   })
 
