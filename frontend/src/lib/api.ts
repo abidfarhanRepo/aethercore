@@ -237,6 +237,7 @@ export const authAPI = {
     api.get<{ mfaEnabled: boolean; recoveryCodesRemaining: number; recoveryCodes: string[] }>('/api/v1/auth/mfa/status'),
   getRecoveryCodes: () => api.get<{ recoveryCodes: string[] }>('/api/v1/auth/mfa/recovery-codes'),
   resetMfa: () => api.post('/api/v1/auth/mfa/reset', {}),
+  verifyPin: (pin: string) => api.post<{ verified: boolean }>('/api/v1/auth/verify-pin', { pin }),
   refresh: (refreshToken: string) =>
     api.post('/api/v1/auth/refresh', { refreshToken }),
   revoke: (refreshToken: string) =>
@@ -331,6 +332,7 @@ export const usersAPI = {
   changePassword: (id: string, data: any) => api.post(`/api/v1/users/${id}/change-password`, data),
   resetPassword: (id: string) => api.post(`/api/v1/users/${id}/reset-password`, {}),
   resetMfa: (id: string) => api.post(`/api/v1/users/${id}/mfa/reset`, {}),
+  setPin: (id: string, pin: string) => api.put(`/api/v1/users/${id}/pin`, { pin }),
   unlock: (id: string) => api.post(`/api/v1/users/${id}/unlock`, {}),
   updateRoles: (id: string, customRoleIds: string[]) => api.put(`/api/v1/users/${id}/roles`, { customRoleIds }),
   getAuditLog: (id: string, limit?: number, offset?: number) =>

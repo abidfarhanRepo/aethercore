@@ -204,7 +204,7 @@
 ---
 
 ### TICKET W1-08 — Implement Session Timeout and Idle Lock
-**Status:** `[ ]`  
+**Status:** `[~]`  
 **Priority:** HIGH  
 **Files:**
 - `frontend/src/hooks/useIdleTimer.ts` ← create this hook

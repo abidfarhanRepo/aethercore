@@ -7,6 +7,8 @@ export interface User {
   lastName?: string
   role: 'ADMIN' | 'MANAGER' | 'CASHIER' | 'STOCK_CLERK' | 'SUPERVISOR'
   isActive: boolean
+  mfaEnabled?: boolean
+  hasPinSet?: boolean
 }
 
 interface AuthStore {

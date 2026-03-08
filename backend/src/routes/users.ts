@@ -340,6 +340,51 @@ export default async function userRoutes(server: FastifyInstance) {
     }
   )
 
+  // PUT /users/:id/pin - Set or update idle-lock PIN
+  server.put<{ Params: { id: string }; Body: any }>(
+    '/api/v1/users/:id/pin',
+    { preHandler: requireAuth },
+    async (request: any, reply: FastifyReply) => {
+      try {
+        const { id } = request.params
+        const { pin } = request.body
+        const authUser = (request as any).user
+
+        if (authUser.id !== id && authUser.role !== 'ADMIN') {
+          return reply.code(403).send({ error: 'forbidden' })
+        }
+
+        if (!pin || !/^\d{4,8}$/.test(String(pin))) {
+          return reply.code(400).send({ error: 'PIN must be 4 to 8 digits' })
+        }
+
+        const user = await prisma.user.findUnique({ where: { id } })
+        if (!user) return reply.code(404).send({ error: 'user not found' })
+
+        const pinHash = await bcrypt.hash(String(pin), 10)
+
+        await prisma.user.update({
+          where: { id },
+          data: { pinHash },
+        })
+
+        await prisma.auditLog.create({
+          data: {
+            actorId: authUser.id,
+            action: 'PIN_UPDATED',
+            resource: 'USER',
+            resourceId: id,
+            details: `PIN updated for user ${user.email}`,
+          },
+        })
+
+        reply.send({ message: 'PIN updated successfully' })
+      } catch (err) {
+        reply.code(500).send({ error: 'Failed to update PIN' })
+      }
+    }
+  )
+
   // POST /users/:id/reset-password - Admin reset (ADMIN only)
   server.post<{ Params: { id: string } }>(
     '/api/v1/users/:id/reset-password',

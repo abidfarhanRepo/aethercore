@@ -296,7 +296,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return {
         accessToken,
         refreshToken,
-        expiresIn: 15 * 60, // 15 minutes
+        expiresIn: 8 * 60 * 60, // 8 hours
         user: {
           id: user.id,
           email: user.email,
@@ -304,6 +304,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           mfaEnabled: user.mfaEnabled,
+          hasPinSet: Boolean(user.pinHash),
         },
         mfaEnrollmentRequired: (user.role === 'ADMIN' || user.role === 'MANAGER') && !user.mfaEnabled,
       }
@@ -472,7 +473,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.send({
         accessToken,
         refreshToken,
-        expiresIn: 15 * 60,
+        expiresIn: 8 * 60 * 60,
         user: {
           id: user.id,
           email: user.email,
@@ -480,6 +481,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           mfaEnabled: user.mfaEnabled,
+          hasPinSet: Boolean(user.pinHash),
         },
       })
     } catch (error) {
@@ -569,6 +571,41 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch (error) {
       logger.error({ error }, 'MFA reset error')
       return reply.status(500).send({ error: 'Failed to reset MFA' })
+    }
+  })
+
+  fastify.post('/api/v1/auth/verify-pin', {
+    preHandler: [requireAuth],
+  }, async (req, reply) => {
+    try {
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Unauthorized' })
+      }
+
+      const body = (req.body || {}) as { pin?: string }
+      const pin = (body.pin || '').trim()
+      if (!/^\d{4,8}$/.test(pin)) {
+        return reply.status(400).send({ error: 'PIN must be 4 to 8 digits' })
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { pinHash: true },
+      })
+
+      if (!user?.pinHash) {
+        return reply.status(400).send({ error: 'PIN not set for this account' })
+      }
+
+      const verified = await bcrypt.compare(pin, user.pinHash)
+      if (!verified) {
+        return reply.status(401).send({ error: 'Invalid PIN' })
+      }
+
+      return reply.send({ verified: true })
+    } catch (error) {
+      logger.error({ error }, 'PIN verification error')
+      return reply.status(500).send({ error: 'Failed to verify PIN' })
     }
   })
 
@@ -708,6 +745,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         mfaEnabled: user.mfaEnabled,
+        hasPinSet: Boolean(user.pinHash),
       }
     } catch (error) {
       logger.error({ error }, 'Auth me error')

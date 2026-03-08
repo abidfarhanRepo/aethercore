@@ -43,6 +43,8 @@ import './styles.css'
 import OfflineIndicator from '@/components/OfflineIndicator'
 import SyncStatusModal from '@/components/SyncStatusModal'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import IdleLockScreen from '@/components/IdleLockScreen'
+import { useIdleTimer } from '@/hooks/useIdleTimer'
 
 // Import legacy components (temporary for backward compatibility)
 import LoginComponent from './components/Login'
@@ -104,13 +106,29 @@ const MENU_ITEMS: MenuItem[] = [
   { label: 'Settings', icon: <Settings className="h-4 w-4" />, path: '/settings', allowedRoles: ['ADMIN', 'MANAGER'] },
 ]
 
-function Layout({ children, featureFlags }: { children: React.ReactNode; featureFlags: FeatureFlags }) {
+function Layout({
+  children,
+  featureFlags,
+  idleTimeoutMinutes,
+}: {
+  children: React.ReactNode
+  featureFlags: FeatureFlags
+  idleTimeoutMinutes: number
+}) {
   const { user, logout } = useAuthStore()
   const [isLoading, setIsLoading] = React.useState(true)
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isIdleLocked, setIsIdleLocked] = useState(false)
   const location = useLocation()
   const isCheckoutRoute = location.pathname === '/checkout'
+
+  const timeoutForCurrentScreen = isCheckoutRoute ? 30 : idleTimeoutMinutes
+  const { resetTimer } = useIdleTimer({
+    enabled: Boolean(user),
+    timeoutMinutes: timeoutForCurrentScreen,
+    onIdle: () => setIsIdleLocked(true),
+  })
 
   const isTokenUsable = (token: string): boolean => {
     const parts = token.split('.')
@@ -308,6 +326,19 @@ function Layout({ children, featureFlags }: { children: React.ReactNode; feature
 
       {/* Sync Status Modal */}
       <SyncStatusModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} />
+      {isIdleLocked ? (
+        <IdleLockScreen
+          hasPinSet={Boolean(user.hasPinSet)}
+          onUnlock={() => {
+            setIsIdleLocked(false)
+            resetTimer()
+          }}
+          onForceLogout={() => {
+            setIsIdleLocked(false)
+            logout()
+          }}
+        />
+      ) : null}
     </div>
   )
 }
@@ -361,6 +392,7 @@ export default function App() {
   const { user } = useAuthStore()
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS)
   const [settingsLoading, setSettingsLoading] = useState(false)
+  const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState(10)
 
   useEffect(() => {
     const loadFeatureSettings = async () => {
@@ -372,8 +404,13 @@ export default function App() {
 
       try {
         setSettingsLoading(true)
-        const response = await settingsAPI.getByCategory('system')
-        const settings = response.data || []
+        const [systemResponse, userResponse] = await Promise.all([
+          settingsAPI.getByCategory('system'),
+          settingsAPI.getByCategory('user'),
+        ])
+
+        const settings = systemResponse.data || []
+        const userSettings = userResponse.data || []
 
         const nextFlags = { ...DEFAULT_FEATURE_FLAGS }
         settings.forEach((setting) => {
@@ -383,9 +420,16 @@ export default function App() {
         })
 
         setFeatureFlags(nextFlags)
+
+        const idleSetting = userSettings.find(
+          (setting) => setting.key === 'idle_timeout_minutes' || setting.key === 'session_timeout_minutes'
+        )
+        const parsedIdleTimeout = Number(idleSetting?.value)
+        setIdleTimeoutMinutes(Number.isFinite(parsedIdleTimeout) && parsedIdleTimeout > 0 ? parsedIdleTimeout : 10)
       } catch (error) {
         console.error('Failed to load feature settings', error)
         setFeatureFlags(DEFAULT_FEATURE_FLAGS)
+        setIdleTimeoutMinutes(10)
       } finally {
         setSettingsLoading(false)
       }
@@ -396,7 +440,7 @@ export default function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Layout featureFlags={featureFlags}>
+      <Layout featureFlags={featureFlags} idleTimeoutMinutes={idleTimeoutMinutes}>
         <AppContent featureFlags={featureFlags} settingsLoading={settingsLoading} />
       </Layout>
     </Router>

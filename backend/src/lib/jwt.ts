@@ -21,7 +21,7 @@ if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'default_access_secret_change_me'
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'default_refresh_secret_change_me'
-const JWT_ACCESS_EXPIRES_IN = '15m' // Short expiration for access tokens
+const JWT_ACCESS_EXPIRES_IN = '8h' // Max lifetime for interactive sessions
 const JWT_REFRESH_EXPIRES_IN = '7d'
 
 /**
@@ -160,7 +160,7 @@ export function generateTokenPair(payload: Record<string, any>): {
   return {
     accessToken: generateAccessToken(payload),
     refreshToken: generateRefreshToken(payload),
-    expiresIn: 15 * 60, // 15 minutes in seconds
+    expiresIn: 8 * 60 * 60, // 8 hours in seconds
   }
 }
 

@@ -3,7 +3,8 @@ import { AlertCircle, CheckCircle2, ShieldCheck, ShieldX } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { authAPI, getNetworkErrorMessage } from '@/lib/api'
+import { authAPI, getNetworkErrorMessage, usersAPI } from '@/lib/api'
+import { useAuthStore } from '@/lib/auth'
 
 type MfaStatus = {
   mfaEnabled: boolean
@@ -12,6 +13,7 @@ type MfaStatus = {
 }
 
 export default function MfaSettings() {
+  const { user, setUser } = useAuthStore()
   const [status, setStatus] = useState<MfaStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,6 +23,8 @@ export default function MfaSettings() {
   const [qrCode, setQrCode] = useState('')
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [token, setToken] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
 
   const loadStatus = async () => {
     try {
@@ -95,6 +99,37 @@ export default function MfaSettings() {
     }
   }
 
+  const savePin = async () => {
+    if (!user?.id) {
+      setError('Unable to identify current user')
+      return
+    }
+
+    if (!/^\d{4,8}$/.test(newPin)) {
+      setError('PIN must be 4 to 8 digits')
+      return
+    }
+
+    if (newPin !== confirmPin) {
+      setError('PIN and confirmation do not match')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      await usersAPI.setPin(user.id, newPin)
+      setSuccess('Lock PIN updated successfully.')
+      setNewPin('')
+      setConfirmPin('')
+      setUser({ ...user, hasPinSet: true })
+    } catch (pinError: any) {
+      setError(getNetworkErrorMessage(pinError))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {error ? (
@@ -142,6 +177,39 @@ export default function MfaSettings() {
               Reset MFA
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Idle Lock PIN</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <p className="text-muted-foreground">
+            This PIN is used to unlock the screen after idle timeout. Current status:{' '}
+            <strong>{user?.hasPinSet ? 'PIN set' : 'PIN not set'}</strong>
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Input
+              type="password"
+              inputMode="numeric"
+              maxLength={8}
+              value={newPin}
+              onChange={(event) => setNewPin(event.target.value.replace(/\D/g, '').slice(0, 8))}
+              placeholder="New PIN (4-8 digits)"
+            />
+            <Input
+              type="password"
+              inputMode="numeric"
+              maxLength={8}
+              value={confirmPin}
+              onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, '').slice(0, 8))}
+              placeholder="Confirm PIN"
+            />
+          </div>
+          <Button onClick={savePin} disabled={loading || newPin.length < 4 || confirmPin.length < 4}>
+            Save PIN
+          </Button>
         </CardContent>
       </Card>
 
