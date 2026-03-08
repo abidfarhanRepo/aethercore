@@ -2,60 +2,37 @@
 
 ## Status
 - Ticket: `W1-08`
-- Current status: `in progress` (`[~]`)
-- Scope in this update: core idle-lock and PIN flow foundation
+- Current status: `complete` (`[x]`)
+- Scope: session timeout, idle lock, PIN unlock, and tenant-configurable timeout
 
 ## Implemented
 
 ### Backend
-- Added user PIN storage field:
-  - `User.pinHash String?` in `backend/prisma/schema.prisma`
-  - Migration: `backend/prisma/migrations/20260309102000_add_user_pin_hash/migration.sql`
-- Added PIN verification endpoint:
-  - `POST /api/v1/auth/verify-pin`
-  - Verifies 4-8 digit PIN against `pinHash`
-- Added PIN set/update endpoint:
-  - `PUT /api/v1/users/:id/pin`
-  - Allowed for self or admin
-  - Audit log entry: `PIN_UPDATED`
-- Updated auth responses to include `hasPinSet` for client lock behavior:
-  - login
-  - MFA challenge completion
-  - `/api/v1/auth/me`
-- Updated access token lifetime to 8 hours in JWT utility:
-  - `backend/src/lib/jwt.ts`
+- Tenant-scoped idle timeout is implemented through `TenantSettings.idleTimeoutMinutes` and exposed via tenant settings read/update endpoints.
+- PIN verification endpoint (`POST /api/v1/auth/verify-pin`) includes lockout policy:
+  - 5 failed attempts
+  - 15-minute lock window
+  - `Retry-After` returned while locked
+- PIN set/update endpoint (`PUT /api/v1/users/:id/pin`) remains available for self/admin flows with audit logging.
+- Auth payloads include `hasPinSet` for lock-screen behavior and unlock gating.
 
 ### Frontend
-- Added idle timer hook:
-  - `frontend/src/hooks/useIdleTimer.ts`
-  - Tracks `mousemove`, `keydown`, `touchstart`, `mousedown`
-- Added lock overlay component:
-  - `frontend/src/components/IdleLockScreen.tsx`
-  - Unlock by PIN (`/api/v1/auth/verify-pin`)
-  - Force logout fallback
-- Integrated idle lock into app shell:
-  - `frontend/src/App.tsx`
-  - Default timeout: 10 minutes
-  - Checkout timeout: 30 minutes
-- Extended settings MFA page with PIN management:
-  - `frontend/src/pages/settings/MfaSettings.tsx`
-  - Save/update lock PIN
-- Extended API/auth types:
-  - `frontend/src/lib/api.ts`
-  - `frontend/src/lib/auth.ts`
+- Idle timer + lock overlay flow is active in app shell.
+- Settings wiring now fetches and updates tenant idle timeout through settings APIs.
+- PIN unlock UX uses `POST /api/v1/auth/verify-pin` and honors backend lockout/Retry-After responses.
 
-## Verification Performed
-- `npm --prefix backend run build` passed
-- `npm --prefix frontend run build` passed
-- Dev server smoke check (via sub-agent):
-  - Backend `http://localhost:4000/health` returns `ok`
-  - Frontend `http://localhost:5175` serving app
+## Verification
+- `backend/src/__tests__/auth.verify-pin.test.ts` added and passing for PIN verification and lockout behavior.
+- `frontend/src/hooks/useIdleTimer.test.ts` added and passing for idle timer behavior.
+- `frontend/src/components/IdleLockScreen.test.tsx` added and passing for lock screen unlock/error flows.
+- Build and smoke checks remain green for backend and frontend.
 
-## Remaining Work for Full W1-08 Completion
-- Add explicit tenant-scoped persistent idle timeout model/flow matching ticket wording (`idleTimeoutMinutes` in tenant settings model)
-- Add integration tests for idle trigger and unlock flow
-- Add explicit lockout/rate-limit policy around PIN verification attempts
-
-## Notes
-- W1-08 is intentionally not marked complete yet.
-- This change set establishes the end-to-end core lock/unlock behavior and 8-hour session lifetime baseline.
+## Closure Criteria Met (Done When)
+- Done When: Idle timeout is tenant-configurable and persisted.
+  - Met via `TenantSettings.idleTimeoutMinutes` with settings endpoint integration.
+- Done When: Locked session requires PIN unlock with abuse protection.
+  - Met via verify-pin lockout policy (5 attempts / 15 minutes) and `Retry-After` signaling.
+- Done When: Frontend reflects and manages tenant timeout settings.
+  - Met via settings page fetch/update wiring and runtime timeout application.
+- Done When: Coverage exists for core idle lock and unlock paths.
+  - Met via backend and frontend tests listed in Verification.

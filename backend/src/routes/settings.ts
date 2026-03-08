@@ -28,6 +28,95 @@ interface BatchSettingsUpdateRequest {
 export default async function settingsRoutes(fastify: FastifyInstance) {
   const requireManagerRole = requireRole('ADMIN', 'MANAGER')
 
+  fastify.get(
+    '/api/v1/settings/tenant/idle-timeout',
+    { preHandler: [requireAuth, requireManagerRole] },
+    async (request: SettingsRequest, reply: FastifyReply) => {
+      const tenantId = request.user?.tenantId
+
+      if (!tenantId) {
+        const fallback = await prisma.settings.findUnique({ where: { key: 'session_timeout_minutes' } })
+        const parsedFallback = Number(fallback?.value)
+        return reply.send({
+          idleTimeoutMinutes: Number.isFinite(parsedFallback) && parsedFallback > 0 ? parsedFallback : 10,
+          source: 'global',
+        })
+      }
+
+      const tenantSettings = await prisma.tenantSettings.findUnique({
+        where: { tenantId },
+      })
+
+      return reply.send({
+        idleTimeoutMinutes: tenantSettings?.idleTimeoutMinutes ?? 10,
+        source: 'tenant',
+      })
+    }
+  )
+
+  fastify.put(
+    '/api/v1/settings/tenant/idle-timeout',
+    {
+      preHandler: [requireAuth, requireManagerRole],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['idleTimeoutMinutes'],
+          properties: {
+            idleTimeoutMinutes: { type: 'number', minimum: 1, maximum: 480 },
+          },
+        },
+      },
+    },
+    async (request: SettingsRequest, reply: FastifyReply) => {
+      const { idleTimeoutMinutes } = request.body as { idleTimeoutMinutes: number }
+      const tenantId = request.user?.tenantId
+
+      if (!tenantId) {
+        const value = String(Math.floor(idleTimeoutMinutes))
+        const existing = await prisma.settings.findUnique({ where: { key: 'session_timeout_minutes' } })
+
+        if (existing) {
+          await prisma.settings.update({
+            where: { key: 'session_timeout_minutes' },
+            data: {
+              value,
+              updatedBy: request.user?.id,
+            },
+          })
+        } else {
+          await prisma.settings.create({
+            data: {
+              key: 'session_timeout_minutes',
+              value,
+              category: 'user',
+              type: 'number',
+              label: 'Session Timeout (minutes)',
+              description: 'Minutes before automatic logout due to inactivity',
+              isEncrypted: false,
+              updatedBy: request.user?.id,
+            },
+          })
+        }
+
+        return reply.send({ idleTimeoutMinutes: Number(value), source: 'global' })
+      }
+
+      const updated = await prisma.tenantSettings.upsert({
+        where: { tenantId },
+        update: {
+          idleTimeoutMinutes: Math.floor(idleTimeoutMinutes),
+        },
+        create: {
+          tenantId,
+          idleTimeoutMinutes: Math.floor(idleTimeoutMinutes),
+        },
+      })
+
+      return reply.send({ idleTimeoutMinutes: updated.idleTimeoutMinutes, source: 'tenant' })
+    }
+  )
+
   // GET all settings grouped by category
   fastify.get(
     '/api/v1/settings',

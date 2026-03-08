@@ -50,6 +50,11 @@ export const settingsAPI = {
   getAll: () => api.get<Record<string, Setting[]>>('/api/v1/settings'),
   getByKey: (key: string) => api.get<Setting>(`/api/v1/settings/${key}`),
   getByCategory: (category: string) => api.get<Setting[]>(`/api/v1/settings/category/${category}`),
+  getTenantIdleTimeout: () => api.get<{ idleTimeoutMinutes: number; source: 'tenant' | 'global' }>('/api/v1/settings/tenant/idle-timeout'),
+  updateTenantIdleTimeout: (idleTimeoutMinutes: number) =>
+    api.put<{ idleTimeoutMinutes: number; source: 'tenant' | 'global' }>('/api/v1/settings/tenant/idle-timeout', {
+      idleTimeoutMinutes,
+    }),
   update: (key: string, payload: SettingUpdatePayload) =>
     api.put<Setting>(`/api/v1/settings/${key}`, payload),
   batchUpdate: (settings: Array<{ key: string; value: string | number | boolean }>) =>

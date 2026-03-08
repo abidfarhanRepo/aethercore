@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AlertCircle } from 'lucide-react'
-import { Setting } from '@/lib/settingsAPI'
+import { settingsAPI, Setting } from '@/lib/settingsAPI'
 
 interface UserSettingsProps {
   settings: Setting[]
@@ -32,6 +32,19 @@ export default function UserSettings({ settings, onSave }: UserSettingsProps) {
 
     loadInitialValues()
   }, [settings])
+
+  useEffect(() => {
+    const loadTenantTimeout = async () => {
+      try {
+        const response = await settingsAPI.getTenantIdleTimeout()
+        setSessionTimeout(String(response.data.idleTimeoutMinutes))
+      } catch {
+        // Fall back to existing seeded/global value from settings list.
+      }
+    }
+
+    void loadTenantTimeout()
+  }, [])
 
   const handleSaveDefaultRole = async () => {
     try {
@@ -67,6 +80,8 @@ export default function UserSettings({ settings, onSave }: UserSettingsProps) {
     try {
       setLoading(true)
       setError(null)
+      await settingsAPI.updateTenantIdleTimeout(timeout)
+      // Keep legacy setting in sync for single-tenant/local development fallback behavior.
       await onSave('session_timeout_minutes', timeout)
     } catch (err: any) {
       setError(err.message)

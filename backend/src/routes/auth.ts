@@ -31,6 +31,9 @@ import {
 export default async function authRoutes(fastify: FastifyInstance) {
   const JWT_MFA_SESSION_SECRET =
     process.env.JWT_MFA_SESSION_SECRET || process.env.JWT_ACCESS_SECRET || 'change_me_mfa_session_secret'
+  const pinAttempts = new Map<string, { count: number; firstAttemptAt: number }>()
+  const MAX_PIN_ATTEMPTS = 5
+  const PIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000
 
   async function ensureDevAdminUser(email: string) {
     if (process.env.NODE_ENV === 'production') {
@@ -271,6 +274,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         id: user.id,
         email: user.email,
         role: user.role,
+        tenantId: user.tenantId,
       })
       
       // Store refresh token for revocation tracking
@@ -301,6 +305,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           id: user.id,
           email: user.email,
           role: user.role,
+          tenantId: user.tenantId,
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           mfaEnabled: user.mfaEnabled,
@@ -450,6 +455,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         id: user.id,
         email: user.email,
         role: user.role,
+        tenantId: user.tenantId,
       })
 
       await prisma.refreshToken.create({
@@ -478,6 +484,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           id: user.id,
           email: user.email,
           role: user.role,
+          tenantId: user.tenantId,
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           mfaEnabled: user.mfaEnabled,
@@ -597,10 +604,47 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'PIN not set for this account' })
       }
 
+      const now = Date.now()
+      const currentAttemptState = pinAttempts.get(req.user.id)
+      const activeWindow =
+        currentAttemptState && now - currentAttemptState.firstAttemptAt <= PIN_ATTEMPT_WINDOW_MS
+          ? currentAttemptState
+          : { count: 0, firstAttemptAt: now }
+
+      if (activeWindow.count >= MAX_PIN_ATTEMPTS) {
+        return reply
+          .status(429)
+          .header('Retry-After', String(Math.ceil(PIN_ATTEMPT_WINDOW_MS / 1000)))
+          .send({ error: 'Too many PIN attempts. Please try again later.' })
+      }
+
       const verified = await bcrypt.compare(pin, user.pinHash)
       if (!verified) {
+        pinAttempts.set(req.user.id, {
+          count: activeWindow.count + 1,
+          firstAttemptAt: activeWindow.firstAttemptAt,
+        })
+
+        await logSecurityEventRecord({
+          eventType: SecurityEventType.FAILED_LOGIN,
+          severity: activeWindow.count + 1 >= MAX_PIN_ATTEMPTS ? SecuritySeverity.HIGH : SecuritySeverity.MEDIUM,
+          source: 'auth/verify-pin',
+          message: `Failed PIN verification attempt (${activeWindow.count + 1}/${MAX_PIN_ATTEMPTS})`,
+          details: {
+            userId: req.user.id,
+            attempt: activeWindow.count + 1,
+            maxAttempts: MAX_PIN_ATTEMPTS,
+          },
+          actorId: req.user.id,
+          ipAddress: req.ip,
+        }).catch((eventError) => {
+          logger.error({ eventError }, 'Failed to persist PIN security event')
+        })
+
         return reply.status(401).send({ error: 'Invalid PIN' })
       }
+
+      pinAttempts.delete(req.user.id)
 
       return reply.send({ verified: true })
     } catch (error) {
@@ -742,6 +786,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         id: user.id,
         email: user.email,
         role: user.role,
+        tenantId: user.tenantId,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         mfaEnabled: user.mfaEnabled,

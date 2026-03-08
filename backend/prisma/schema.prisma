@@ -794,9 +794,21 @@ model Tenant {
 
   users        User[]
   featureFlags TenantFeatureFlag[]
+  settings     TenantSettings?
 
   @@index([profile])
   @@index([isActive])
+}
+
+model TenantSettings {
+  id                 String   @id @default(cuid())
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId           String   @unique
+  idleTimeoutMinutes Int      @default(10)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model Plugin {

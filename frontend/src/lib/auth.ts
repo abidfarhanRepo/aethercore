@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export interface User {
   id: string
   email: string
+  tenantId?: string | null
   firstName?: string
   lastName?: string
   role: 'ADMIN' | 'MANAGER' | 'CASHIER' | 'STOCK_CLERK' | 'SUPERVISOR'

@@ -406,11 +406,11 @@ export default function App() {
         setSettingsLoading(true)
         const [systemResponse, userResponse] = await Promise.all([
           settingsAPI.getByCategory('system'),
-          settingsAPI.getByCategory('user'),
+          settingsAPI.getTenantIdleTimeout(),
         ])
 
         const settings = systemResponse.data || []
-        const userSettings = userResponse.data || []
+        const tenantIdleTimeout = userResponse.data?.idleTimeoutMinutes
 
         const nextFlags = { ...DEFAULT_FEATURE_FLAGS }
         settings.forEach((setting) => {
@@ -421,10 +421,7 @@ export default function App() {
 
         setFeatureFlags(nextFlags)
 
-        const idleSetting = userSettings.find(
-          (setting) => setting.key === 'idle_timeout_minutes' || setting.key === 'session_timeout_minutes'
-        )
-        const parsedIdleTimeout = Number(idleSetting?.value)
+        const parsedIdleTimeout = Number(tenantIdleTimeout)
         setIdleTimeoutMinutes(Number.isFinite(parsedIdleTimeout) && parsedIdleTimeout > 0 ? parsedIdleTimeout : 10)
       } catch (error) {
         console.error('Failed to load feature settings', error)
