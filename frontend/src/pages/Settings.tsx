@@ -13,8 +13,9 @@ import UserSettings from './settings/UserSettings'
 import IndustryFeaturesSettings, { SettingMeta } from './settings/IndustryFeaturesSettings'
 import SecuritySettings from './settings/SecuritySettings'
 import PluginSettings from './settings/PluginSettings'
+import MfaSettings from './settings/MfaSettings'
 
-type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry' | 'security' | 'plugins'
+type Tab = 'tax' | 'store' | 'payment' | 'system' | 'inventory' | 'user' | 'industry' | 'security' | 'plugins' | 'mfa'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('store')
@@ -34,6 +35,7 @@ export default function SettingsPage() {
     { id: 'industry' as Tab, label: 'Industry & Features', icon: 'IF' },
     { id: 'plugins' as Tab, label: 'Plugins', icon: 'PLG' },
     { id: 'security' as Tab, label: 'Security', icon: 'SEC' },
+    { id: 'mfa' as Tab, label: 'Authenticator MFA', icon: 'MFA' },
   ]
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export default function SettingsPage() {
       industry: 'system',
       plugins: 'system',
       security: 'system',
+      mfa: 'user',
     }
 
     return byTab[activeTab]
@@ -222,6 +225,7 @@ export default function SettingsPage() {
         )}
         {activeTab === 'plugins' && <PluginSettings />}
         {activeTab === 'security' && <SecuritySettings />}
+        {activeTab === 'mfa' && <MfaSettings />}
       </div>
 
       {/* Footer Actions */}

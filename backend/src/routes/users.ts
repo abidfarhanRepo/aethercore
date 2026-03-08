@@ -419,6 +419,42 @@ export default async function userRoutes(server: FastifyInstance) {
     }
   )
 
+  // POST /users/:id/mfa/reset - Admin reset MFA for a user
+  server.post<{ Params: { id: string } }>(
+    '/api/v1/users/:id/mfa/reset',
+    { preHandler: [requireAuth, requireRole('ADMIN')] },
+    async (request: any, reply: FastifyReply) => {
+      try {
+        const { id } = request.params
+        const user = await prisma.user.findUnique({ where: { id } })
+        if (!user) return reply.code(404).send({ error: 'user not found' })
+
+        await prisma.user.update({
+          where: { id },
+          data: {
+            mfaEnabled: false,
+            mfaSecret: null,
+            mfaRecoveryCodes: [],
+          },
+        })
+
+        await prisma.auditLog.create({
+          data: {
+            actorId: (request as any).user.id,
+            action: 'USER_MFA_RESET',
+            resource: 'USER',
+            resourceId: id,
+            details: `MFA reset by admin for user ${user.email}`,
+          },
+        })
+
+        reply.send({ message: 'MFA reset successfully' })
+      } catch (err) {
+        reply.code(500).send({ error: 'Failed to reset MFA' })
+      }
+    }
+  )
+
   // PUT /users/:id/roles - Update user roles (ADMIN only)
   server.put<{ Params: { id: string }; Body: any }>(
     '/api/v1/users/:id/roles',

@@ -233,6 +233,10 @@ export const authAPI = {
   verifyMfa: (token: string) => api.post('/api/v1/auth/mfa/verify', { token }),
   completeMfaChallenge: (payload: { tempSessionToken: string; token?: string; recoveryCode?: string }) =>
     api.post('/api/v1/auth/mfa/challenge', payload),
+  getMfaStatus: () =>
+    api.get<{ mfaEnabled: boolean; recoveryCodesRemaining: number; recoveryCodes: string[] }>('/api/v1/auth/mfa/status'),
+  getRecoveryCodes: () => api.get<{ recoveryCodes: string[] }>('/api/v1/auth/mfa/recovery-codes'),
+  resetMfa: () => api.post('/api/v1/auth/mfa/reset', {}),
   refresh: (refreshToken: string) =>
     api.post('/api/v1/auth/refresh', { refreshToken }),
   revoke: (refreshToken: string) =>
@@ -326,6 +330,7 @@ export const usersAPI = {
   delete: (id: string) => api.delete(`/api/v1/users/${id}`),
   changePassword: (id: string, data: any) => api.post(`/api/v1/users/${id}/change-password`, data),
   resetPassword: (id: string) => api.post(`/api/v1/users/${id}/reset-password`, {}),
+  resetMfa: (id: string) => api.post(`/api/v1/users/${id}/mfa/reset`, {}),
   unlock: (id: string) => api.post(`/api/v1/users/${id}/unlock`, {}),
   updateRoles: (id: string, customRoleIds: string[]) => api.put(`/api/v1/users/${id}/roles`, { customRoleIds }),
   getAuditLog: (id: string, limit?: number, offset?: number) =>

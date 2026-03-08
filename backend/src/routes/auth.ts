@@ -488,6 +488,90 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   })
 
+  fastify.get('/api/v1/auth/mfa/status', {
+    preHandler: [requireAuth],
+  }, async (req, reply) => {
+    try {
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Unauthorized' })
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: {
+          mfaEnabled: true,
+          mfaRecoveryCodes: true,
+        },
+      })
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' })
+      }
+
+      return reply.send({
+        mfaEnabled: user.mfaEnabled,
+        recoveryCodesRemaining: user.mfaRecoveryCodes.length,
+        recoveryCodes: user.mfaRecoveryCodes,
+      })
+    } catch (error) {
+      logger.error({ error }, 'MFA status error')
+      return reply.status(500).send({ error: 'Failed to load MFA status' })
+    }
+  })
+
+  fastify.get('/api/v1/auth/mfa/recovery-codes', {
+    preHandler: [requireAuth],
+  }, async (req, reply) => {
+    try {
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Unauthorized' })
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: {
+          mfaRecoveryCodes: true,
+        },
+      })
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' })
+      }
+
+      return reply.send({
+        recoveryCodes: user.mfaRecoveryCodes,
+      })
+    } catch (error) {
+      logger.error({ error }, 'MFA recovery-codes error')
+      return reply.status(500).send({ error: 'Failed to load recovery codes' })
+    }
+  })
+
+  fastify.post('/api/v1/auth/mfa/reset', {
+    preHandler: [requireAuth],
+  }, async (req, reply) => {
+    try {
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Unauthorized' })
+      }
+
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          mfaEnabled: false,
+          mfaSecret: null,
+          mfaRecoveryCodes: [],
+        },
+      })
+
+      await logAuthEvent('MFA_DISABLED', req.user.id, req, 'User reset MFA enrollment')
+      return reply.send({ success: true })
+    } catch (error) {
+      logger.error({ error }, 'MFA reset error')
+      return reply.status(500).send({ error: 'Failed to reset MFA' })
+    }
+  })
+
   // Refresh token with rotation
   fastify.post('/api/v1/auth/refresh', {
     config: { zod: { body: refreshBodySchema } },
@@ -623,6 +707,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
+        mfaEnabled: user.mfaEnabled,
       }
     } catch (error) {
       logger.error({ error }, 'Auth me error')

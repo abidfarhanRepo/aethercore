@@ -70,6 +70,19 @@ export default function UserManagement() {
     fetchUsers()
   }
 
+  const handleResetMfa = async (user: User) => {
+    if (!confirm(`Reset MFA for ${user.email}? They will need to re-enroll.`)) return
+
+    try {
+      await usersAPI.resetMfa(user.id)
+      alert('MFA reset successfully')
+      fetchUsers()
+    } catch (error) {
+      console.error('Failed to reset MFA:', error)
+      alert('Failed to reset MFA')
+    }
+  }
+
   const sortedUsers = [...users].sort((a, b) => {
     if (sortBy === 'name') {
       const nameA = `${a.firstName} ${a.lastName}`.trim()
@@ -192,6 +205,13 @@ export default function UserManagement() {
                   {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
                 </td>
                 <td className="px-6 py-4 text-sm space-x-2">
+                  <button
+                    onClick={() => handleResetMfa(user)}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-amber-100 text-amber-800 rounded hover:bg-amber-200"
+                  >
+                    <Lock className="h-3 w-3" />
+                    Reset MFA
+                  </button>
                   <button
                     onClick={() => setEditingUser(user)}
                     className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
