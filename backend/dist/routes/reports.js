@@ -22,7 +22,7 @@ async function reportsRoutes(fastify) {
     fastify.addHook('preHandler', authMiddleware_1.requireAuth);
     fastify.addHook('preHandler', (0, authMiddleware_1.requirePermission)('reports.view'));
     // ============ Sales Summary by Day/Week/Month ============
-    fastify.get('/api/reports/sales-summary', async (req, reply) => {
+    fastify.get('/api/v1/reports/sales-summary', async (req, reply) => {
         const { dateFrom, dateTo, groupBy } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -59,7 +59,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Sales by Product ============
-    fastify.get('/api/reports/sales-by-product', async (req, reply) => {
+    fastify.get('/api/v1/reports/sales-by-product', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -92,7 +92,7 @@ async function reportsRoutes(fastify) {
         return sorted;
     });
     // ============ Sales by Category ============
-    fastify.get('/api/reports/sales-by-category', async (req, reply) => {
+    fastify.get('/api/v1/reports/sales-by-category', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -119,7 +119,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Top Products ============
-    fastify.get('/api/reports/top-products', async (req, reply) => {
+    fastify.get('/api/v1/reports/top-products', async (req, reply) => {
         const { limit, dateFrom, dateTo } = req.query;
         const limitNum = parseInt(limit) || 10;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -150,7 +150,7 @@ async function reportsRoutes(fastify) {
         return enriched;
     });
     // ============ Revenue Analysis ============
-    fastify.get('/api/reports/revenue-analysis', async (req, reply) => {
+    fastify.get('/api/v1/reports/revenue-analysis', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -175,7 +175,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Inventory Valuation ============
-    fastify.get('/api/reports/inventory-valuation', async (req, reply) => {
+    fastify.get('/api/v1/reports/inventory-valuation', async (req, reply) => {
         const cacheKey = 'inventory-valuation';
         const cached = getCache(cacheKey);
         if (cached)
@@ -209,7 +209,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Inventory Movement ============
-    fastify.get('/api/reports/inventory-movement', async (req, reply) => {
+    fastify.get('/api/v1/reports/inventory-movement', async (req, reply) => {
         const cacheKey = 'inventory-movement';
         const cached = getCache(cacheKey);
         if (cached)
@@ -248,7 +248,7 @@ async function reportsRoutes(fastify) {
         return sorted;
     });
     // ============ Low Stock Items ============
-    fastify.get('/api/reports/low-stock', async (req, reply) => {
+    fastify.get('/api/v1/reports/low-stock', async (req, reply) => {
         const cacheKey = 'low-stock';
         const cached = getCache(cacheKey);
         if (cached)
@@ -271,7 +271,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Customer Analytics ============
-    fastify.get('/api/reports/customer-analytics', async (req, reply) => {
+    fastify.get('/api/v1/reports/customer-analytics', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -309,7 +309,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Payment Methods ============
-    fastify.get('/api/reports/payment-methods', async (req, reply) => {
+    fastify.get('/api/v1/reports/payment-methods', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -337,7 +337,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Discounts Impact ============
-    fastify.get('/api/reports/discounts-impact', async (req, reply) => {
+    fastify.get('/api/v1/reports/discounts-impact', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -369,7 +369,7 @@ async function reportsRoutes(fastify) {
         return response;
     });
     // ============ Employee Performance ============
-    fastify.get('/api/reports/employee-performance', async (req, reply) => {
+    fastify.get('/api/v1/reports/employee-performance', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -398,7 +398,7 @@ async function reportsRoutes(fastify) {
         return enriched;
     });
     // ============ Profit Margins ============
-    fastify.get('/api/reports/profit-margins', async (req, reply) => {
+    fastify.get('/api/v1/reports/profit-margins', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -438,7 +438,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Tax Summary ============
-    fastify.get('/api/reports/tax-summary', async (req, reply) => {
+    fastify.get('/api/v1/reports/tax-summary', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -461,7 +461,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Hourly Sales ============
-    fastify.get('/api/reports/hourly-sales', async (req, reply) => {
+    fastify.get('/api/v1/reports/hourly-sales', async (req, reply) => {
         const { date } = req.query;
         const reportDate = date ? new Date(date) : new Date();
         reportDate.setHours(0, 0, 0, 0);
@@ -491,7 +491,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Inventory Adjustments ============
-    fastify.get('/api/reports/inventory-adjustments', async (req, reply) => {
+    fastify.get('/api/v1/reports/inventory-adjustments', async (req, reply) => {
         const { dateFrom, dateTo } = req.query;
         const from = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const to = dateTo ? new Date(dateTo) : new Date();
@@ -516,7 +516,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ Daily Sales (hourly breakdown for a specific date) ============
-    fastify.get('/api/reports/daily-sales', async (req, reply) => {
+    fastify.get('/api/v1/reports/daily-sales', async (req, reply) => {
         const { date } = req.query;
         const reportDate = date ? new Date(date) : new Date();
         reportDate.setHours(0, 0, 0, 0);
@@ -548,7 +548,7 @@ async function reportsRoutes(fastify) {
         return result;
     });
     // ============ CSV Export ============
-    fastify.get('/api/reports/export/csv', { preHandler: [(0, authMiddleware_1.requirePermission)('reports.export')] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/export/csv', { preHandler: [(0, authMiddleware_1.requirePermission)('reports.export')] }, async (req, reply) => {
         const { type, dateFrom, dateTo } = req.query;
         if (type === 'sales-summary') {
             const salesData = await db_1.prisma.sale.findMany({

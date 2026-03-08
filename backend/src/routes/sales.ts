@@ -16,11 +16,29 @@ import {
 } from '../utils/paymentEngine'
 import { coreHookBus } from '../lib/hookBus'
 import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
+import {
+  createSaleBodySchema,
+  CreateSaleBody,
+  listSalesQuerySchema,
+  ListSalesQuery,
+  refundBodySchema,
+  RefundBody,
+  returnBodySchema,
+  ReturnBody,
+  saleIdParamsSchema,
+  SaleIdParams,
+  salesAnalyticsQuerySchema,
+  SalesAnalyticsQuery,
+  voidBodySchema,
+  VoidBody,
+} from '../schemas/sales'
 
 export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales - Create Sale ============
-  fastify.post('/api/v1/sales', async (req, reply) => {
-    const body = req.body as any
+  fastify.post('/api/v1/sales', {
+    config: { zod: { body: createSaleBodySchema } },
+  }, async (req, reply) => {
+    const body = req.body as CreateSaleBody
     const idempotencyHeader = req.headers['idempotency-key']
     const idempotencyKey =
       typeof idempotencyHeader === 'string' && idempotencyHeader.trim()
@@ -41,7 +59,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       // Prefer authenticated user when token is provided.
       try {
         await (req as any).jwtVerify()
-        const authUser = (req as any).user as any
+        const authUser = req.user
         if (authUser?.id) {
           actorUserId = authUser.id
         }
@@ -84,7 +102,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         // Validate all products exist and have stock
         const itemsToCreate = body.items || []
         const products = await Promise.all(
-          itemsToCreate.map(async (item: any) => {
+          itemsToCreate.map(async (item: CreateSaleBody['items'][number]) => {
             const product = await tx.product.findUnique({ where: { id: item.productId } })
             if (!product) throw new Error(`Product ${item.productId} not found`)
             return product
@@ -101,7 +119,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
         // Calculate subtotal
         let subtotalCents = itemsToCreate.reduce(
-          (sum: number, item: any) => sum + (item.qty * item.unitPrice),
+          (sum: number, item: CreateSaleBody['items'][number]) => sum + (item.qty * item.unitPrice),
           0
         )
 
@@ -130,9 +148,20 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         // Apply manual discounts if provided
         if (body.discounts && Array.isArray(body.discounts)) {
           for (const discountInput of body.discounts) {
+            const normalizedDiscount: DiscountInput = discountInput.type === 'PERCENTAGE'
+              ? {
+                  reason: discountInput.reason,
+                  type: 'PERCENTAGE',
+                  percentage: discountInput.value,
+                }
+              : {
+                  reason: discountInput.reason,
+                  type: 'FIXED_AMOUNT',
+                  amountCents: discountInput.value,
+                }
             const discount = calculateDiscount(
               subtotalCents - totalDiscountCents,
-              discountInput
+              normalizedDiscount
             )
             discountsToApply.push(discount)
             totalDiscountCents += discount.amountCents
@@ -140,13 +169,13 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         }
 
         // Apply bulk discount if applicable
-        const totalQty = itemsToCreate.reduce((sum: number, item: any) => sum + item.qty, 0)
+        const totalQty = itemsToCreate.reduce((sum: number, item: CreateSaleBody['items'][number]) => sum + item.qty, 0)
         const bulkDiscount = calculateBulkDiscount(totalQty, subtotalCents - totalDiscountCents, [
           { minQty: 10, discountPercent: 5 },
           { minQty: 25, discountPercent: 10 },
           { minQty: 50, discountPercent: 15 },
         ])
-        if (bulkDiscount && !body.discounts?.some((d: any) => d.reason === 'BULK')) {
+        if (bulkDiscount && !body.discounts?.some((d) => d.reason === 'BULK')) {
           discountsToApply.push(bulkDiscount)
           totalDiscountCents += bulkDiscount.amountCents
         }
@@ -162,23 +191,28 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         const totalCents = taxableCents + taxCents
 
         // Validate payment
-        let payments: any[] = []
+        let payments: PaymentInput[] = []
         if (body.payments && Array.isArray(body.payments)) {
-          const paymentValidation = validateSplitPayment(body.payments, totalCents)
+          const normalizedPayments = body.payments.map((payment) => ({
+            ...payment,
+            method: payment.method as PaymentInput['method'],
+          }))
+          const paymentValidation = validateSplitPayment(normalizedPayments, totalCents)
           if (!paymentValidation.isValid) {
             throw new Error(paymentValidation.error)
           }
-          payments = body.payments
+          payments = normalizedPayments
         } else {
           // Single payment method
+          const method = (body.paymentMethod || 'CASH') as PaymentInput['method']
           const singlePayment = validatePayment(
-            { method: body.paymentMethod || 'CASH', amountCents: totalCents },
+            { method, amountCents: totalCents },
             totalCents
           )
           if (!singlePayment.isValid) {
             throw new Error(singlePayment.error)
           }
-          payments = [{ method: body.paymentMethod || 'CASH', amountCents: totalCents }]
+          payments = [{ method, amountCents: totalCents }]
         }
 
         // Create sale
@@ -203,7 +237,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
 
         // Distribute discounts to line items
         const lineDiscounts = distributeDiscountToItems(
-          itemsToCreate.map((item: any, idx: number) => ({
+          itemsToCreate.map((item: CreateSaleBody['items'][number], idx: number) => ({
             id: `item-${idx}`,
             qty: item.qty,
             unitPrice: item.unitPrice,
@@ -389,14 +423,20 @@ export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ GET /sales - List Sales ============
   fastify.get(
     '/api/v1/sales',
+    {
+      config: { zod: { query: listSalesQuerySchema } },
+    },
     async (req, reply) => {
-      const query = req.query as any
+      const query = req.query as ListSalesQuery
 
       interface WhereClause {
         status?: string
         paymentMethod?: string
         customerId?: string
-        createdAt?: any
+        createdAt?: {
+          gte?: Date
+          lte?: Date
+        }
       }
 
       const where: WhereClause = {}
@@ -416,8 +456,8 @@ export default async function salesRoutes(fastify: FastifyInstance) {
         }
       }
 
-      const limit = Math.min(parseInt(query.limit) || 50, 100)
-      const offset = Math.max(parseInt(query.offset) || 0, 0)
+      const limit = Math.min(query.limit || 50, 100)
+      const offset = Math.max(query.offset || 0, 0)
 
       const [sales, total] = await Promise.all([
         prisma.sale.findMany({
@@ -446,8 +486,11 @@ export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ GET /sales/:id - Get Sale Details ============
   fastify.get(
     '/api/v1/sales/:id',
+    {
+      config: { zod: { params: saleIdParamsSchema } },
+    },
     async (req, reply) => {
-      const { id } = req.params as any
+      const { id } = req.params as SaleIdParams
 
       const sale = await prisma.sale.findUnique({
         where: { id },
@@ -481,9 +524,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales/:id/refund - Process Refund ============
   fastify.post(
     '/api/v1/sales/:id/refund',
+    {
+      config: { zod: { params: saleIdParamsSchema, body: refundBodySchema } },
+    },
     async (req, reply) => {
-      const { id } = req.params as any
-      const body = req.body as any
+      const { id } = req.params as SaleIdParams
+      const body = req.body as RefundBody
 
       try {
         await coreHookBus.emit('beforeRefund', {
@@ -596,9 +642,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales/:id/return - Process Return ============
   fastify.post(
     '/api/v1/sales/:id/return',
+    {
+      config: { zod: { params: saleIdParamsSchema, body: returnBodySchema } },
+    },
     async (req, reply) => {
-      const { id } = req.params as any
-      const body = req.body as any
+      const { id } = req.params as SaleIdParams
+      const body = req.body as ReturnBody
 
       try {
         await coreHookBus.emit('beforeRefund', {
@@ -672,9 +721,12 @@ export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ POST /sales/:id/void - Void Sale ============
   fastify.post(
     '/api/v1/sales/:id/void',
+    {
+      config: { zod: { params: saleIdParamsSchema, body: voidBodySchema } },
+    },
     async (req, reply) => {
-      const { id } = req.params as any
-      const body = req.body as any
+      const { id } = req.params as SaleIdParams
+      const body = req.body as VoidBody
 
       try {
         const sale = await prisma.sale.findUnique({
@@ -748,8 +800,11 @@ export default async function salesRoutes(fastify: FastifyInstance) {
   // ============ GET /sales/analytics/summary - Sales Analytics ============
   fastify.get(
     '/api/v1/sales/analytics/summary',
+    {
+      config: { zod: { query: salesAnalyticsQuerySchema } },
+    },
     async (req, reply) => {
-      const query = req.query as any
+      const query = req.query as SalesAnalyticsQuery
       const period = query.period || 'daily' // daily, weekly, monthly
 
       const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -767,7 +822,15 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       })
 
       // Group by period
-      const grouped: Record<string, any> = {}
+      const grouped: Record<string, {
+        date: string
+        salesCount: number
+        totalRevenue: number
+        totalDiscount: number
+        totalTax: number
+        totalItems: number
+        avgSaleValue: number
+      }> = {}
 
       for (const sale of sales) {
         let key: string
@@ -802,7 +865,7 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       }
 
       // Calculate averages
-      const summary = Object.values(grouped).map((g: any) => ({
+      const summary = Object.values(grouped).map((g) => ({
         ...g,
         avgSaleValue: g.salesCount > 0 ? Math.floor(g.totalRevenue / g.salesCount) : 0,
         totalRevenue: g.totalRevenue,

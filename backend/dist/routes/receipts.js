@@ -4,7 +4,7 @@ exports.default = receiptsRoutes;
 const db_1 = require("../utils/db");
 const hookBus_1 = require("../lib/hookBus");
 async function receiptsRoutes(fastify) {
-    fastify.get('/api/receipts/:receiptPublicId', async (req, reply) => {
+    fastify.get('/api/v1/receipts/:receiptPublicId', async (req, reply) => {
         const { receiptPublicId } = req.params;
         const sale = await db_1.prisma.sale.findFirst({
             where: { receiptPublicId },

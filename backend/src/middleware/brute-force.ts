@@ -8,12 +8,12 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import Redis from 'ioredis'
 import { logger } from '../utils/logger'
 
-// Allow Redis to be disabled for development
-const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true'
+// Allow Redis to be disabled via env and always skip it in test env.
+const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true' || process.env.NODE_ENV === 'test'
 
 let redis: Redis | null = null
 
-// Only initialize Redis if not disabled and not in development
+// Only initialize Redis for non-test, non-development environments.
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
   redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
   redis.on('error', (err) => {

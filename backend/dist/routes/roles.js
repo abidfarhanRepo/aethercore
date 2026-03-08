@@ -5,7 +5,7 @@ const db_1 = require("../utils/db");
 const authMiddleware_1 = require("../plugins/authMiddleware");
 async function roleRoutes(server) {
     // GET /roles - List all roles
-    server.get('/api/roles', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
+    server.get('/api/v1/roles', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
         try {
             const { limit = '50', offset = '0' } = request.query;
             const limitNum = Math.min(parseInt(limit), 100);
@@ -93,7 +93,7 @@ async function roleRoutes(server) {
         }
     });
     // GET /roles/:id - Get role details
-    server.get('/api/roles/:id', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
+    server.get('/api/v1/roles/:id', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
         try {
             const { id } = request.params;
             // Check if it's a built-in role
@@ -237,7 +237,7 @@ async function roleRoutes(server) {
         }
     });
     // POST /roles - Create custom role (ADMIN only)
-    server.post('/api/roles', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.post('/api/v1/roles', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { name, description, permissions } = request.body;
             if (!name || !Array.isArray(permissions)) {
@@ -272,7 +272,7 @@ async function roleRoutes(server) {
         }
     });
     // PUT /roles/:id - Update role permissions (ADMIN only)
-    server.put('/api/roles/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.put('/api/v1/roles/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const { description, permissions } = request.body;
@@ -310,7 +310,7 @@ async function roleRoutes(server) {
         }
     });
     // DELETE /roles/:id - Delete custom role (ADMIN only)
-    server.delete('/api/roles/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.delete('/api/v1/roles/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             // Cannot delete built-in roles

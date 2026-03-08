@@ -34,9 +34,36 @@ import { getRedisClient, closeRedisClient } from './lib/redis'
 import { registerGlobalValidationHook } from './lib/validation'
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me'
-const RATE_LIMIT_GLOBAL = Number(process.env.RATE_LIMIT_GLOBAL || 200)
+const RATE_LIMIT_GLOBAL_DEFAULT = Number(process.env.RATE_LIMIT_GLOBAL || 200)
 const RATE_LIMIT_AUTH = Number(process.env.RATE_LIMIT_AUTH || 10)
 const RATE_LIMIT_TENANT = 1000
+const RATE_LIMIT_SETTINGS_KEY = 'rate_limit_global'
+const RATE_LIMIT_CACHE_TTL_MS = 30_000
+
+let cachedGlobalRateLimit = RATE_LIMIT_GLOBAL_DEFAULT
+let globalRateLimitCacheExpiresAt = 0
+
+async function resolveGlobalRateLimit(): Promise<number> {
+  const now = Date.now()
+  if (now < globalRateLimitCacheExpiresAt) {
+    return cachedGlobalRateLimit
+  }
+
+  try {
+    const setting = await prisma.settings.findUnique({ where: { key: RATE_LIMIT_SETTINGS_KEY } })
+    const parsed = Number(setting?.value)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      cachedGlobalRateLimit = Math.floor(parsed)
+    } else {
+      cachedGlobalRateLimit = RATE_LIMIT_GLOBAL_DEFAULT
+    }
+  } catch {
+    cachedGlobalRateLimit = RATE_LIMIT_GLOBAL_DEFAULT
+  }
+
+  globalRateLimitCacheExpiresAt = now + RATE_LIMIT_CACHE_TTL_MS
+  return cachedGlobalRateLimit
+}
 
 type JwtRateLimitPayload = {
   tenantId?: string | null
@@ -132,12 +159,12 @@ const initializeSecurityAndRoutes = async () => {
   server.register(fastifyRateLimit, {
     global: true,
     timeWindow: '1 minute',
-    max: (request) => {
+    max: async (request) => {
       const path = request.url.split('?')[0]
       if (path.startsWith('/api/v1/auth/')) {
         return RATE_LIMIT_AUTH
       }
-      return RATE_LIMIT_GLOBAL
+      return resolveGlobalRateLimit()
     },
     keyGenerator: (request) => request.ip,
     errorResponseBuilder: (_request, context) => ({

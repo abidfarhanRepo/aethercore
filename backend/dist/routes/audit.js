@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = auditRoutes;
 const db_1 = require("../utils/db");
 async function auditRoutes(fastify) {
-    fastify.get('/api/audits', async () => {
+    fastify.get('/api/v1/audits', async () => {
         const audits = await db_1.prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 100 });
         return audits;
     });

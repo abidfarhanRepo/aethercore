@@ -9,6 +9,16 @@ import { logAuthEvent } from '../utils/audit'
 import { createFailedLoginNotification } from '../lib/notificationService'
 import { logSecurityEventRecord } from '../lib/securityCompliance'
 import { logger } from '../utils/logger'
+import {
+  loginBodySchema,
+  LoginBody,
+  logoutBodySchema,
+  LogoutBody,
+  refreshBodySchema,
+  RefreshBody,
+  registerBodySchema,
+  RegisterBody,
+} from '../schemas/auth'
 
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -38,33 +48,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
       },
     })
   }
-
-  const registerSchema = {
-    body: {
-      type: 'object',
-      required: ['email', 'password'],
-      properties: {
-        email: { type: 'string', format: 'email' },
-        password: { type: 'string', minLength: 8 }
-      }
-    }
-  }
-
-  const loginSchema = {
-    body: {
-      type: 'object',
-      required: ['email', 'password'],
-      properties: {
-        email: { type: 'string', format: 'email' },
-        password: { type: 'string' }
-      }
-    }
-  }
-
   // Register with enhanced security
-  fastify.post('/api/v1/auth/register', { schema: registerSchema }, async (req, reply) => {
+  fastify.post('/api/v1/auth/register', {
+    config: { zod: { body: registerBodySchema } },
+  }, async (req, reply) => {
     try {
-      const { email: rawEmail, password: rawPassword } = req.body as any
+      const { email: rawEmail, password: rawPassword } = req.body as RegisterBody
       
       // Input validation and sanitization
       if (!rawEmail || !rawPassword) {
@@ -126,9 +115,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Login with enhanced security
-  fastify.post('/api/v1/auth/login', { schema: loginSchema }, async (req, reply) => {
+  fastify.post('/api/v1/auth/login', {
+    config: { zod: { body: loginBodySchema } },
+  }, async (req, reply) => {
     try {
-      const { email: rawEmail, password } = req.body as any
+      const { email: rawEmail, password } = req.body as LoginBody
       
       if (!rawEmail || !password) {
         return reply.status(400).send({ error: 'Email and password required' })
@@ -266,15 +257,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
       // Log successful login
       await logAuthEvent('LOGIN', user.id, req, 'User logged in successfully')
 
-      if (typeof (reply as any).setCookie === 'function') {
-        ;(reply as any).setCookie('refreshToken', refreshToken, {
-          path: '/api/v1/auth',
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 7 * 24 * 60 * 60,
-        })
-      }
+      reply.setCookie('refreshToken', refreshToken, {
+        path: '/api/v1/auth',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60,
+      })
       
       return {
         accessToken,
@@ -295,11 +284,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Refresh token with rotation
-  fastify.post('/api/v1/auth/refresh', async (req, reply) => {
+  fastify.post('/api/v1/auth/refresh', {
+    config: { zod: { body: refreshBodySchema } },
+  }, async (req, reply) => {
     try {
-      const body = (req.body as any) || {}
-      const refreshToken =
-        body.refreshToken || (req as any).cookies?.refreshToken
+      const body = (req.body || {}) as RefreshBody
+      const refreshToken = body?.refreshToken || req.cookies?.refreshToken
       
       if (!refreshToken) {
         return reply.status(400).send({ error: 'Refresh token required' })
@@ -338,15 +328,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
         },
       })
 
-      if (typeof (reply as any).setCookie === 'function') {
-        ;(reply as any).setCookie('refreshToken', newTokens.refreshToken, {
-          path: '/api/v1/auth',
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 7 * 24 * 60 * 60,
-        })
-      }
+      reply.setCookie('refreshToken', newTokens.refreshToken, {
+        path: '/api/v1/auth',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60,
+      })
       
       return {
         accessToken: newTokens.accessToken,
@@ -360,11 +348,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
   })
 
   // Logout with token revocation
-  fastify.post('/api/v1/auth/logout', async (req, reply) => {
+  fastify.post('/api/v1/auth/logout', {
+    config: { zod: { body: logoutBodySchema } },
+  }, async (req, reply) => {
     try {
-      const body = (req.body as any) || {}
-      const refreshToken =
-        body.refreshToken || (req as any).cookies?.refreshToken
+      const body = (req.body || {}) as LogoutBody
+      const refreshToken = body?.refreshToken || req.cookies?.refreshToken
       
       if (!refreshToken) {
         return reply.status(400).send({ error: 'Refresh token required' })

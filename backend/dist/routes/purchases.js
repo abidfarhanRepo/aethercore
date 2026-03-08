@@ -14,7 +14,7 @@ async function purchaseRoutes(fastify) {
             }
         }
     };
-    fastify.post('/api/purchases', { schema: createPoSchema }, async (req, reply) => {
+    fastify.post('/api/v1/purchases', { schema: createPoSchema }, async (req, reply) => {
         const body = req.body;
         const items = body.items;
         try {
@@ -38,7 +38,7 @@ async function purchaseRoutes(fastify) {
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
         body: { type: 'object', required: ['items'], properties: { userId: { type: 'string' }, items: { type: 'array', minItems: 1, items: { type: 'object', required: ['productId', 'qty'], properties: { productId: { type: 'string' }, qty: { type: 'number' } } } } } }
     };
-    fastify.post('/api/purchases/:id/receive', { schema: receiveSchema }, async (req, reply) => {
+    fastify.post('/api/v1/purchases/:id/receive', { schema: receiveSchema }, async (req, reply) => {
         const id = req.params.id;
         const body = req.body;
         const items = body.items;
@@ -61,14 +61,14 @@ async function purchaseRoutes(fastify) {
             return reply.status(500).send({ error: 'failed to receive', detail: e.message });
         }
     });
-    fastify.get('/api/purchases/:id', { schema: { params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } } }, async (req, reply) => {
+    fastify.get('/api/v1/purchases/:id', { schema: { params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } } }, async (req, reply) => {
         const id = req.params.id;
         const po = await db_1.prisma.purchaseOrder.findUnique({ where: { id }, include: { items: true } });
         if (!po)
             return reply.status(404).send({ error: 'not found' });
         return po;
     });
-    fastify.get('/api/purchases', async () => {
+    fastify.get('/api/v1/purchases', async () => {
         return db_1.prisma.purchaseOrder.findMany({ include: { items: true } });
     });
 }

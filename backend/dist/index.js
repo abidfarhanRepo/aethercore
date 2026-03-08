@@ -41,6 +41,8 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const fastify_1 = __importDefault(require("fastify"));
 const cookie_1 = __importDefault(require("@fastify/cookie"));
+const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = require("./utils/db");
 const auth_1 = __importDefault(require("./routes/auth"));
 const products_1 = __importDefault(require("./routes/products"));
@@ -62,11 +64,56 @@ const security_1 = __importDefault(require("./routes/security"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
 const health_1 = __importDefault(require("./routes/health"));
 const plugins_1 = __importDefault(require("./routes/plugins"));
-const rateLimit_1 = __importDefault(require("./plugins/rateLimit"));
 const securityPlugin_1 = require("./plugins/securityPlugin");
 const errorHandler_1 = require("./middleware/errorHandler");
 const logger_1 = require("./utils/logger");
 const redis_1 = require("./lib/redis");
+const validation_1 = require("./lib/validation");
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me';
+const RATE_LIMIT_GLOBAL_DEFAULT = Number(process.env.RATE_LIMIT_GLOBAL || 200);
+const RATE_LIMIT_AUTH = Number(process.env.RATE_LIMIT_AUTH || 10);
+const RATE_LIMIT_TENANT = 1000;
+const RATE_LIMIT_SETTINGS_KEY = 'rate_limit_global';
+const RATE_LIMIT_CACHE_TTL_MS = 30_000;
+let cachedGlobalRateLimit = RATE_LIMIT_GLOBAL_DEFAULT;
+let globalRateLimitCacheExpiresAt = 0;
+async function resolveGlobalRateLimit() {
+    const now = Date.now();
+    if (now < globalRateLimitCacheExpiresAt) {
+        return cachedGlobalRateLimit;
+    }
+    try {
+        const setting = await db_1.prisma.settings.findUnique({ where: { key: RATE_LIMIT_SETTINGS_KEY } });
+        const parsed = Number(setting?.value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            cachedGlobalRateLimit = Math.floor(parsed);
+        }
+        else {
+            cachedGlobalRateLimit = RATE_LIMIT_GLOBAL_DEFAULT;
+        }
+    }
+    catch {
+        cachedGlobalRateLimit = RATE_LIMIT_GLOBAL_DEFAULT;
+    }
+    globalRateLimitCacheExpiresAt = now + RATE_LIMIT_CACHE_TTL_MS;
+    return cachedGlobalRateLimit;
+}
+function getTenantIdFromAuthHeader(authorizationHeader) {
+    if (!authorizationHeader || Array.isArray(authorizationHeader)) {
+        return null;
+    }
+    const token = authorizationHeader.replace(/^Bearer\s+/, '').trim();
+    if (!token) {
+        return null;
+    }
+    try {
+        const payload = jsonwebtoken_1.default.verify(token, JWT_ACCESS_SECRET);
+        return payload?.tenantId || null;
+    }
+    catch {
+        return null;
+    }
+}
 const server = (0, fastify_1.default)({
     logger: {
         level: process.env.LOG_LEVEL || 'info',
@@ -86,6 +133,18 @@ const initializeSecurityAndRoutes = async () => {
             `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
         request.headers['x-request-id'] = requestId;
         reply.header('X-Request-ID', requestId);
+        const requestPath = request.url.split('?')[0];
+        if (request.method === 'GET' &&
+            requestPath.startsWith('/api/') &&
+            !requestPath.startsWith('/api/v1/')) {
+            const query = request.url.includes('?') ? request.url.slice(request.url.indexOf('?')) : '';
+            const upgradedPath = `/api/v1/${requestPath.slice('/api/'.length)}`;
+            reply
+                .header('X-API-Deprecation', 'Deprecated endpoint. Use /api/v1/*')
+                .header('Warning', '299 - "Deprecated API version. Use /api/v1 endpoints"')
+                .redirect(301, `${upgradedPath}${query}`);
+            return;
+        }
     });
     server.addHook('onResponse', async (request, reply) => {
         request.log.info({
@@ -95,6 +154,8 @@ const initializeSecurityAndRoutes = async () => {
             statusCode: reply.statusCode,
         }, 'request completed');
     });
+    // Global request validation hook. Route-level Zod schemas are attached in route config.zod.
+    (0, validation_1.registerGlobalValidationHook)(server);
     // Register comprehensive security plugin
     await (0, securityPlugin_1.registerSecurityPlugin)(server, {
         enableHTTPS: process.env.NODE_ENV === 'production',
@@ -105,7 +166,41 @@ const initializeSecurityAndRoutes = async () => {
     (0, errorHandler_1.setupErrorHandler)(server);
     // Register plugins and routes
     server.register(cookie_1.default);
-    server.register(rateLimit_1.default);
+    server.register(rate_limit_1.default, {
+        global: true,
+        timeWindow: '1 minute',
+        max: async (request) => {
+            const path = request.url.split('?')[0];
+            if (path.startsWith('/api/v1/auth/')) {
+                return RATE_LIMIT_AUTH;
+            }
+            return resolveGlobalRateLimit();
+        },
+        keyGenerator: (request) => request.ip,
+        errorResponseBuilder: (_request, context) => ({
+            error: 'Too Many Requests',
+            message: `Rate limit exceeded, retry in ${context.after}`,
+            statusCode: 429,
+        }),
+    });
+    // Enforce an additional tenant-wide ceiling to limit aggregate abuse per tenant.
+    server.register(rate_limit_1.default, {
+        global: true,
+        timeWindow: '1 minute',
+        max: RATE_LIMIT_TENANT,
+        keyGenerator: (request) => {
+            const tenantId = getTenantIdFromAuthHeader(request.headers.authorization);
+            if (tenantId) {
+                return `tenant:${tenantId}`;
+            }
+            return `anon:${request.ip}`;
+        },
+        errorResponseBuilder: (_request, context) => ({
+            error: 'Too Many Requests',
+            message: `Tenant rate limit exceeded, retry in ${context.after}`,
+            statusCode: 429,
+        }),
+    });
     // Health check endpoint
     server.get('/health', async () => ({
         status: 'ok',
@@ -134,7 +229,7 @@ const initializeSecurityAndRoutes = async () => {
     server.register(health_1.default);
     server.register(plugins_1.default);
     // Security audit endpoint (admin only)
-    server.get('/api/security/audit-summary', async (req, reply) => {
+    server.get('/api/v1/security/audit-summary', async (req, reply) => {
         // Check auth and admin role
         const auth = req.headers.authorization;
         if (!auth) {
@@ -150,7 +245,7 @@ const initializeSecurityAndRoutes = async () => {
         }
     });
     // Brute force stats endpoint (admin only)
-    server.get('/api/security/bruteforce-stats', async (req, reply) => {
+    server.get('/api/v1/security/bruteforce-stats', async (req, reply) => {
         try {
             const { getBruteForceStats } = await Promise.resolve().then(() => __importStar(require('./middleware/brute-force')));
             const stats = await getBruteForceStats();

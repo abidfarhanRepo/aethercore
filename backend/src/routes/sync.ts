@@ -3,6 +3,12 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../utils/db'
 import { requireAuth, requireRole } from '../plugins/authMiddleware'
 import { coreHookBus } from '../lib/hookBus'
+import {
+  replayDeadLetterParamsSchema,
+  ReplayDeadLetterParams,
+  syncBatchBodySchema,
+  SyncBatchBody,
+} from '../schemas/sync'
 
 type OperationType = 'POST' | 'PUT' | 'DELETE'
 
@@ -22,10 +28,6 @@ interface SyncOperation {
   type?: OperationType
   clientCreatedAt?: string
   data?: Record<string, unknown>
-}
-
-interface SyncBatchBody {
-  operations: SyncOperation[]
 }
 
 interface SyncResult {
@@ -374,7 +376,9 @@ async function createSaleFromOperation(operation: SyncOperation): Promise<{ id: 
 }
 
 export default async function syncRoutes(fastify: FastifyInstance) {
-  fastify.post<{ Body: SyncBatchBody }>('/api/v1/sync/batch', async (req, reply) => {
+  fastify.post<{ Body: SyncBatchBody }>('/api/v1/sync/batch', {
+    config: { zod: { body: syncBatchBodySchema } },
+  }, async (req, reply) => {
     const body = req.body
 
     if (!body || !Array.isArray(body.operations)) {
@@ -572,8 +576,9 @@ export default async function syncRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Params: { id: string } }>('/api/v1/sync/dead-letter/:id/replay', {
+  fastify.post<{ Params: ReplayDeadLetterParams }>('/api/v1/sync/dead-letter/:id/replay', {
     preHandler: [requireAuth, requireRole('ADMIN', 'MANAGER', 'SUPERVISOR')],
+    config: { zod: { params: replayDeadLetterParamsSchema } },
   }, async (req, reply) => {
     const deadLetterId = req.params.id
 

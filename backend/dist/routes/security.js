@@ -9,7 +9,7 @@ const notificationService_1 = require("../lib/notificationService");
 const db_1 = require("../utils/db");
 const ALLOWED_ROTATION_COMPONENTS = new Set(['jwt_access', 'jwt_refresh', 'encryption', 'tls', 'settings']);
 async function securityRoutes(fastify) {
-    fastify.get('/api/security/status', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
+    fastify.get('/api/v1/security/status', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
         try {
             const status = await (0, securityCompliance_1.collectAndPersistSecurityStatus)(req);
             return status;
@@ -37,7 +37,7 @@ async function securityRoutes(fastify) {
             });
         }
     });
-    fastify.get('/api/security/events', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
+    fastify.get('/api/v1/security/events', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
         const query = (req.query || {});
         const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200);
         try {
@@ -55,7 +55,7 @@ async function securityRoutes(fastify) {
             return reply.code(500).send({ error: 'Failed to fetch security events', details: message });
         }
     });
-    fastify.get('/api/security/key-rotations', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
+    fastify.get('/api/v1/security/key-rotations', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
         const query = (req.query || {});
         const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200);
         try {
@@ -73,7 +73,7 @@ async function securityRoutes(fastify) {
             return reply.code(500).send({ error: 'Failed to fetch key rotation logs', details: message });
         }
     });
-    fastify.post('/api/security/rotate-keys', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
+    fastify.post('/api/v1/security/rotate-keys', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
         const body = (req.body || {});
         const actorId = req.user?.id;
         if (!body.component || !ALLOWED_ROTATION_COMPONENTS.has(body.component)) {
@@ -133,7 +133,7 @@ async function securityRoutes(fastify) {
                 actionRequired: [
                     'Update secret provider value (K8s Secret / vault / CI secret).',
                     'Roll backend/frontend deployments that consume this secret.',
-                    'Verify /api/security/status and /api/health after rollout.',
+                    'Verify /api/v1/security/status and /api/v1/health after rollout.',
                 ],
                 rotation,
             });
@@ -164,7 +164,7 @@ async function securityRoutes(fastify) {
             });
         }
     });
-    fastify.get('/api/security/backup-drills', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
+    fastify.get('/api/v1/security/backup-drills', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
         const query = (req.query || {});
         const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200);
         try {
@@ -203,7 +203,7 @@ async function securityRoutes(fastify) {
             });
         }
     });
-    fastify.post('/api/security/backup-drills/simulate-restore', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
+    fastify.post('/api/v1/security/backup-drills/simulate-restore', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
         const actorId = req.user?.id;
         const body = (req.body || {});
         if (process.env.NODE_ENV === 'production') {
@@ -295,7 +295,7 @@ async function securityRoutes(fastify) {
             });
         }
     });
-    fastify.get('/api/security/alert-rules', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (_req, reply) => {
+    fastify.get('/api/v1/security/alert-rules', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (_req, reply) => {
         try {
             const config = await (0, alertService_1.getAlertRulesConfig)();
             return { config };
@@ -305,7 +305,7 @@ async function securityRoutes(fastify) {
             return reply.code(500).send({ error: 'Failed to fetch alert rules', details: message });
         }
     });
-    fastify.put('/api/security/alert-rules', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
+    fastify.put('/api/v1/security/alert-rules', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
         const body = (req.body || {});
         try {
             const config = await (0, alertService_1.saveAlertRulesConfig)(body, req.user?.id);
@@ -316,7 +316,7 @@ async function securityRoutes(fastify) {
             return reply.code(500).send({ error: 'Failed to update alert rules', details: message });
         }
     });
-    fastify.post('/api/security/alert-rules/evaluate', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
+    fastify.post('/api/v1/security/alert-rules/evaluate', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
         try {
             const evaluation = await (0, alertService_1.evaluateAlertRules)(req.user?.id, req.ip);
             return { evaluation };

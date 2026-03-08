@@ -15,7 +15,7 @@ function parseProfile(value) {
 }
 async function pluginRoutes(fastify) {
     const managerGuard = [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')];
-    fastify.get('/api/plugins', { preHandler: managerGuard }, async () => {
+    fastify.get('/api/v1/plugins', { preHandler: managerGuard }, async () => {
         const plugins = await db_1.prisma.plugin.findMany({
             include: {
                 capabilities: {
@@ -32,7 +32,7 @@ async function pluginRoutes(fastify) {
         });
         return { plugins };
     });
-    fastify.get('/api/plugins/tenants', { preHandler: managerGuard }, async () => {
+    fastify.get('/api/v1/plugins/tenants', { preHandler: managerGuard }, async () => {
         const tenants = await db_1.prisma.tenant.findMany({
             include: {
                 _count: { select: { users: true, featureFlags: true } },
@@ -41,7 +41,7 @@ async function pluginRoutes(fastify) {
         });
         return { tenants };
     });
-    fastify.post('/api/plugins/tenants', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
+    fastify.post('/api/v1/plugins/tenants', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
         const body = (req.body || {});
         if (!body.name || !body.code) {
             return reply.code(400).send({ error: 'name and code are required' });
@@ -55,7 +55,7 @@ async function pluginRoutes(fastify) {
         });
         return reply.code(201).send(tenant);
     });
-    fastify.get('/api/plugins/tenants/:tenantId/feature-flags', { preHandler: managerGuard }, async (req, reply) => {
+    fastify.get('/api/v1/plugins/tenants/:tenantId/feature-flags', { preHandler: managerGuard }, async (req, reply) => {
         const { tenantId } = req.params;
         const tenant = await db_1.prisma.tenant.findUnique({
             where: { id: tenantId },
@@ -79,7 +79,7 @@ async function pluginRoutes(fastify) {
             flags: tenant.featureFlags,
         };
     });
-    fastify.put('/api/plugins/tenants/:tenantId/feature-flags/:capabilityKey', { preHandler: managerGuard }, async (req, reply) => {
+    fastify.put('/api/v1/plugins/tenants/:tenantId/feature-flags/:capabilityKey', { preHandler: managerGuard }, async (req, reply) => {
         const { tenantId, capabilityKey } = req.params;
         const body = (req.body || {});
         if (typeof body.enabled !== 'boolean') {
@@ -98,7 +98,7 @@ async function pluginRoutes(fastify) {
         });
         return upserted;
     });
-    fastify.post('/api/plugins/:pluginKey/enable', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
+    fastify.post('/api/v1/plugins/:pluginKey/enable', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
         const { pluginKey } = req.params;
         const { tenantId } = (req.body || {});
         const plugin = await db_1.prisma.plugin.findUnique({
@@ -122,7 +122,7 @@ async function pluginRoutes(fastify) {
         }
         return { ok: true, pluginKey, isEnabled: true };
     });
-    fastify.post('/api/plugins/:pluginKey/disable', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
+    fastify.post('/api/v1/plugins/:pluginKey/disable', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (req, reply) => {
         const { pluginKey } = req.params;
         const { tenantId } = (req.body || {});
         const plugin = await db_1.prisma.plugin.findUnique({

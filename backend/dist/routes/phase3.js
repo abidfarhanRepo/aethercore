@@ -5,7 +5,7 @@ const db_1 = require("../utils/db");
 const authMiddleware_1 = require("../plugins/authMiddleware");
 const capabilityMiddleware_1 = require("../middleware/capabilityMiddleware");
 async function phase3Routes(fastify) {
-    fastify.post('/api/inventory/lots', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireAllCapabilities)(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
+    fastify.post('/api/v1/inventory/lots', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireAllCapabilities)(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
         const { productId, warehouseId, batchNumber, expiryDate, qtyAvailable, costPerUnit, notes } = req.body;
         if (!productId || !warehouseId || !batchNumber || !expiryDate || qtyAvailable === undefined) {
             return reply.status(400).send({ error: 'productId, warehouseId, batchNumber, expiryDate and qtyAvailable are required' });
@@ -29,7 +29,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to create lot', detail: err.message });
         }
     });
-    fastify.get('/api/inventory/lots/:productId', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireAllCapabilities)(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
+    fastify.get('/api/v1/inventory/lots/:productId', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireAllCapabilities)(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
         const { productId } = req.params;
         try {
             const lots = await db_1.prisma.lotBatch.findMany({
@@ -43,7 +43,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to list lots', detail: err.message });
         }
     });
-    fastify.get('/api/inventory/expiry-alerts', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('inventory.expiry')] }, async (req, reply) => {
+    fastify.get('/api/v1/inventory/expiry-alerts', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('inventory.expiry')] }, async (req, reply) => {
         const thresholdDays = Number(req.query.thresholdDays || '30');
         const now = new Date();
         const thresholdDate = new Date(now);
@@ -81,7 +81,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch expiry alerts', detail: err.message });
         }
     });
-    fastify.post('/api/inventory/transfer-lot', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireAllCapabilities)(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
+    fastify.post('/api/v1/inventory/transfer-lot', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireAllCapabilities)(['inventory.expiry', 'inventory.lot_tracking'])] }, async (req, reply) => {
         const { productId, fromLotBatchId, toLotBatchId, qty, notes } = req.body;
         if (!productId || !fromLotBatchId || !qty || qty <= 0) {
             return reply.status(400).send({ error: 'productId, fromLotBatchId and positive qty are required' });
@@ -132,7 +132,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to transfer lot', detail: err.message });
         }
     });
-    fastify.get('/api/restaurant/tables', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.table_service')] }, async (_req, reply) => {
+    fastify.get('/api/v1/restaurant/tables', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.table_service')] }, async (_req, reply) => {
         try {
             const tables = await db_1.prisma.restaurantTable.findMany({ orderBy: [{ tableNumber: 'asc' }] });
             return { tables };
@@ -142,7 +142,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch tables', detail: err.message });
         }
     });
-    fastify.patch('/api/restaurant/tables/:id', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.table_service')] }, async (req, reply) => {
+    fastify.patch('/api/v1/restaurant/tables/:id', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.table_service')] }, async (req, reply) => {
         const { id } = req.params;
         const { status, notes } = req.body;
         try {
@@ -160,7 +160,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to update table', detail: err.message });
         }
     });
-    fastify.get('/api/kitchen/tickets', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.kds')] }, async (_req, reply) => {
+    fastify.get('/api/v1/kitchen/tickets', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.kds')] }, async (_req, reply) => {
         try {
             const tickets = await db_1.prisma.kitchenTicket.findMany({
                 include: {
@@ -176,7 +176,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch tickets', detail: err.message });
         }
     });
-    fastify.patch('/api/kitchen/tickets/:id/status', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.kds')] }, async (req, reply) => {
+    fastify.patch('/api/v1/kitchen/tickets/:id/status', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('restaurant.kds')] }, async (req, reply) => {
         const { id } = req.params;
         const { status } = req.body;
         if (!status) {
@@ -197,7 +197,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to update ticket status', detail: err.message });
         }
     });
-    fastify.get('/api/pharmacy/prescriptions/:rxNumber', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.prescription_validation')] }, async (req, reply) => {
+    fastify.get('/api/v1/pharmacy/prescriptions/:rxNumber', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.prescription_validation')] }, async (req, reply) => {
         const { rxNumber } = req.params;
         try {
             const prescription = await db_1.prisma.prescription.findUnique({
@@ -219,7 +219,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch prescription', detail: err.message });
         }
     });
-    fastify.get('/api/pharmacy/interactions', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.drug_interactions')] }, async (_req, reply) => {
+    fastify.get('/api/v1/pharmacy/interactions', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.drug_interactions')] }, async (_req, reply) => {
         try {
             const interactions = await db_1.prisma.drugInteraction.findMany({
                 where: { isActive: true },
@@ -235,7 +235,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch interactions', detail: err.message });
         }
     });
-    fastify.post('/api/pharmacy/prescriptions/:id/fill', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.prescription_validation')] }, async (req, reply) => {
+    fastify.post('/api/v1/pharmacy/prescriptions/:id/fill', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.prescription_validation')] }, async (req, reply) => {
         const { id } = req.params;
         try {
             const result = await db_1.prisma.$transaction(async (tx) => {
@@ -266,7 +266,7 @@ async function phase3Routes(fastify) {
             return reply.status(400).send({ error: 'Failed to fill prescription', detail: err.message });
         }
     });
-    fastify.post('/api/pharmacy/overrides', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.controlled_substances')] }, async (req, reply) => {
+    fastify.post('/api/v1/pharmacy/overrides', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('pharmacy.controlled_substances')] }, async (req, reply) => {
         const { prescriptionId, pharmacistId, action, reason } = req.body;
         if (!prescriptionId || !pharmacistId || !action || !reason) {
             return reply.status(400).send({ error: 'prescriptionId, pharmacistId, action and reason are required' });
@@ -287,7 +287,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to create override', detail: err.message });
         }
     });
-    fastify.post('/api/purchases/:id/start-receiving', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (req, reply) => {
+    fastify.post('/api/v1/purchases/:id/start-receiving', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (req, reply) => {
         const { id } = req.params;
         const { startedBy } = req.body;
         try {
@@ -305,7 +305,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to start receiving session', detail: err.message });
         }
     });
-    fastify.post('/api/purchases/:id/receiving/discrepancy', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (req, reply) => {
+    fastify.post('/api/v1/purchases/:id/receiving/discrepancy', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (req, reply) => {
         const { id } = req.params;
         const { sessionId, purchaseOrderItemId, qtyExpected, qtyReceived, discrepancyReason, notes } = req.body;
         if (!sessionId || !purchaseOrderItemId || qtyExpected === undefined || qtyReceived === undefined || !discrepancyReason) {
@@ -329,7 +329,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to log discrepancy', detail: err.message });
         }
     });
-    fastify.post('/api/purchases/:id/receiving/complete', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (req, reply) => {
+    fastify.post('/api/v1/purchases/:id/receiving/complete', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (req, reply) => {
         const { id } = req.params;
         const { sessionId, completedBy } = req.body;
         if (!sessionId) {
@@ -358,7 +358,7 @@ async function phase3Routes(fastify) {
             return reply.status(500).send({ error: 'Failed to complete receiving session', detail: err.message });
         }
     });
-    fastify.get('/api/purchases/discrepancies', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (_req, reply) => {
+    fastify.get('/api/v1/purchases/discrepancies', { preHandler: [authMiddleware_1.requireAuth, (0, capabilityMiddleware_1.requireCapability)('procurement.receiving')] }, async (_req, reply) => {
         try {
             const discrepancies = await db_1.prisma.receivingDiscrepancy.findMany({
                 include: {

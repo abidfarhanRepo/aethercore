@@ -53,7 +53,7 @@ async function checkRedis() {
     }
 }
 async function healthRoutes(fastify) {
-    fastify.get('/api/health', async (req, reply) => {
+    fastify.get('/api/v1/health', async (req, reply) => {
         const [database, redis] = await Promise.all([checkDatabase(), checkRedis()]);
         let securitySummary;
         try {

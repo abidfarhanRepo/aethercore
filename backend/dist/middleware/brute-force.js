@@ -20,10 +20,10 @@ exports.clearAllBruteForceRecords = clearAllBruteForceRecords;
 exports.getBruteForceStats = getBruteForceStats;
 const ioredis_1 = __importDefault(require("ioredis"));
 const logger_1 = require("../utils/logger");
-// Allow Redis to be disabled for development
-const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true';
+// Allow Redis to be disabled via env and always skip it in test env.
+const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true' || process.env.NODE_ENV === 'test';
 let redis = null;
-// Only initialize Redis if not disabled and not in development
+// Only initialize Redis for non-test, non-development environments.
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
     redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379');
     redis.on('error', (err) => {

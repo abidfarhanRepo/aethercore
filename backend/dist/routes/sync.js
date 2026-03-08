@@ -5,6 +5,7 @@ const client_1 = require("@prisma/client");
 const db_1 = require("../utils/db");
 const authMiddleware_1 = require("../plugins/authMiddleware");
 const hookBus_1 = require("../lib/hookBus");
+const sync_1 = require("../schemas/sync");
 const MAX_REPLAY_ATTEMPTS = 5;
 const BASE_REPLAY_BACKOFF_SECONDS = 5;
 const MAX_REPLAY_BACKOFF_SECONDS = 300;
@@ -274,7 +275,9 @@ async function createSaleFromOperation(operation) {
     return result;
 }
 async function syncRoutes(fastify) {
-    fastify.post('/api/sync/batch', async (req, reply) => {
+    fastify.post('/api/v1/sync/batch', {
+        config: { zod: { body: sync_1.syncBatchBodySchema } },
+    }, async (req, reply) => {
         const body = req.body;
         if (!body || !Array.isArray(body.operations)) {
             return reply.status(400).send({
@@ -305,7 +308,7 @@ async function syncRoutes(fastify) {
                         continue;
                     }
                 }
-                if (operationType === 'POST' && (endpoint === '/api/sales' || endpoint === '/sales')) {
+                if (operationType === 'POST' && (endpoint === '/api/v1/sales' || endpoint === '/sales')) {
                     try {
                         const createdSale = await createSaleFromOperation(operation);
                         results.push({
@@ -400,7 +403,7 @@ async function syncRoutes(fastify) {
             processedAt: new Date().toISOString(),
         });
     });
-    fastify.get('/api/sync/status', async () => {
+    fastify.get('/api/v1/sync/status', async () => {
         const [total, open, replayed, resolved] = await Promise.all([
             db_1.prisma.syncDeadLetter.count(),
             db_1.prisma.syncDeadLetter.count({ where: { status: 'open' } }),
@@ -423,7 +426,7 @@ async function syncRoutes(fastify) {
             checkedAt: new Date().toISOString(),
         };
     });
-    fastify.get('/api/sync/dead-letter', async () => {
+    fastify.get('/api/v1/sync/dead-letter', async () => {
         const items = await db_1.prisma.syncDeadLetter.findMany({
             where: {
                 status: 'open',
@@ -452,8 +455,9 @@ async function syncRoutes(fastify) {
             fetchedAt: new Date().toISOString(),
         };
     });
-    fastify.post('/api/sync/dead-letter/:id/replay', {
+    fastify.post('/api/v1/sync/dead-letter/:id/replay', {
         preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER', 'SUPERVISOR')],
+        config: { zod: { params: sync_1.replayDeadLetterParamsSchema } },
     }, async (req, reply) => {
         const deadLetterId = req.params.id;
         const deadLetter = await db_1.prisma.syncDeadLetter.findUnique({ where: { id: deadLetterId } });
@@ -465,7 +469,7 @@ async function syncRoutes(fastify) {
         }
         const payload = deadLetter.payload;
         const endpoint = normalizeEndpoint(deadLetter.endpoint);
-        if (deadLetter.operationType !== 'POST' || !(endpoint === '/api/sales' || endpoint === '/sales')) {
+        if (deadLetter.operationType !== 'POST' || !(endpoint === '/api/v1/sales' || endpoint === '/sales')) {
             return reply.status(422).send({
                 error: 'Replay supports only sale create operations',
                 code: 'REPLAY_UNSUPPORTED_OPERATION',

@@ -1,45 +1,24 @@
 import { FastifyInstance } from 'fastify'
 import { prisma } from '../utils/db'
-
-type InventoryQuery = {
-  warehouseId?: string
-}
-
-type InventoryAdjustBody = {
-  productId?: string
-  warehouseId?: string
-  qtyDelta?: number
-  reason?: string
-  notes?: string
-  costPerUnit?: number
-}
-
-type InventoryTransferBody = {
-  productId?: string
-  fromWarehouseId?: string
-  toWarehouseId?: string
-  qty?: number
-  notes?: string
-}
-
-type InventoryRecountBody = {
-  warehouseId?: string
-  sessionName?: string
-  notes?: string
-  items?: Array<{
-    productId?: string
-    countedQty?: number
-  }>
-}
-
-type WarehouseInitBody = {
-  name?: string
-  location?: string
-  address?: string
-}
+import {
+  adjustInventoryBodySchema,
+  AdjustInventoryBody,
+  inventoryListQuerySchema,
+  InventoryListQuery,
+  inventoryProductParamsSchema,
+  InventoryProductParams,
+  recountInventoryBodySchema,
+  RecountInventoryBody,
+  transferInventoryBodySchema,
+  TransferInventoryBody,
+  warehouseInitBodySchema,
+  WarehouseInitBody,
+} from '../schemas/inventory'
 
 export default async function inventoryRoutes(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: InventoryQuery }>('/api/v1/inventory', async (req, reply) => {
+  fastify.get<{ Querystring: InventoryListQuery }>('/api/v1/inventory', {
+    config: { zod: { query: inventoryListQuerySchema } },
+  }, async (req, reply) => {
     try {
       const where = req.query.warehouseId
         ? { warehouseId: req.query.warehouseId }
@@ -97,7 +76,9 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get<{ Params: { productId: string } }>('/api/v1/inventory/:productId', async (req, reply) => {
+  fastify.get<{ Params: InventoryProductParams }>('/api/v1/inventory/:productId', {
+    config: { zod: { params: inventoryProductParamsSchema } },
+  }, async (req, reply) => {
     const { productId } = req.params
 
     try {
@@ -139,7 +120,9 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Body: InventoryAdjustBody }>('/api/v1/inventory/adjust', async (req, reply) => {
+  fastify.post<{ Body: AdjustInventoryBody }>('/api/v1/inventory/adjust', {
+    config: { zod: { body: adjustInventoryBodySchema } },
+  }, async (req, reply) => {
     const { productId, warehouseId, qtyDelta, reason, notes, costPerUnit } = req.body
 
     if (!productId || qtyDelta === undefined) {
@@ -241,7 +224,9 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Body: InventoryTransferBody }>('/api/v1/inventory/transfer', async (req, reply) => {
+  fastify.post<{ Body: TransferInventoryBody }>('/api/v1/inventory/transfer', {
+    config: { zod: { body: transferInventoryBodySchema } },
+  }, async (req, reply) => {
     const { productId, fromWarehouseId, toWarehouseId, qty, notes } = req.body
 
     if (!productId || !fromWarehouseId || !toWarehouseId || qty === undefined) {
@@ -389,7 +374,9 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.get<{ Querystring: InventoryQuery }>('/api/v1/inventory/low-stock', async (req, reply) => {
+  fastify.get<{ Querystring: InventoryListQuery }>('/api/v1/inventory/low-stock', {
+    config: { zod: { query: inventoryListQuerySchema } },
+  }, async (req, reply) => {
     try {
       const where = req.query.warehouseId
         ? { warehouseId: req.query.warehouseId }
@@ -437,7 +424,9 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Body: InventoryRecountBody }>('/api/v1/inventory/recount', async (req, reply) => {
+  fastify.post<{ Body: RecountInventoryBody }>('/api/v1/inventory/recount', {
+    config: { zod: { body: recountInventoryBodySchema } },
+  }, async (req, reply) => {
     const { warehouseId, sessionName, notes, items } = req.body
 
     if (!warehouseId || !sessionName || !Array.isArray(items)) {
@@ -573,7 +562,9 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     }
   })
 
-  fastify.post<{ Body: WarehouseInitBody }>('/api/v1/inventory/warehouse/init', async (req, reply) => {
+  fastify.post<{ Body: WarehouseInitBody }>('/api/v1/inventory/warehouse/init', {
+    config: { zod: { body: warehouseInitBodySchema } },
+  }, async (req, reply) => {
     try {
       const existing = await prisma.warehouse.findFirst({
         where: { isActive: true },

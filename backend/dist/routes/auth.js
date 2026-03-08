@@ -14,6 +14,7 @@ const audit_1 = require("../utils/audit");
 const notificationService_1 = require("../lib/notificationService");
 const securityCompliance_1 = require("../lib/securityCompliance");
 const logger_1 = require("../utils/logger");
+const auth_1 = require("../schemas/auth");
 async function authRoutes(fastify) {
     async function ensureDevAdminUser(email) {
         if (process.env.NODE_ENV === 'production') {
@@ -38,28 +39,10 @@ async function authRoutes(fastify) {
             },
         });
     }
-    const registerSchema = {
-        body: {
-            type: 'object',
-            required: ['email', 'password'],
-            properties: {
-                email: { type: 'string', format: 'email' },
-                password: { type: 'string', minLength: 8 }
-            }
-        }
-    };
-    const loginSchema = {
-        body: {
-            type: 'object',
-            required: ['email', 'password'],
-            properties: {
-                email: { type: 'string', format: 'email' },
-                password: { type: 'string' }
-            }
-        }
-    };
     // Register with enhanced security
-    fastify.post('/api/auth/register', { schema: registerSchema }, async (req, reply) => {
+    fastify.post('/api/v1/auth/register', {
+        config: { zod: { body: auth_1.registerBodySchema } },
+    }, async (req, reply) => {
         try {
             const { email: rawEmail, password: rawPassword } = req.body;
             // Input validation and sanitization
@@ -113,7 +96,9 @@ async function authRoutes(fastify) {
         }
     });
     // Login with enhanced security
-    fastify.post('/api/auth/login', { schema: loginSchema }, async (req, reply) => {
+    fastify.post('/api/v1/auth/login', {
+        config: { zod: { body: auth_1.loginBodySchema } },
+    }, async (req, reply) => {
         try {
             const { email: rawEmail, password } = req.body;
             if (!rawEmail || !password) {
@@ -235,16 +220,13 @@ async function authRoutes(fastify) {
             });
             // Log successful login
             await (0, audit_1.logAuthEvent)('LOGIN', user.id, req, 'User logged in successfully');
-            if (typeof reply.setCookie === 'function') {
-                ;
-                reply.setCookie('refreshToken', refreshToken, {
-                    path: '/api/auth',
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'lax',
-                    maxAge: 7 * 24 * 60 * 60,
-                });
-            }
+            reply.setCookie('refreshToken', refreshToken, {
+                path: '/api/v1/auth',
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60,
+            });
             return {
                 accessToken,
                 refreshToken,
@@ -264,10 +246,12 @@ async function authRoutes(fastify) {
         }
     });
     // Refresh token with rotation
-    fastify.post('/api/auth/refresh', async (req, reply) => {
+    fastify.post('/api/v1/auth/refresh', {
+        config: { zod: { body: auth_1.refreshBodySchema } },
+    }, async (req, reply) => {
         try {
-            const body = req.body || {};
-            const refreshToken = body.refreshToken || req.cookies?.refreshToken;
+            const body = (req.body || {});
+            const refreshToken = body?.refreshToken || req.cookies?.refreshToken;
             if (!refreshToken) {
                 return reply.status(400).send({ error: 'Refresh token required' });
             }
@@ -298,16 +282,13 @@ async function authRoutes(fastify) {
                     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 },
             });
-            if (typeof reply.setCookie === 'function') {
-                ;
-                reply.setCookie('refreshToken', newTokens.refreshToken, {
-                    path: '/api/auth',
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'lax',
-                    maxAge: 7 * 24 * 60 * 60,
-                });
-            }
+            reply.setCookie('refreshToken', newTokens.refreshToken, {
+                path: '/api/v1/auth',
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60,
+            });
             return {
                 accessToken: newTokens.accessToken,
                 refreshToken: newTokens.refreshToken,
@@ -320,10 +301,12 @@ async function authRoutes(fastify) {
         }
     });
     // Logout with token revocation
-    fastify.post('/api/auth/logout', async (req, reply) => {
+    fastify.post('/api/v1/auth/logout', {
+        config: { zod: { body: auth_1.logoutBodySchema } },
+    }, async (req, reply) => {
         try {
-            const body = req.body || {};
-            const refreshToken = body.refreshToken || req.cookies?.refreshToken;
+            const body = (req.body || {});
+            const refreshToken = body?.refreshToken || req.cookies?.refreshToken;
             if (!refreshToken) {
                 return reply.status(400).send({ error: 'Refresh token required' });
             }
@@ -340,7 +323,7 @@ async function authRoutes(fastify) {
                 await (0, audit_1.logAuthEvent)('LOGOUT', req.user.id, req, 'User logged out');
             }
             // Clear cookies
-            reply.clearCookie('refreshToken', { path: '/api/auth' });
+            reply.clearCookie('refreshToken', { path: '/api/v1/auth' });
             return { ok: true, message: 'Logged out successfully' };
         }
         catch (error) {
@@ -349,7 +332,7 @@ async function authRoutes(fastify) {
         }
     });
     // Get current user info
-    fastify.get('/api/auth/me', async (req, reply) => {
+    fastify.get('/api/v1/auth/me', async (req, reply) => {
         try {
             const auth = req.headers.authorization;
             if (!auth) {

@@ -84,7 +84,7 @@ describe('Sales - Full Workflow Tests', () => {
     describe('POST /sales - Create Sale', () => {
         test('should create a simple sale with single item and correct calculations', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -102,7 +102,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should create a sale with multiple items', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -124,7 +124,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should apply percentage discount correctly', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -149,7 +149,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should apply fixed amount discount correctly', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -174,7 +174,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should apply bulk discount (10+ items)', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -191,7 +191,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should apply bulk discount (25+ items)', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -209,7 +209,7 @@ describe('Sales - Full Workflow Tests', () => {
         test('should apply VIP customer discount', async () => {
             const products = await prisma.product.findMany();
             const customer = await prisma.customer.findFirst({ where: { segment: 'VIP' } });
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 customerId: customer?.id,
                 items: [
                     {
@@ -227,7 +227,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should handle split payments correctly', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -254,7 +254,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should create inventory transactions on sale', async () => {
             const products = await prisma.product.findMany();
-            const res = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const res = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -277,21 +277,21 @@ describe('Sales - Full Workflow Tests', () => {
     // ============ GET SALES TESTS ============
     describe('GET /sales - List Sales', () => {
         test('should list all sales', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales');
             expect(res.status).toBe(200);
             expect(res.body.data).toBeDefined();
             expect(Array.isArray(res.body.data)).toBe(true);
             expect(res.body.pagination).toBeDefined();
         });
         test('should filter by payment method', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales?paymentMethod=CASH');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales?paymentMethod=CASH');
             expect(res.status).toBe(200);
             res.body.data.forEach((sale) => {
                 expect(['CASH', 'SPLIT']).toContain(sale.paymentMethod);
             });
         });
         test('should support pagination', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales?limit=2&offset=0');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales?limit=2&offset=0');
             expect(res.status).toBe(200);
             expect(res.body.pagination.limit).toBe(2);
             expect(res.body.pagination.offset).toBe(0);
@@ -303,7 +303,7 @@ describe('Sales - Full Workflow Tests', () => {
         test('should get detailed sale information', async () => {
             const products = await prisma.product.findMany();
             // First create a sale
-            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -322,7 +322,7 @@ describe('Sales - Full Workflow Tests', () => {
             });
             const saleId = createRes.body.id;
             // Then get the details
-            const res = await (0, supertest_1.default)(BASE_URL).get(`/api/sales/${saleId}`);
+            const res = await (0, supertest_1.default)(BASE_URL).get(`/api/v1/sales/${saleId}`);
             expect(res.status).toBe(200);
             expect(res.body.id).toBe(saleId);
             expect(res.body.items).toBeDefined();
@@ -331,7 +331,7 @@ describe('Sales - Full Workflow Tests', () => {
             expect(Array.isArray(res.body.items)).toBe(true);
         });
         test('should return 404 for non-existent sale', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales/INVALID-ID');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales/INVALID-ID');
             expect(res.status).toBe(404);
         });
     });
@@ -340,7 +340,7 @@ describe('Sales - Full Workflow Tests', () => {
         test('should process full refund', async () => {
             const products = await prisma.product.findMany();
             // Create a sale
-            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -353,7 +353,7 @@ describe('Sales - Full Workflow Tests', () => {
             const saleId = createRes.body.id;
             // Process full refund
             const refundRes = await (0, supertest_1.default)(BASE_URL)
-                .post(`/api/sales/${saleId}/refund`)
+                .post(`/api/v1/sales/${saleId}/refund`)
                 .send({
                 type: 'full',
                 reason: 'CHANGE_MIND',
@@ -364,7 +364,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should process partial refund', async () => {
             const products = await prisma.product.findMany();
-            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -385,7 +385,7 @@ describe('Sales - Full Workflow Tests', () => {
                 include: { items: true },
             });
             const refundRes = await (0, supertest_1.default)(BASE_URL)
-                .post(`/api/sales/${saleId}/refund`)
+                .post(`/api/v1/sales/${saleId}/refund`)
                 .send({
                 type: 'partial',
                 reason: 'DEFECTIVE',
@@ -404,7 +404,7 @@ describe('Sales - Full Workflow Tests', () => {
     describe('POST /sales/:id/void - Void Sale', () => {
         test('should void a sale and restore inventory', async () => {
             const products = await prisma.product.findMany();
-            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -416,7 +416,7 @@ describe('Sales - Full Workflow Tests', () => {
             });
             const saleId = createRes.body.id;
             const voidRes = await (0, supertest_1.default)(BASE_URL)
-                .post(`/api/sales/${saleId}/void`)
+                .post(`/api/v1/sales/${saleId}/void`)
                 .send({
                 reason: 'User error',
             });
@@ -429,7 +429,7 @@ describe('Sales - Full Workflow Tests', () => {
         });
         test('should prevent voiding already voided sale', async () => {
             const products = await prisma.product.findMany();
-            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const createRes = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 items: [
                     {
                         productId: products[0].id,
@@ -441,12 +441,12 @@ describe('Sales - Full Workflow Tests', () => {
             });
             const saleId = createRes.body.id;
             // Void once
-            await (0, supertest_1.default)(BASE_URL).post(`/api/sales/${saleId}/void`).send({
+            await (0, supertest_1.default)(BASE_URL).post(`/api/v1/sales/${saleId}/void`).send({
                 reason: 'first void',
             });
             // Try to void again
             const secondVoid = await (0, supertest_1.default)(BASE_URL)
-                .post(`/api/sales/${saleId}/void`)
+                .post(`/api/v1/sales/${saleId}/void`)
                 .send({
                 reason: 'second void',
             });
@@ -456,7 +456,7 @@ describe('Sales - Full Workflow Tests', () => {
     // ============ ANALYTICS TESTS ============
     describe('GET /sales/analytics/summary - Sales Analytics', () => {
         test('should return daily sales summary', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales/analytics/summary?period=daily');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales/analytics/summary?period=daily');
             expect(res.status).toBe(200);
             expect(res.body.period).toBe('daily');
             expect(res.body.summary).toBeDefined();
@@ -465,17 +465,17 @@ describe('Sales - Full Workflow Tests', () => {
             expect(res.body.totalRevenue).toBeGreaterThan(0);
         });
         test('should return weekly sales summary', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales/analytics/summary?period=weekly');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales/analytics/summary?period=weekly');
             expect(res.status).toBe(200);
             expect(res.body.period).toBe('weekly');
         });
         test('should return monthly sales summary', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales/analytics/summary?period=monthly');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales/analytics/summary?period=monthly');
             expect(res.status).toBe(200);
             expect(res.body.period).toBe('monthly');
         });
         test('should include discount and tax data in summary', async () => {
-            const res = await (0, supertest_1.default)(BASE_URL).get('/api/sales/analytics/summary?period=daily');
+            const res = await (0, supertest_1.default)(BASE_URL).get('/api/v1/sales/analytics/summary?period=daily');
             expect(res.status).toBe(200);
             expect(res.body.totalDiscount).toBeDefined();
             expect(res.body.totalTax).toBeDefined();
@@ -487,7 +487,7 @@ describe('Sales - Full Workflow Tests', () => {
             const products = await prisma.product.findMany();
             const customer = await prisma.customer.findFirst();
             // 1. Create sale with discount
-            const saleRes = await (0, supertest_1.default)(BASE_URL).post('/api/sales').send({
+            const saleRes = await (0, supertest_1.default)(BASE_URL).post('/api/v1/sales').send({
                 customerId: customer?.id,
                 items: [
                     {
@@ -513,7 +513,7 @@ describe('Sales - Full Workflow Tests', () => {
             expect(saleRes.status).toBe(201);
             const saleId = saleRes.body.id;
             // 2. Retrieve sale details
-            const detailRes = await (0, supertest_1.default)(BASE_URL).get(`/api/sales/${saleId}`);
+            const detailRes = await (0, supertest_1.default)(BASE_URL).get(`/api/v1/sales/${saleId}`);
             expect(detailRes.status).toBe(200);
             expect(detailRes.body.items.length).toBe(2);
             expect(detailRes.body.discounts.length).toBeGreaterThan(0);
@@ -523,7 +523,7 @@ describe('Sales - Full Workflow Tests', () => {
                 include: { items: true },
             });
             const refundRes = await (0, supertest_1.default)(BASE_URL)
-                .post(`/api/sales/${saleId}/refund`)
+                .post(`/api/v1/sales/${saleId}/refund`)
                 .send({
                 type: 'partial',
                 reason: 'CHANGE_MIND',

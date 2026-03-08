@@ -20,6 +20,7 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
     time_format: '12h',
     language: 'en',
     backup_frequency: 'daily',
+    rate_limit_global: 200,
   })
 
   const CURRENCIES = ['USD', 'QAR', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR', 'MXN', 'BRL']
@@ -42,10 +43,16 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
 
   useEffect(() => {
     const loadInitialValues = () => {
-      const newData = { ...formData }
+      const newData: typeof formData = { ...formData }
       settings.forEach((setting) => {
         if (setting.key in newData) {
-          newData[setting.key as keyof typeof newData] = setting.value
+          if (setting.key === 'rate_limit_global') {
+            const parsed = Number(setting.value)
+            newData.rate_limit_global = Number.isFinite(parsed) && parsed > 0 ? parsed : 200
+          } else {
+            const key = setting.key as Exclude<keyof typeof newData, 'rate_limit_global'>
+            newData[key] = setting.value
+          }
         }
       })
       setFormData(newData)
@@ -56,6 +63,15 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
   const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    const parsed = Number(value)
+    setFormData((prev) => ({
+      ...prev,
+      [name]: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1,
+    }))
   }
 
   const handleSave = async (fieldKey: keyof typeof formData) => {
@@ -109,6 +125,16 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
     },
   ]
 
+  const numericFields = [
+    {
+      key: 'rate_limit_global' as const,
+      label: 'Global API Rate Limit (req/min)',
+      description: 'Maximum requests per minute per IP for non-auth endpoints',
+      min: 1,
+      step: 1,
+    },
+  ]
+
   return (
     <div className="space-y-6">
       {error && (
@@ -155,6 +181,30 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
               </div>
             </div>
           ))}
+
+          {numericFields.map((field) => (
+            <div key={field.key} className="space-y-2">
+              <label className="block text-sm font-medium">{field.label}</label>
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+              <div className="flex gap-2">
+                <Input
+                  name={field.key}
+                  type="number"
+                  min={field.min}
+                  step={field.step}
+                  value={formData[field.key]}
+                  onChange={handleNumberChange}
+                  disabled={loading}
+                />
+                <Button
+                  onClick={() => handleSave(field.key)}
+                  disabled={loading || formData[field.key] < field.min}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
@@ -188,6 +238,10 @@ export default function SystemSettings({ settings, onSave }: SystemSettingsProps
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-xs text-muted-foreground">Backups</p>
               <p className="font-semibold capitalize">{formData.backup_frequency}</p>
+            </div>
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground">Global API Limit</p>
+              <p className="font-semibold">{formData.rate_limit_global} req/min</p>
             </div>
           </div>
         </CardContent>

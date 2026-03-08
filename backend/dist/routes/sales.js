@@ -6,9 +6,12 @@ const discountEngine_1 = require("../utils/discountEngine");
 const paymentEngine_1 = require("../utils/paymentEngine");
 const hookBus_1 = require("../lib/hookBus");
 const idempotency_1 = require("../utils/idempotency");
+const sales_1 = require("../schemas/sales");
 async function salesRoutes(fastify) {
     // ============ POST /sales - Create Sale ============
-    fastify.post('/api/sales', async (req, reply) => {
+    fastify.post('/api/v1/sales', {
+        config: { zod: { body: sales_1.createSaleBodySchema } },
+    }, async (req, reply) => {
         const body = req.body;
         const idempotencyHeader = req.headers['idempotency-key'];
         const idempotencyKey = typeof idempotencyHeader === 'string' && idempotencyHeader.trim()
@@ -101,7 +104,18 @@ async function salesRoutes(fastify) {
                 // Apply manual discounts if provided
                 if (body.discounts && Array.isArray(body.discounts)) {
                     for (const discountInput of body.discounts) {
-                        const discount = (0, discountEngine_1.calculateDiscount)(subtotalCents - totalDiscountCents, discountInput);
+                        const normalizedDiscount = discountInput.type === 'PERCENTAGE'
+                            ? {
+                                reason: discountInput.reason,
+                                type: 'PERCENTAGE',
+                                percentage: discountInput.value,
+                            }
+                            : {
+                                reason: discountInput.reason,
+                                type: 'FIXED_AMOUNT',
+                                amountCents: discountInput.value,
+                            };
+                        const discount = (0, discountEngine_1.calculateDiscount)(subtotalCents - totalDiscountCents, normalizedDiscount);
                         discountsToApply.push(discount);
                         totalDiscountCents += discount.amountCents;
                     }
@@ -128,19 +142,24 @@ async function salesRoutes(fastify) {
                 // Validate payment
                 let payments = [];
                 if (body.payments && Array.isArray(body.payments)) {
-                    const paymentValidation = (0, paymentEngine_1.validateSplitPayment)(body.payments, totalCents);
+                    const normalizedPayments = body.payments.map((payment) => ({
+                        ...payment,
+                        method: payment.method,
+                    }));
+                    const paymentValidation = (0, paymentEngine_1.validateSplitPayment)(normalizedPayments, totalCents);
                     if (!paymentValidation.isValid) {
                         throw new Error(paymentValidation.error);
                     }
-                    payments = body.payments;
+                    payments = normalizedPayments;
                 }
                 else {
                     // Single payment method
-                    const singlePayment = (0, paymentEngine_1.validatePayment)({ method: body.paymentMethod || 'CASH', amountCents: totalCents }, totalCents);
+                    const method = (body.paymentMethod || 'CASH');
+                    const singlePayment = (0, paymentEngine_1.validatePayment)({ method, amountCents: totalCents }, totalCents);
                     if (!singlePayment.isValid) {
                         throw new Error(singlePayment.error);
                     }
-                    payments = [{ method: body.paymentMethod || 'CASH', amountCents: totalCents }];
+                    payments = [{ method, amountCents: totalCents }];
                 }
                 // Create sale
                 const sale = await tx.sale.create({
@@ -330,7 +349,9 @@ async function salesRoutes(fastify) {
         }
     });
     // ============ GET /sales - List Sales ============
-    fastify.get('/api/sales', async (req, reply) => {
+    fastify.get('/api/v1/sales', {
+        config: { zod: { query: sales_1.listSalesQuerySchema } },
+    }, async (req, reply) => {
         const query = req.query;
         const where = {};
         if (query.status)
@@ -349,8 +370,8 @@ async function salesRoutes(fastify) {
                 where.createdAt.lte = new Date(query.endDate);
             }
         }
-        const limit = Math.min(parseInt(query.limit) || 50, 100);
-        const offset = Math.max(parseInt(query.offset) || 0, 0);
+        const limit = Math.min(query.limit || 50, 100);
+        const offset = Math.max(query.offset || 0, 0);
         const [sales, total] = await Promise.all([
             db_1.prisma.sale.findMany({
                 where,
@@ -373,7 +394,9 @@ async function salesRoutes(fastify) {
         };
     });
     // ============ GET /sales/:id - Get Sale Details ============
-    fastify.get('/api/sales/:id', async (req, reply) => {
+    fastify.get('/api/v1/sales/:id', {
+        config: { zod: { params: sales_1.saleIdParamsSchema } },
+    }, async (req, reply) => {
         const { id } = req.params;
         const sale = await db_1.prisma.sale.findUnique({
             where: { id },
@@ -401,7 +424,9 @@ async function salesRoutes(fastify) {
         return sale;
     });
     // ============ POST /sales/:id/refund - Process Refund ============
-    fastify.post('/api/sales/:id/refund', async (req, reply) => {
+    fastify.post('/api/v1/sales/:id/refund', {
+        config: { zod: { params: sales_1.saleIdParamsSchema, body: sales_1.refundBodySchema } },
+    }, async (req, reply) => {
         const { id } = req.params;
         const body = req.body;
         try {
@@ -505,7 +530,9 @@ async function salesRoutes(fastify) {
         }
     });
     // ============ POST /sales/:id/return - Process Return ============
-    fastify.post('/api/sales/:id/return', async (req, reply) => {
+    fastify.post('/api/v1/sales/:id/return', {
+        config: { zod: { params: sales_1.saleIdParamsSchema, body: sales_1.returnBodySchema } },
+    }, async (req, reply) => {
         const { id } = req.params;
         const body = req.body;
         try {
@@ -572,7 +599,9 @@ async function salesRoutes(fastify) {
         }
     });
     // ============ POST /sales/:id/void - Void Sale ============
-    fastify.post('/api/sales/:id/void', async (req, reply) => {
+    fastify.post('/api/v1/sales/:id/void', {
+        config: { zod: { params: sales_1.saleIdParamsSchema, body: sales_1.voidBodySchema } },
+    }, async (req, reply) => {
         const { id } = req.params;
         const body = req.body;
         try {
@@ -638,7 +667,9 @@ async function salesRoutes(fastify) {
         }
     });
     // ============ GET /sales/analytics/summary - Sales Analytics ============
-    fastify.get('/api/sales/analytics/summary', async (req, reply) => {
+    fastify.get('/api/v1/sales/analytics/summary', {
+        config: { zod: { query: sales_1.salesAnalyticsQuerySchema } },
+    }, async (req, reply) => {
         const query = req.query;
         const period = query.period || 'daily'; // daily, weekly, monthly
         const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

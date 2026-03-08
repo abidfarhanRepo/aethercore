@@ -10,7 +10,7 @@ const db_1 = require("../utils/db");
 const authMiddleware_1 = require("../plugins/authMiddleware");
 async function userRoutes(server) {
     // Backward-compatible admin endpoint used by legacy Admin component.
-    server.get('/api/admin/users', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (_request, reply) => {
+    server.get('/api/v1/admin/users', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (_request, reply) => {
         try {
             const users = await db_1.prisma.user.findMany({
                 select: {
@@ -30,7 +30,7 @@ async function userRoutes(server) {
         }
     });
     // GET /users - List all users
-    server.get('/api/users', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (request, reply) => {
+    server.get('/api/v1/users', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (request, reply) => {
         try {
             const query = request.query;
             const { role, department, search, limit = '50', offset = '0' } = query;
@@ -77,7 +77,7 @@ async function userRoutes(server) {
         }
     });
     // GET /users/:id - Get user details
-    server.get('/api/users/:id', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
+    server.get('/api/v1/users/:id', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
         try {
             const params = request.params;
             const { id } = params;
@@ -112,7 +112,7 @@ async function userRoutes(server) {
         }
     });
     // POST /users - Create new user (ADMIN only)
-    server.post('/api/users', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.post('/api/v1/users', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const body = request.body;
             const { email, password, firstName, lastName, phone, role, department, managerId } = body;
@@ -166,7 +166,7 @@ async function userRoutes(server) {
         }
     });
     // PUT /users/:id - Update user (ADMIN only)
-    server.put('/api/users/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.put('/api/v1/users/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const { firstName, lastName, phone, role, department, managerId, isActive } = request.body;
@@ -210,7 +210,7 @@ async function userRoutes(server) {
         }
     });
     // DELETE /users/:id - Deactivate user (ADMIN only)
-    server.delete('/api/users/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.delete('/api/v1/users/:id', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const user = await db_1.prisma.user.findUnique({ where: { id } });
@@ -242,7 +242,7 @@ async function userRoutes(server) {
         }
     });
     // POST /users/:id/change-password - Change own password
-    server.post('/api/users/:id/change-password', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
+    server.post('/api/v1/users/:id/change-password', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
         try {
             const { id } = request.params;
             const { currentPassword, newPassword } = request.body;
@@ -293,7 +293,7 @@ async function userRoutes(server) {
         }
     });
     // POST /users/:id/reset-password - Admin reset (ADMIN only)
-    server.post('/api/users/:id/reset-password', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.post('/api/v1/users/:id/reset-password', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const user = await db_1.prisma.user.findUnique({ where: { id } });
@@ -329,7 +329,7 @@ async function userRoutes(server) {
         }
     });
     // POST /users/:id/unlock - Unlock locked account (ADMIN only)
-    server.post('/api/users/:id/unlock', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.post('/api/v1/users/:id/unlock', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const user = await db_1.prisma.user.findUnique({ where: { id } });
@@ -359,7 +359,7 @@ async function userRoutes(server) {
         }
     });
     // PUT /users/:id/roles - Update user roles (ADMIN only)
-    server.put('/api/users/:id/roles', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+    server.put('/api/v1/users/:id/roles', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const { customRoleIds } = request.body;
@@ -394,7 +394,7 @@ async function userRoutes(server) {
         }
     });
     // GET /users/:id/audit-log - View user activity log
-    server.get('/api/users/:id/audit-log', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (request, reply) => {
+    server.get('/api/v1/users/:id/audit-log', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (request, reply) => {
         try {
             const { id } = request.params;
             const { limit = '50', offset = '0' } = request.query;

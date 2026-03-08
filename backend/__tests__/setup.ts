@@ -12,6 +12,7 @@ process.env.DATABASE_URL =
 process.env.JWT_ACCESS_SECRET = 'test_access_secret_key_for_testing_only'
 process.env.JWT_REFRESH_SECRET = 'test_refresh_secret_key_for_testing_only'
 process.env.REDIS_URL = process.env.TEST_REDIS_URL || 'redis://localhost:6379/1'
+process.env.REDIS_DISABLED = 'true'
 
 // Suppress logs during tests (can be overridden with --verbose)
 if (!process.env.DEBUG) {

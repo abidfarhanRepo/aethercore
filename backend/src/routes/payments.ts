@@ -16,10 +16,42 @@ import {
 } from '../lib/payments'
 import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
 import { sendReceiptEmail } from '../lib/emailService'
+import {
+  paymentIdParamsSchema,
+  PaymentIdParams,
+  paymentMethodsQuerySchema,
+  PaymentMethodsQuery,
+  paypalPaymentBodySchema,
+  PaypalPaymentBody,
+  processPaymentBodySchema,
+  ProcessPaymentBody,
+  receiptBodySchema,
+  ReceiptBody,
+  refundPaymentBodySchema,
+  RefundPaymentBody,
+  squarePaymentBodySchema,
+  SquarePaymentBody,
+  stripePaymentBodySchema,
+  StripePaymentBody,
+  updatePaymentSettingsBodySchema,
+  UpdatePaymentSettingsBody,
+} from '../schemas/payments'
 
 // Payment processor instances (initialized when needed)
 const processors: Record<string, any> = {}
 const SUPPORTED_PROCESSORS = ['STRIPE', 'SQUARE', 'PAYPAL'] as const
+type SupportedProcessor = (typeof SUPPORTED_PROCESSORS)[number]
+
+type PaymentGatewayResult = {
+  status?: string
+  requiresAction?: boolean
+  transactionId?: string
+  paymentIntentId?: string
+  actionUrl?: string
+  clientSecret?: string
+  refundId?: string
+  error?: string
+}
 
 function paymentProviderEnabledKey(name: string): string {
   return `payment_provider_${name.toLowerCase()}_enabled`
@@ -105,8 +137,8 @@ async function ensureProcessorRecord(name: string) {
 async function authPaymentAdmin(req: FastifyRequest, reply: FastifyReply) {
   try {
     await req.jwtVerify()
-    const user = req.user as any
-    if (user.role !== 'ADMIN') {
+    const user = req.user
+    if (!user || user.role !== 'ADMIN') {
       reply.code(403).send({ error: 'Admin access required' })
     }
   } catch (error) {
@@ -180,23 +212,14 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Process payment (generic endpoint that selects processor)
    */
   fastify.post<{
-    Body: {
-      saleId: string
-      processor: string
-      amount: number
-      cardToken?: string
-      paymentMethodId?: string
-      cardNumber?: string
-      expiryMonth?: number
-      expiryYear?: number
-      cvv?: string
-      cardholderName?: string
-      saveCard?: boolean
-    }
-  }>('/api/v1/payments/process', async (req, reply) => {
+    Body: ProcessPaymentBody
+  }>('/api/v1/payments/process', {
+    config: { zod: { body: processPaymentBodySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
-      const user = req.user as any
+      const user = req.user
+      const userId = user?.id || 'system'
 
       const {
         saleId,
@@ -237,7 +260,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       }
 
       const normalizedProcessor = normalizeProcessorName(processor)
-      if (!SUPPORTED_PROCESSORS.includes(normalizedProcessor as any)) {
+      if (!SUPPORTED_PROCESSORS.includes(normalizedProcessor as SupportedProcessor)) {
         return reply.code(400).send({
           error: `Unsupported payment processor: ${processor}`,
         })
@@ -338,7 +361,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         }
 
         // Process payment
-        let paymentResult: any
+        let paymentResult: PaymentGatewayResult = {}
 
         if (dummyMode) {
           paymentResult = buildDummyPaymentResult(
@@ -406,6 +429,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         const transactionId =
           paymentResult.transactionId || paymentResult.paymentIntentId
 
+        if (!transactionId) {
+          throw new Error('Payment processor did not return a transaction identifier')
+        }
+
         // Save payment record
         const paymentRecord = await prisma.payment.create({
           data: {
@@ -431,7 +458,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
             clientSecret: paymentResult.clientSecret,
             requiresAction: paymentResult.requiresAction || false,
             actionUrl: paymentResult.actionUrl,
-            createdBy: user.id,
+            createdBy: userId,
             processedAt: new Date(),
           },
         })
@@ -490,13 +517,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Process Stripe payment (convenience endpoint)
    */
   fastify.post<{
-    Body: {
-      saleId: string
-      paymentMethodId: string
-      amount: number
-      save?: boolean
-    }
-  }>('/api/v1/payments/stripe', async (req, reply) => {
+    Body: StripePaymentBody
+  }>('/api/v1/payments/stripe', {
+    config: { zod: { body: stripePaymentBodySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -531,12 +555,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Process Square payment
    */
   fastify.post<{
-    Body: {
-      saleId: string
-      sourceId: string
-      amount: number
-    }
-  }>('/api/v1/payments/square', async (req, reply) => {
+    Body: SquarePaymentBody
+  }>('/api/v1/payments/square', {
+    config: { zod: { body: squarePaymentBodySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -569,11 +591,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Process PayPal payment
    */
   fastify.post<{
-    Body: {
-      saleId: string
-      orderId: string
-    }
-  }>('/api/v1/payments/paypal', async (req, reply) => {
+    Body: PaypalPaymentBody
+  }>('/api/v1/payments/paypal', {
+    config: { zod: { body: paypalPaymentBodySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -638,11 +659,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * List payment methods on file for a customer
    */
   fastify.get<{
-    Querystring: {
-      customerId: string
-      processor?: string
-    }
-  }>('/api/v1/payments/methods', async (req, reply) => {
+    Querystring: PaymentMethodsQuery
+  }>('/api/v1/payments/methods', {
+    config: { zod: { query: paymentMethodsQuerySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -685,17 +705,13 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Process refund for a payment
    */
   fastify.post<{
-    Params: {
-      id: string
-    }
-    Body: {
-      amount?: number
-      reason?: string
-    }
-  }>('/api/v1/payments/:id/refund', async (req, reply) => {
+    Params: PaymentIdParams
+    Body: RefundPaymentBody
+  }>('/api/v1/payments/:id/refund', {
+    config: { zod: { params: paymentIdParamsSchema, body: refundPaymentBodySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
-      const user = req.user as any
 
       const { id } = req.params
       const { amount, reason } = req.body
@@ -724,7 +740,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        let refundResult: any
+        let refundResult: PaymentGatewayResult = {}
 
         const proc = getProcessor(payment.processor.name)
 
@@ -749,6 +765,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
         }
 
         // Create refund record
+        if (!refundResult.refundId) {
+          throw new Error('Processor did not return refund id')
+        }
+
         const refund = await prisma.refund.create({
           data: {
             paymentId: id,
@@ -802,13 +822,11 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Email receipt
    */
   fastify.post<{
-    Params: {
-      id: string
-    }
-    Body: {
-      recipientEmail: string
-    }
-  }>('/api/v1/payments/:id/receipt', async (req, reply) => {
+    Params: PaymentIdParams
+    Body: ReceiptBody
+  }>('/api/v1/payments/:id/receipt', {
+    config: { zod: { params: paymentIdParamsSchema, body: receiptBodySchema } },
+  }, async (req, reply) => {
     try {
       await req.jwtVerify()
 
@@ -954,17 +972,10 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
    * Update payment processor configuration (ADMIN only)
    */
   fastify.post<{
-    Body: {
-      name: string
-      displayName: string
-      apiKey?: string
-      secretKey?: string
-      webhookSecret?: string
-      isActive: boolean
-      enabled?: boolean
-      dummyMode?: boolean
-    }
-  }>('/api/v1/payments/settings', async (req, reply) => {
+    Body: UpdatePaymentSettingsBody
+  }>('/api/v1/payments/settings', {
+    config: { zod: { body: updatePaymentSettingsBodySchema } },
+  }, async (req, reply) => {
     try {
       await authPaymentAdmin(req, reply)
 
@@ -982,7 +993,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
       const normalizedName = normalizeProcessorName(name)
 
-      if (!SUPPORTED_PROCESSORS.includes(normalizedName as any)) {
+      if (!SUPPORTED_PROCESSORS.includes(normalizedName as SupportedProcessor)) {
         return reply.code(400).send({
           error: `Unsupported payment processor: ${name}`,
         })

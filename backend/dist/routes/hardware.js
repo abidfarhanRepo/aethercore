@@ -148,14 +148,14 @@ function buildTestPrintContent(printerName, settings) {
     return rows.join('\n');
 }
 async function hardwareRoutes(fastify) {
-    fastify.get('/api/hardware/printers', async (req, reply) => {
+    fastify.get('/api/v1/hardware/printers', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
         const printers = await getDevices(PRINTERS_KEY);
         return reply.send({ success: true, printers });
     });
-    fastify.post('/api/hardware/printers', async (req, reply) => {
+    fastify.post('/api/v1/hardware/printers', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
@@ -170,7 +170,7 @@ async function hardwareRoutes(fastify) {
         await setDevices(PRINTERS_KEY, printers);
         return reply.code(201).send({ success: true, printer: created });
     });
-    fastify.put('/api/hardware/printers/:id', async (req, reply) => {
+    fastify.put('/api/v1/hardware/printers/:id', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
@@ -188,7 +188,7 @@ async function hardwareRoutes(fastify) {
         await setDevices(PRINTERS_KEY, printers);
         return reply.send({ success: true, printer: printers[index] });
     });
-    fastify.post('/api/hardware/printers/:id/test-print', async (req, reply) => {
+    fastify.post('/api/v1/hardware/printers/:id/test-print', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
@@ -206,14 +206,14 @@ async function hardwareRoutes(fastify) {
             settings: printSettings,
         });
     });
-    fastify.get('/api/hardware/scanners', async (req, reply) => {
+    fastify.get('/api/v1/hardware/scanners', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
         const scanners = await getDevices(SCANNERS_KEY);
         return reply.send({ success: true, scanners });
     });
-    fastify.post('/api/hardware/scanners', async (req, reply) => {
+    fastify.post('/api/v1/hardware/scanners', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
@@ -228,7 +228,7 @@ async function hardwareRoutes(fastify) {
         await setDevices(SCANNERS_KEY, scanners);
         return reply.code(201).send({ success: true, scanner: created });
     });
-    fastify.put('/api/hardware/scanners/:id', async (req, reply) => {
+    fastify.put('/api/v1/hardware/scanners/:id', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
@@ -246,14 +246,14 @@ async function hardwareRoutes(fastify) {
         await setDevices(SCANNERS_KEY, scanners);
         return reply.send({ success: true, scanner: scanners[index] });
     });
-    fastify.get('/api/hardware/print-settings', async (req, reply) => {
+    fastify.get('/api/v1/hardware/print-settings', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;
         const settings = await getPrintSettings();
         return reply.send({ success: true, settings });
     });
-    fastify.put('/api/hardware/print-settings', async (req, reply) => {
+    fastify.put('/api/v1/hardware/print-settings', async (req, reply) => {
         await (0, authMiddleware_1.requireAuth)(req, reply);
         if (reply.sent)
             return;

@@ -1,6 +1,14 @@
 import 'fastify'
 
 declare module 'fastify' {
+  interface FastifyContextConfig {
+    zod?: {
+      body?: unknown
+      params?: unknown
+      query?: unknown
+    }
+  }
+
   interface FastifyRequest {
     user?: {
       id: string

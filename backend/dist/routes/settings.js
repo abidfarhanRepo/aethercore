@@ -9,7 +9,7 @@ const logger_1 = require("../utils/logger");
 async function settingsRoutes(fastify) {
     const requireManagerRole = (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER');
     // GET all settings grouped by category
-    fastify.get('/api/settings', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
+    fastify.get('/api/v1/settings', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
         const settings = await db_1.prisma.settings.findMany({
             orderBy: [{ category: 'asc' }, { key: 'asc' }],
         });
@@ -29,7 +29,7 @@ async function settingsRoutes(fastify) {
         return grouped;
     });
     // GET specific setting by key
-    fastify.get('/api/settings/:key', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
+    fastify.get('/api/v1/settings/:key', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
         const { key } = request.params;
         const setting = await db_1.prisma.settings.findUnique({
             where: { key },
@@ -43,7 +43,7 @@ async function settingsRoutes(fastify) {
         };
     });
     // GET settings by category
-    fastify.get('/api/settings/category/:category', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
+    fastify.get('/api/v1/settings/category/:category', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
         const { category } = request.params;
         const settings = await db_1.prisma.settings.findMany({
             where: { category },
@@ -56,7 +56,7 @@ async function settingsRoutes(fastify) {
         }));
     });
     // PUT update a specific setting
-    fastify.put('/api/settings/:key', {
+    fastify.put('/api/v1/settings/:key', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             params: {
@@ -170,7 +170,7 @@ async function settingsRoutes(fastify) {
         });
     });
     // POST batch update multiple settings
-    fastify.post('/api/settings/batch', {
+    fastify.post('/api/v1/settings/batch', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             body: {
@@ -265,7 +265,7 @@ async function settingsRoutes(fastify) {
         return { results };
     });
     // POST create a new setting (admin only - seeding)
-    fastify.post('/api/settings', {
+    fastify.post('/api/v1/settings', {
         preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')],
         schema: {
             body: {
@@ -309,7 +309,7 @@ async function settingsRoutes(fastify) {
         };
     });
     // DELETE a setting (admin only)
-    fastify.delete('/api/settings/:key', {
+    fastify.delete('/api/v1/settings/:key', {
         preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')],
         schema: {
             params: {
@@ -327,14 +327,14 @@ async function settingsRoutes(fastify) {
     });
     // TAX RATES ENDPOINTS
     // GET all tax rates
-    fastify.get('/api/settings/tax-rates', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
+    fastify.get('/api/v1/settings/tax-rates', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
         const rates = await db_1.prisma.taxRate.findMany({
             orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
         });
         return rates;
     });
     // GET tax rate by id
-    fastify.get('/api/settings/tax-rates/:id', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
+    fastify.get('/api/v1/settings/tax-rates/:id', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
         const { id } = request.params;
         const rate = await db_1.prisma.taxRate.findUnique({
             where: { id },
@@ -342,7 +342,7 @@ async function settingsRoutes(fastify) {
         return rate || { error: 'Tax rate not found' };
     });
     // POST create tax rate
-    fastify.post('/api/settings/tax-rates', {
+    fastify.post('/api/v1/settings/tax-rates', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             body: {
@@ -380,7 +380,7 @@ async function settingsRoutes(fastify) {
         return taxRate;
     });
     // PUT update tax rate
-    fastify.put('/api/settings/tax-rates/:id', {
+    fastify.put('/api/v1/settings/tax-rates/:id', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             params: {
@@ -424,7 +424,7 @@ async function settingsRoutes(fastify) {
         return taxRate;
     });
     // DELETE tax rate
-    fastify.delete('/api/settings/tax-rates/:id', {
+    fastify.delete('/api/v1/settings/tax-rates/:id', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             params: {
@@ -442,7 +442,7 @@ async function settingsRoutes(fastify) {
     });
     // TAX EXEMPTIONS ENDPOINTS
     // GET all tax exemptions
-    fastify.get('/api/settings/tax-exemptions', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
+    fastify.get('/api/v1/settings/tax-exemptions', { preHandler: [authMiddleware_1.requireAuth, requireManagerRole] }, async (request, reply) => {
         const exemptions = await db_1.prisma.taxExemption.findMany({
             where: { isActive: true },
             orderBy: { createdAt: 'desc' },
@@ -450,7 +450,7 @@ async function settingsRoutes(fastify) {
         return exemptions;
     });
     // POST create tax exemption
-    fastify.post('/api/settings/tax-exemptions', {
+    fastify.post('/api/v1/settings/tax-exemptions', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             body: {
@@ -476,7 +476,7 @@ async function settingsRoutes(fastify) {
         return exemption;
     });
     // DELETE tax exemption
-    fastify.delete('/api/settings/tax-exemptions/:id', {
+    fastify.delete('/api/v1/settings/tax-exemptions/:id', {
         preHandler: [authMiddleware_1.requireAuth, requireManagerRole],
         schema: {
             params: {

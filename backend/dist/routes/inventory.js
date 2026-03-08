@@ -2,8 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = inventoryRoutes;
 const db_1 = require("../utils/db");
+const inventory_1 = require("../schemas/inventory");
 async function inventoryRoutes(fastify) {
-    fastify.get('/api/inventory', async (req, reply) => {
+    fastify.get('/api/v1/inventory', {
+        config: { zod: { query: inventory_1.inventoryListQuerySchema } },
+    }, async (req, reply) => {
         try {
             const where = req.query.warehouseId
                 ? { warehouseId: req.query.warehouseId }
@@ -52,7 +55,9 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch inventory' });
         }
     });
-    fastify.get('/api/inventory/:productId', async (req, reply) => {
+    fastify.get('/api/v1/inventory/:productId', {
+        config: { zod: { params: inventory_1.inventoryProductParamsSchema } },
+    }, async (req, reply) => {
         const { productId } = req.params;
         try {
             const product = await db_1.prisma.product.findUnique({
@@ -89,7 +94,9 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch product inventory' });
         }
     });
-    fastify.post('/api/inventory/adjust', async (req, reply) => {
+    fastify.post('/api/v1/inventory/adjust', {
+        config: { zod: { body: inventory_1.adjustInventoryBodySchema } },
+    }, async (req, reply) => {
         const { productId, warehouseId, qtyDelta, reason, notes, costPerUnit } = req.body;
         if (!productId || qtyDelta === undefined) {
             return reply
@@ -178,7 +185,9 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to adjust inventory' });
         }
     });
-    fastify.post('/api/inventory/transfer', async (req, reply) => {
+    fastify.post('/api/v1/inventory/transfer', {
+        config: { zod: { body: inventory_1.transferInventoryBodySchema } },
+    }, async (req, reply) => {
         const { productId, fromWarehouseId, toWarehouseId, qty, notes } = req.body;
         if (!productId || !fromWarehouseId || !toWarehouseId || qty === undefined) {
             return reply.status(400).send({
@@ -305,7 +314,9 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to transfer inventory' });
         }
     });
-    fastify.get('/api/inventory/low-stock', async (req, reply) => {
+    fastify.get('/api/v1/inventory/low-stock', {
+        config: { zod: { query: inventory_1.inventoryListQuerySchema } },
+    }, async (req, reply) => {
         try {
             const where = req.query.warehouseId
                 ? { warehouseId: req.query.warehouseId }
@@ -350,7 +361,9 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to fetch low stock items' });
         }
     });
-    fastify.post('/api/inventory/recount', async (req, reply) => {
+    fastify.post('/api/v1/inventory/recount', {
+        config: { zod: { body: inventory_1.recountInventoryBodySchema } },
+    }, async (req, reply) => {
         const { warehouseId, sessionName, notes, items } = req.body;
         if (!warehouseId || !sessionName || !Array.isArray(items)) {
             return reply
@@ -462,7 +475,9 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to complete recount' });
         }
     });
-    fastify.post('/api/inventory/warehouse/init', async (req, reply) => {
+    fastify.post('/api/v1/inventory/warehouse/init', {
+        config: { zod: { body: inventory_1.warehouseInitBodySchema } },
+    }, async (req, reply) => {
         try {
             const existing = await db_1.prisma.warehouse.findFirst({
                 where: { isActive: true },
@@ -498,7 +513,7 @@ async function inventoryRoutes(fastify) {
             return reply.status(500).send({ error: 'Failed to initialize warehouse' });
         }
     });
-    fastify.get('/api/inventory/warehouses', async (req, reply) => {
+    fastify.get('/api/v1/inventory/warehouses', async (req, reply) => {
         try {
             const warehouses = await db_1.prisma.warehouse.findMany({
                 where: { isActive: true },

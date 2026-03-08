@@ -195,7 +195,7 @@ function buildTestPrintContent(
 
 export default async function hardwareRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v1/hardware/printers', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
     const printers = await getDevices(PRINTERS_KEY)
     return reply.send({ success: true, printers })
@@ -204,7 +204,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Body: Omit<HardwareDevice, 'id' | 'createdAt' | 'updatedAt'>
   }>('/api/v1/hardware/printers', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
 
     const printers = await getDevices(PRINTERS_KEY)
@@ -225,7 +225,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
     Params: { id: string }
     Body: Partial<Omit<HardwareDevice, 'id' | 'createdAt' | 'updatedAt'>>
   }>('/api/v1/hardware/printers/:id', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
 
     const { id } = req.params
@@ -249,7 +249,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Params: { id: string }
   }>('/api/v1/hardware/printers/:id/test-print', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
 
     const printers = await getDevices(PRINTERS_KEY)
@@ -270,7 +270,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
   })
 
   fastify.get('/api/v1/hardware/scanners', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
     const scanners = await getDevices(SCANNERS_KEY)
     return reply.send({ success: true, scanners })
@@ -279,7 +279,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Body: Omit<HardwareDevice, 'id' | 'createdAt' | 'updatedAt'>
   }>('/api/v1/hardware/scanners', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
 
     const scanners = await getDevices(SCANNERS_KEY)
@@ -300,7 +300,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
     Params: { id: string }
     Body: Partial<Omit<HardwareDevice, 'id' | 'createdAt' | 'updatedAt'>>
   }>('/api/v1/hardware/scanners/:id', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
 
     const { id } = req.params
@@ -322,7 +322,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
   })
 
   fastify.get('/api/v1/hardware/print-settings', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
     const settings = await getPrintSettings()
     return reply.send({ success: true, settings })
@@ -331,7 +331,7 @@ export default async function hardwareRoutes(fastify: FastifyInstance) {
   fastify.put<{
     Body: Partial<PrintDesignSettings>
   }>('/api/v1/hardware/print-settings', async (req, reply) => {
-    await requireAuth(req as any, reply as any)
+    await requireAuth(req, reply)
     if (reply.sent) return
 
     const current = await getPrintSettings()

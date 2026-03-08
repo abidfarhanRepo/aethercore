@@ -8,6 +8,7 @@ const paypal_1 = require("../lib/payments/paypal");
 const payments_1 = require("../lib/payments");
 const idempotency_1 = require("../utils/idempotency");
 const emailService_1 = require("../lib/emailService");
+const payments_2 = require("../schemas/payments");
 // Payment processor instances (initialized when needed)
 const processors = {};
 const SUPPORTED_PROCESSORS = ['STRIPE', 'SQUARE', 'PAYPAL'];
@@ -74,7 +75,7 @@ async function authPaymentAdmin(req, reply) {
     try {
         await req.jwtVerify();
         const user = req.user;
-        if (user.role !== 'ADMIN') {
+        if (!user || user.role !== 'ADMIN') {
             reply.code(403).send({ error: 'Admin access required' });
         }
     }
@@ -134,13 +135,16 @@ async function paymentRoutes(fastify) {
     // Initialize processors on first load
     await initializeProcessors();
     /**
-     * POST /api/payments/process
+     * POST /api/v1/payments/process
      * Process payment (generic endpoint that selects processor)
      */
-    fastify.post('/api/payments/process', async (req, reply) => {
+    fastify.post('/api/v1/payments/process', {
+        config: { zod: { body: payments_2.processPaymentBodySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
             const user = req.user;
+            const userId = user?.id || 'system';
             const { saleId, processor, amount, cardToken, paymentMethodId, cardNumber, expiryMonth, expiryYear, cvv, cardholderName, saveCard, } = req.body;
             // Validate payment amount
             if (!(0, payments_1.validatePaymentAmount)(amount)) {
@@ -236,7 +240,7 @@ async function paymentRoutes(fastify) {
                     }
                 }
                 // Process payment
-                let paymentResult;
+                let paymentResult = {};
                 if (dummyMode) {
                     paymentResult = buildDummyPaymentResult(normalizedProcessor, saleId, idempotencyKey);
                 }
@@ -292,6 +296,9 @@ async function paymentRoutes(fastify) {
                 }
                 // Get transaction ID (varies by processor)
                 const transactionId = paymentResult.transactionId || paymentResult.paymentIntentId;
+                if (!transactionId) {
+                    throw new Error('Payment processor did not return a transaction identifier');
+                }
                 // Save payment record
                 const paymentRecord = await db_1.prisma.payment.create({
                     data: {
@@ -314,7 +321,7 @@ async function paymentRoutes(fastify) {
                         clientSecret: paymentResult.clientSecret,
                         requiresAction: paymentResult.requiresAction || false,
                         actionUrl: paymentResult.actionUrl,
-                        createdBy: user.id,
+                        createdBy: userId,
                         processedAt: new Date(),
                     },
                 });
@@ -350,17 +357,19 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/stripe
+     * POST /api/v1/payments/stripe
      * Process Stripe payment (convenience endpoint)
      */
-    fastify.post('/api/payments/stripe', async (req, reply) => {
+    fastify.post('/api/v1/payments/stripe', {
+        config: { zod: { body: payments_2.stripePaymentBodySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
             const { saleId, paymentMethodId, amount, save } = req.body;
             // Reuse main endpoint
             const injected = await req.server.inject({
                 method: 'POST',
-                url: '/api/payments/process',
+                url: '/api/v1/payments/process',
                 payload: {
                     saleId,
                     processor: 'STRIPE',
@@ -381,16 +390,18 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/square
+     * POST /api/v1/payments/square
      * Process Square payment
      */
-    fastify.post('/api/payments/square', async (req, reply) => {
+    fastify.post('/api/v1/payments/square', {
+        config: { zod: { body: payments_2.squarePaymentBodySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
             const { saleId, sourceId, amount } = req.body;
             const injected = await req.server.inject({
                 method: 'POST',
-                url: '/api/payments/process',
+                url: '/api/v1/payments/process',
                 payload: {
                     saleId,
                     processor: 'SQUARE',
@@ -410,10 +421,12 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/paypal
+     * POST /api/v1/payments/paypal
      * Process PayPal payment
      */
-    fastify.post('/api/payments/paypal', async (req, reply) => {
+    fastify.post('/api/v1/payments/paypal', {
+        config: { zod: { body: payments_2.paypalPaymentBodySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
             const { saleId, orderId } = req.body;
@@ -464,10 +477,12 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * GET /api/payments/methods
+     * GET /api/v1/payments/methods
      * List payment methods on file for a customer
      */
-    fastify.get('/api/payments/methods', async (req, reply) => {
+    fastify.get('/api/v1/payments/methods', {
+        config: { zod: { query: payments_2.paymentMethodsQuerySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
             const { customerId, processor } = req.query;
@@ -502,13 +517,14 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/:id/refund
+     * POST /api/v1/payments/:id/refund
      * Process refund for a payment
      */
-    fastify.post('/api/payments/:id/refund', async (req, reply) => {
+    fastify.post('/api/v1/payments/:id/refund', {
+        config: { zod: { params: payments_2.paymentIdParamsSchema, body: payments_2.refundPaymentBodySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
-            const user = req.user;
             const { id } = req.params;
             const { amount, reason } = req.body;
             const payment = await db_1.prisma.payment.findUnique({
@@ -530,7 +546,7 @@ async function paymentRoutes(fastify) {
                 });
             }
             try {
-                let refundResult;
+                let refundResult = {};
                 const proc = getProcessor(payment.processor.name);
                 if (payment.processor.name === 'STRIPE') {
                     refundResult = await proc.refundPayment({
@@ -554,6 +570,9 @@ async function paymentRoutes(fastify) {
                     });
                 }
                 // Create refund record
+                if (!refundResult.refundId) {
+                    throw new Error('Processor did not return refund id');
+                }
                 const refund = await db_1.prisma.refund.create({
                     data: {
                         paymentId: id,
@@ -593,10 +612,12 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/:id/receipt
+     * POST /api/v1/payments/:id/receipt
      * Email receipt
      */
-    fastify.post('/api/payments/:id/receipt', async (req, reply) => {
+    fastify.post('/api/v1/payments/:id/receipt', {
+        config: { zod: { params: payments_2.paymentIdParamsSchema, body: payments_2.receiptBodySchema } },
+    }, async (req, reply) => {
         try {
             await req.jwtVerify();
             const { id } = req.params;
@@ -659,7 +680,7 @@ async function paymentRoutes(fastify) {
      * GET /payments/settings
      * Get payment processor configuration (ADMIN only)
      */
-    fastify.get('/api/payments/settings', async (req, reply) => {
+    fastify.get('/api/v1/payments/settings', async (req, reply) => {
         try {
             await authPaymentAdmin(req, reply);
             const processors = await db_1.prisma.paymentProcessor.findMany({
@@ -716,10 +737,12 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/settings
+     * POST /api/v1/payments/settings
      * Update payment processor configuration (ADMIN only)
      */
-    fastify.post('/api/payments/settings', async (req, reply) => {
+    fastify.post('/api/v1/payments/settings', {
+        config: { zod: { body: payments_2.updatePaymentSettingsBodySchema } },
+    }, async (req, reply) => {
         try {
             await authPaymentAdmin(req, reply);
             const { name, displayName, apiKey, secretKey, webhookSecret, isActive, enabled, dummyMode, } = req.body;
@@ -799,10 +822,10 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/webhooks/stripe
+     * POST /api/v1/payments/webhooks/stripe
      * Stripe webhook handler
      */
-    fastify.post('/api/payments/webhooks/stripe', async (req, reply) => {
+    fastify.post('/api/v1/payments/webhooks/stripe', async (req, reply) => {
         try {
             const signature = req.headers['stripe-signature'];
             const body = JSON.stringify(req.body);
@@ -855,10 +878,10 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/webhooks/square
+     * POST /api/v1/payments/webhooks/square
      * Square webhook handler
      */
-    fastify.post('/api/payments/webhooks/square', async (req, reply) => {
+    fastify.post('/api/v1/payments/webhooks/square', async (req, reply) => {
         try {
             const bodyData = req.body;
             const signature = req.headers['x-square-hmac-sha256'];
@@ -891,10 +914,10 @@ async function paymentRoutes(fastify) {
         }
     });
     /**
-     * POST /api/payments/webhooks/paypal
+     * POST /api/v1/payments/webhooks/paypal
      * PayPal webhook handler
      */
-    fastify.post('/api/payments/webhooks/paypal', async (req, reply) => {
+    fastify.post('/api/v1/payments/webhooks/paypal', async (req, reply) => {
         try {
             const bodyData = req.body;
             const transmissionId = req.headers['paypal-transmission-id'];

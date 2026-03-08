@@ -13,7 +13,7 @@ function parseRole(input) {
     return null;
 }
 async function reportingIntelligenceRoutes(fastify) {
-    fastify.get('/api/reports/sales/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('sales.read')] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/sales/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('sales.read')] }, async (req, reply) => {
         const user = req.user;
         const role = parseRole(user?.role);
         if (!user?.id || !role) {
@@ -30,7 +30,7 @@ async function reportingIntelligenceRoutes(fastify) {
             items: sales,
         };
     });
-    fastify.get('/api/reports/sales/:id/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('sales.read')] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/sales/:id/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('sales.read')] }, async (req, reply) => {
         const user = req.user;
         const role = parseRole(user?.role);
         if (!user?.id || !role) {
@@ -49,7 +49,7 @@ async function reportingIntelligenceRoutes(fastify) {
             sale,
         };
     });
-    fastify.get('/api/reports/purchases/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('purchases.read')] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/purchases/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('purchases.read')] }, async (req, reply) => {
         const user = req.user;
         const role = parseRole(user?.role);
         if (!user?.id || !role) {
@@ -66,7 +66,7 @@ async function reportingIntelligenceRoutes(fastify) {
             items: purchases,
         };
     });
-    fastify.get('/api/reports/purchases/:id/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('purchases.read')] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/purchases/:id/visible', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requirePermission)('purchases.read')] }, async (req, reply) => {
         const user = req.user;
         const role = parseRole(user?.role);
         if (!user?.id || !role) {
@@ -85,7 +85,7 @@ async function reportingIntelligenceRoutes(fastify) {
             purchase,
         };
     });
-    fastify.get('/api/reports/intelligence/purchase-recommendations', { preHandler: [authMiddleware_1.requireAuth] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/intelligence/purchase-recommendations', { preHandler: [authMiddleware_1.requireAuth] }, async (req, reply) => {
         const user = req.user;
         const role = parseRole(user?.role);
         if (!user?.id || !role) {
@@ -110,7 +110,7 @@ async function reportingIntelligenceRoutes(fastify) {
             ...result,
         };
     });
-    fastify.get('/api/reports/intelligence/kpis', { preHandler: [authMiddleware_1.requireAuth] }, async (req, reply) => {
+    fastify.get('/api/v1/reports/intelligence/kpis', { preHandler: [authMiddleware_1.requireAuth] }, async (req, reply) => {
         const user = req.user;
         const role = parseRole(user?.role);
         if (!user?.id || !role) {
