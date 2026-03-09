@@ -441,6 +441,18 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       if (!challengePassed) {
         await logAuthEvent('LOGIN_FAILED', user.id, req, 'Failed MFA challenge')
+        await logSecurityEventRecord({
+          eventType: SecurityEventType.MFA_FAILED,
+          severity: SecuritySeverity.HIGH,
+          source: 'api/auth/mfa/challenge',
+          message: 'Failed MFA challenge',
+          details: {
+            type: 'auth.mfa_failed',
+            mode: token ? 'totp' : 'recovery',
+          },
+          actorId: user.id,
+          ipAddress: req.ip,
+        }).catch(() => {})
         return reply.status(401).send({ error: 'Invalid MFA code' })
       }
 

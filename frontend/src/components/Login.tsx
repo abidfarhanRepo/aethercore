@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/lib/auth'
 import { authAPI, getNetworkErrorMessage } from '@/lib/api'
+import { logSecurityEvent } from '@/lib/security'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -40,6 +41,15 @@ export default function Login(){
     }catch(e:any){
       console.error('Login error:', e)
       const message = getNetworkErrorMessage(e)
+      logSecurityEvent(
+        'auth.login_failed',
+        {
+          email,
+          reason: message,
+          status: e?.response?.status,
+        },
+        'high'
+      )
       setError(message)
     }finally{
       setIsLoading(false)

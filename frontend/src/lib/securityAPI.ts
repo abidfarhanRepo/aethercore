@@ -46,6 +46,13 @@ export interface SecurityEventItem {
   createdAt: string
 }
 
+export interface FrontendSecurityEventPayload {
+  type: string
+  severity: 'low' | 'medium' | 'high'
+  context: Record<string, unknown>
+  timestamp: string
+}
+
 export interface KeyRotationItem {
   id: string
   component: string
@@ -102,6 +109,7 @@ export interface AlertEvaluationResult {
 export const securityAPI = {
   getStatus: () => api.get<SecurityStatusResponse>('/api/v1/security/status'),
   getEvents: (limit = 50) => api.get<{ items: SecurityEventItem[]; meta: { limit: number; count: number } }>(`/api/v1/security/events?limit=${limit}`),
+  postEvent: (payload: FrontendSecurityEventPayload) => api.post('/api/v1/security/events', payload),
   getKeyRotations: (limit = 50) =>
     api.get<{ items: KeyRotationItem[]; meta: { limit: number; count: number } }>(`/api/v1/security/key-rotations?limit=${limit}`),
   rotateKeys: (payload: { component: 'jwt_access' | 'jwt_refresh' | 'encryption' | 'tls' | 'settings'; newVersion: string; notes?: string }) =>

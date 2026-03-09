@@ -227,7 +227,7 @@
 ---
 
 ### TICKET W1-09 — Implement Frontend Security Event Transport
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Files:**
 - `frontend/src/lib/security.ts` ← replace the TODO stub

@@ -181,21 +181,106 @@ export function isSecureConnection(): boolean {
   return window.location.protocol === 'https:'
 }
 
+type SecuritySeverity = 'low' | 'medium' | 'high'
+
+interface SecurityEventPayload {
+  type: string
+  severity: SecuritySeverity
+  context: Record<string, unknown>
+  timestamp: string
+}
+
+const securityEventQueue: SecurityEventPayload[] = []
+let isFlushingQueuedEvents = false
+
+function canRetrySecurityEvent(statusCode?: number): boolean {
+  return statusCode === undefined || statusCode >= 500
+}
+
+async function postSecurityEvent(payload: SecurityEventPayload): Promise<{ ok: boolean; status: number }> {
+  const accessToken =
+    localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || undefined
+
+  const response = await fetch('/api/v1/security/events', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return { ok: response.ok, status: response.status }
+}
+
+export async function flushQueuedSecurityEvents(): Promise<void> {
+  if (isFlushingQueuedEvents || securityEventQueue.length === 0) {
+    return
+  }
+
+  isFlushingQueuedEvents = true
+  try {
+    while (securityEventQueue.length > 0) {
+      const queuedEvent = securityEventQueue[0]
+      const result = await postSecurityEvent(queuedEvent)
+
+      if (result.ok) {
+        securityEventQueue.shift()
+        continue
+      }
+
+      if (!canRetrySecurityEvent(result.status)) {
+        securityEventQueue.shift()
+        continue
+      }
+
+      break
+    }
+  } catch {
+    // Keep queued events for a later flush attempt.
+  } finally {
+    isFlushingQueuedEvents = false
+  }
+}
+
+export function getQueuedSecurityEventCount(): number {
+  return securityEventQueue.length
+}
+
+export function clearQueuedSecurityEventsForTests(): void {
+  securityEventQueue.length = 0
+}
+
 /**
  * Log security events
  */
 export function logSecurityEvent(
   event: string,
-  details?: Record<string, any>
+  details?: Record<string, any>,
+  severity: SecuritySeverity = 'medium'
 ): void {
-  if (window.location.hostname === 'localhost') {
-    console.warn(`🔒 Security Event: ${event}`, details)
+  const payload: SecurityEventPayload = {
+    type: event,
+    severity,
+    context: details || {},
+    timestamp: new Date().toISOString(),
   }
 
-  // In production, send to logging service
-  if (process.env.NODE_ENV === 'production') {
-    // TODO: Send to logging endpoint
-  }
+  void (async () => {
+    try {
+      const result = await postSecurityEvent(payload)
+      if (result.ok) {
+        await flushQueuedSecurityEvents()
+        return
+      }
+
+      if (canRetrySecurityEvent(result.status)) {
+        securityEventQueue.push(payload)
+      }
+    } catch {
+      securityEventQueue.push(payload)
+    }
+  })()
 }
 
 /**

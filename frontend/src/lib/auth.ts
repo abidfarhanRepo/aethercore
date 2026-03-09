@@ -78,6 +78,22 @@ export function setupAxiosInterceptors(apiInstance: any) {
       const { refreshToken } = useAuthStore.getState()
       const requestKey = `${originalRequest.method}:${originalRequest.url}`
 
+      if (
+        error?.response?.status === 403 &&
+        error?.response?.data?.code === 'CAPABILITY_DISABLED'
+      ) {
+        const { logSecurityEvent } = await import('./security')
+        logSecurityEvent(
+          'authz.capability_denied',
+          {
+            capability: error?.response?.data?.capability,
+            path: originalRequest?.url,
+            method: originalRequest?.method,
+          },
+          'medium'
+        )
+      }
+
       // FIX: Implement proper retry limit mechanism
       if (error.response?.status === 401 && refreshToken && !originalRequest._retry) {
         originalRequest._retry = true

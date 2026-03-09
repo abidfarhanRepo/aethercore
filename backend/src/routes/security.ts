@@ -23,6 +23,13 @@ interface SecurityListQuery {
   limit?: string
 }
 
+interface SecurityEventIngestBody {
+  type?: string
+  severity?: 'low' | 'medium' | 'high'
+  context?: Record<string, unknown>
+  timestamp?: string
+}
+
 interface RotateKeysBody {
   component?: 'jwt_access' | 'jwt_refresh' | 'encryption' | 'tls' | 'settings'
   newVersion?: string
@@ -112,6 +119,60 @@ export default async function securityRoutes(fastify: FastifyInstance) {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
         return reply.code(500).send({ error: 'Failed to fetch security events', details: message })
+      }
+    }
+  )
+
+  fastify.post(
+    '/api/v1/security/events',
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const body = (req.body || {}) as SecurityEventIngestBody
+
+      if (!body.type || !body.severity || !body.timestamp || typeof body.context !== 'object') {
+        return reply.code(400).send({
+          error: 'Invalid payload. Required fields: type, severity, context, timestamp',
+        })
+      }
+
+      const severityMap: Record<'low' | 'medium' | 'high', SecuritySeverity> = {
+        low: SecuritySeverity.LOW,
+        medium: SecuritySeverity.MEDIUM,
+        high: SecuritySeverity.HIGH,
+      }
+
+      if (!severityMap[body.severity]) {
+        return reply.code(400).send({ error: 'severity must be low, medium, or high' })
+      }
+
+      const eventTypeMap: Record<string, SecurityEventType> = {
+        'auth.login_failed': SecurityEventType.FAILED_LOGIN,
+        'auth.mfa_failed': SecurityEventType.MFA_FAILED,
+        'authz.capability_denied': SecurityEventType.CAPABILITY_DENIED,
+        'session.idle_lock': SecurityEventType.IDLE_LOCK,
+      }
+
+      const eventType = eventTypeMap[body.type] || SecurityEventType.UNKNOWN
+
+      try {
+        const event = await logSecurityEventRecord({
+          eventType,
+          severity: severityMap[body.severity],
+          source: `frontend/${body.type}`,
+          message: `Client security event: ${body.type}`,
+          details: {
+            type: body.type,
+            context: body.context,
+            timestamp: body.timestamp,
+          },
+          actorId: req.user?.id,
+          ipAddress: req.ip,
+        })
+
+        return reply.code(201).send({ id: event.id, createdAt: event.createdAt })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return reply.code(500).send({ error: 'Failed to persist security event', details: message })
       }
     }
   )

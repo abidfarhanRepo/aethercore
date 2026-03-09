@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authAPI, getNetworkErrorMessage } from '@/lib/api'
 import { useAuthStore } from '@/lib/auth'
+import { logSecurityEvent } from '@/lib/security'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -43,7 +44,17 @@ export default function MfaChallenge() {
       setUser(user)
       navigate('/checkout')
     } catch (challengeError: any) {
-      setError(getNetworkErrorMessage(challengeError))
+      const message = getNetworkErrorMessage(challengeError)
+      logSecurityEvent(
+        'auth.mfa_failed',
+        {
+          mode,
+          reason: message,
+          status: challengeError?.response?.status,
+        },
+        'high'
+      )
+      setError(message)
     } finally {
       setIsSubmitting(false)
     }

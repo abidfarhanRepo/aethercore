@@ -45,6 +45,7 @@ import SyncStatusModal from '@/components/SyncStatusModal'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import IdleLockScreen from '@/components/IdleLockScreen'
 import { useIdleTimer } from '@/hooks/useIdleTimer'
+import { logSecurityEvent } from '@/lib/security'
 
 // Import legacy components (temporary for backward compatibility)
 import LoginComponent from './components/Login'
@@ -127,7 +128,18 @@ function Layout({
   const { resetTimer } = useIdleTimer({
     enabled: Boolean(user),
     timeoutMinutes: timeoutForCurrentScreen,
-    onIdle: () => setIsIdleLocked(true),
+    onIdle: () => {
+      logSecurityEvent(
+        'session.idle_lock',
+        {
+          timeoutMinutes: timeoutForCurrentScreen,
+          route: location.pathname,
+          userId: user?.id,
+        },
+        'medium'
+      )
+      setIsIdleLocked(true)
+    },
   })
 
   const isTokenUsable = (token: string): boolean => {
