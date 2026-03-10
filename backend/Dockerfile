@@ -1,5 +1,5 @@
 # Backend Dockerfile - production-ready multi-stage build
-FROM node:18-alpine AS builder
+FROM node:18-alpine3.18 AS builder
 
 WORKDIR /app
 
@@ -18,12 +18,12 @@ RUN npm ci --legacy-peer-deps && \
     npx prisma generate --schema=./prisma/schema.prisma || true
 
 # Runtime stage
-FROM node:18-alpine
+FROM node:18-alpine3.18
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling and curl for health checks
-RUN apk add --no-cache dumb-init curl && \
+# Install runtime dependencies needed by Prisma and health checks
+RUN apk add --no-cache dumb-init curl openssl1.1-compat && \
     addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
@@ -45,17 +45,17 @@ RUN mkdir -p logs && \
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=4000
+ENV PORT=3000
 
 # Switch to non-root user
 USER nodejs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:4000/health || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Expose port
-EXPOSE 4000
+EXPOSE 3000
 
 # Use dumb-init to properly handle signals
 ENTRYPOINT ["dumb-init", "--"]

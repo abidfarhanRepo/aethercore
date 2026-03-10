@@ -342,7 +342,7 @@
 ---
 
 ### TICKET W2-01 — Create Per-Tenant Docker Compose Template
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** CRITICAL  
 **Files to create:**
 - `deploy/template/docker-compose.yml`
