@@ -10,6 +10,7 @@ RUN apk add --no-cache python3 make g++ curl
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma ./prisma/
+COPY scripts ./scripts/
 COPY src ./src/
 
 # Install dependencies (including dev for build)
@@ -37,6 +38,7 @@ RUN npm ci --only=production --legacy-peer-deps && \
 # Copy built artifacts from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create required directories

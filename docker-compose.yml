@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-55432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-aether} -d ${DB_NAME:-aether_pos}"]
       interval: 10s
@@ -45,7 +45,7 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-aether}:${DB_PASSWORD:-aether_dev_password}@postgres:5432/${DB_NAME:-aether_pos}}
+      DATABASE_URL: postgresql://${DB_USER:-aether}:${DB_PASSWORD:-aether_dev_password}@postgres:5432/${DB_NAME:-aether_pos}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_key_change_in_prod}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_key_change_in_prod}
@@ -77,6 +77,7 @@ services:
       - ./certs:/etc/aether/tls:ro
       - node_modules_backend:/app/node_modules
     ports:
+      - "3000:4000"
       - "4000:4000"
     depends_on:
       postgres:
@@ -86,7 +87,7 @@ services:
     networks:
       - aether-network
     restart: unless-stopped
-    command: sh -c "npm run migrate:dev && npm run dev"
+    command: sh -c "npx prisma db push && node dist/index.js"
 
   frontend:
     build:
@@ -104,13 +105,13 @@ services:
       - ./certs:/etc/aether/tls:ro
       - node_modules_frontend:/app/node_modules
     ports:
-      - "5173:5173"
+      - "5173:80"
+      - "4173:80"
     depends_on:
       - backend
     networks:
       - aether-network
     restart: unless-stopped
-    command: npm run dev
 
 volumes:
   postgres_data:

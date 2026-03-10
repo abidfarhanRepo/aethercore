@@ -1,1 +1,4 @@
 node_modules
+deploy/orgs/
+deploy/logs/
+deploy/traefik/acme.json

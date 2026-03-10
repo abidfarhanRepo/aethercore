@@ -10,6 +10,11 @@ const logger_1 = require("../utils/logger");
 let client = null;
 let initPromise = null;
 async function initRedis() {
+    const redisDisabled = process.env.REDIS_DISABLED === 'true';
+    const nodeEnv = process.env.NODE_ENV ?? 'development';
+    if (redisDisabled || nodeEnv !== 'production') {
+        return null;
+    }
     let redis = null;
     try {
         redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379', {

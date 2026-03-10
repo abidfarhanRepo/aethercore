@@ -480,7 +480,7 @@ Create `deploy/template/.env.template` with all required environment variables d
 ---
 
 ### TICKET W2-03 — Create Organisation Provisioning Script
-**Status:** `[ ]`  
+**Status:** `[x]`
 **Priority:** CRITICAL  
 **Depends on:** W2-01, W2-02  
 **Files to create:**
