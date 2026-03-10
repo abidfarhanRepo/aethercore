@@ -7,6 +7,9 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "build:backend": "cd backend && npm run build",
-    "build:frontend": "cd frontend && npm run build"
+    "build:frontend": "cd frontend && npm run build",
+    "gate:all": "cd backend && npm run gate:all",
+    "docker:build:local": "docker compose build backend frontend",
+    "release:local": "npm run gate:all && npm run docker:build:local"
   }
 }

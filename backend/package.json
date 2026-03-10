@@ -11,6 +11,10 @@
     "migrate:dev": "prisma migrate dev --name init",
     "seed": "node prisma/seed.js",
     "test": "jest --runInBand",
+    "gate:migrate": "node scripts/gate-migration-drift.js",
+    "gate:pre-release": "node scripts/gate-pre-release-evidence.js",
+    "gate:post-release": "node scripts/gate-post-release-evidence.js",
+    "gate:all": "node scripts/run-all-gates.js",
     "ops:simulate-restore-drill": "node scripts/simulate-restore-drill.js",
     "ops:simulate-restore-drill:latest": "node scripts/simulate-restore-drill.js --snapshot-id=latest-backup"
   },

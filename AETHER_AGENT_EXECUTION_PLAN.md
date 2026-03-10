@@ -288,27 +288,25 @@
 ---
 
 ### TICKET W1-11 — Wire Gate Scripts into CI/CD
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Files:**
-- `.github/workflows/deploy.yml` ← create or update
+- `backend/scripts/run-all-gates.js` ← local gate orchestrator (new)
 - `backend/scripts/gate-migration-drift.js` (exists)
 - `backend/scripts/gate-pre-release-evidence.js` (exists)
 - `backend/scripts/gate-post-release-evidence.js` (exists)
+- `docs/CI_GATES.md` ← local-only gate docs (new)
 
 **Action:**
-1. Create `.github/workflows/deploy.yml` (or equivalent for your CI system) with a `deploy` job that:
-   - Runs on push to `main`.
-   - Step 1: `node backend/scripts/gate-migration-drift.js` — fails pipeline on non-zero exit.
-   - Step 2: `node backend/scripts/gate-pre-release-evidence.js` — fails pipeline on non-zero exit.
-   - Step 3: Build and push Docker images.
-   - Step 4: `node backend/scripts/gate-post-release-evidence.js` — fails pipeline on non-zero exit.
-2. Add a `gate:all` npm script in `backend/package.json` that runs all three gate scripts in sequence.
-3. Document what each gate checks in `docs/CI_GATES.md`.
+1. Implement local gate orchestration (no GitHub Actions/workflows) with `backend/scripts/run-all-gates.js`.
+2. Add backend npm scripts: `gate:migrate`, `gate:pre-release`, `gate:post-release`, `gate:all`.
+3. Document gate checks and local build flow in `docs/CI_GATES.md`.
+4. Enforce local build policy: run gates first, then build images locally via Docker Compose.
 
 **Done When:**
-- Introducing a Prisma schema change without a migration causes the pipeline to fail at step 1.
-- All three gate scripts are required steps, not advisory.
+- Introducing a Prisma schema change without a migration causes local `gate:migrate` / `gate:all` to fail.
+- All three gate scripts are required local release steps, not advisory.
+- Docker images are built locally (no GitHub-hosted build workflow).
 
 ---
 
