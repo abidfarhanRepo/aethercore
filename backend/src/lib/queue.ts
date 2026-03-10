@@ -42,7 +42,13 @@ export class JobQueue {
     this.concurrency = options.concurrency || 5;
     this.delayMs = options.delayMs || 0;
 
-    this.redis = new Redis(redisUrl || process.env.REDIS_URL || 'redis://localhost:6379');
+    this.redis = new Redis(redisUrl || process.env.REDIS_URL || 'redis://localhost:6379', {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+      connectTimeout: 5000,
+      retryStrategy: () => null,
+      enableOfflineQueue: false,
+    });
 
     this.redis.on('error', (err) => {
       logger.error(`Queue ${this.name} Redis error:`, err);

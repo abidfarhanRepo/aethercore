@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // Load environment variables FIRST, before anything else
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+process.env.NODE_ENV ||= 'development';
 const fastify_1 = __importDefault(require("fastify"));
 const cookie_1 = __importDefault(require("@fastify/cookie"));
 const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));

@@ -15,7 +15,13 @@ let redis: Redis | null = null
 
 // Only initialize Redis for non-test, non-development environments.
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
-  redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+  redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    lazyConnect: true,
+    maxRetriesPerRequest: 1,
+    connectTimeout: 5000,
+    retryStrategy: () => null,
+    enableOfflineQueue: false,
+  })
   redis.on('error', (err) => {
     logger.warn({ err }, 'Redis client error')
     // Gracefully degrade if Redis fails

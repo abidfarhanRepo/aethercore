@@ -26,7 +26,11 @@ async function checkRedis() {
     lazyConnect: true,
     connectTimeout: 1500,
     maxRetriesPerRequest: 1,
+    retryStrategy: () => null,
     enableOfflineQueue: false,
+  })
+  redis.on('error', () => {
+    // Swallow connection-level probe errors; failures are reported via health payload.
   })
 
   try {

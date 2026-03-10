@@ -1,6 +1,7 @@
 // Load environment variables FIRST, before anything else
 import dotenv from 'dotenv'
 dotenv.config()
+process.env.NODE_ENV ||= 'development'
 
 import Fastify from 'fastify'
 import fastifyCookie from '@fastify/cookie'

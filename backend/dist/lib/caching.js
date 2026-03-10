@@ -17,7 +17,13 @@ class CacheManager {
     constructor(redisUrl) {
         this.stats = { hits: 0, misses: 0, evictions: 0 };
         this.maxMemory = 100 * 1024 * 1024; // 100MB default
-        this.redis = new ioredis_1.default(redisUrl || process.env.REDIS_URL || 'redis://localhost:6379');
+        this.redis = new ioredis_1.default(redisUrl || process.env.REDIS_URL || 'redis://localhost:6379', {
+            lazyConnect: true,
+            maxRetriesPerRequest: 1,
+            connectTimeout: 5000,
+            retryStrategy: () => null,
+            enableOfflineQueue: false,
+        });
         this.redis.on('error', (err) => {
             logger_1.logger.error('Redis connection error:', err);
         });

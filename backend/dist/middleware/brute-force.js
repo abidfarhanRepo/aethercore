@@ -25,7 +25,13 @@ const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true' || process.env.NODE
 let redis = null;
 // Only initialize Redis for non-test, non-development environments.
 if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development') {
-    redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379');
+    redis = new ioredis_1.default(process.env.REDIS_URL || 'redis://localhost:6379', {
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+        connectTimeout: 5000,
+        retryStrategy: () => null,
+        enableOfflineQueue: false,
+    });
     redis.on('error', (err) => {
         logger_1.logger.warn({ err }, 'Redis client error');
         // Gracefully degrade if Redis fails

@@ -7,15 +7,29 @@ const MAX_PER_WINDOW = 100 // general per-IP limit per minute
 export default async function rateLimitPlugin(fastify: FastifyInstance) {
   const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true'
   const redisUrl = process.env.REDIS_URL
+  const nodeEnv = process.env.NODE_ENV ?? 'development'
   let redis: Redis | null = null
   
   // Skip Redis initialization if disabled or in development mode
-  if (!REDIS_DISABLED && process.env.NODE_ENV !== 'development' && redisUrl) {
+  if (!REDIS_DISABLED && nodeEnv !== 'development' && redisUrl) {
     try {
-      redis = new Redis(redisUrl)
+      redis = new Redis(redisUrl, {
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+        connectTimeout: 5000,
+        retryStrategy: () => null,
+        enableOfflineQueue: false,
+      })
+      redis.on('error', (err) => {
+        fastify.log.warn({ err }, 'Redis rate limit client error')
+      })
+      await redis.connect()
       fastify.log.info('Using Redis for rate limiting')
     } catch (e) {
       fastify.log.warn('Failed to connect to Redis, falling back to in-memory limiter')
+      if (redis) {
+        redis.disconnect()
+      }
       redis = null
     }
   }

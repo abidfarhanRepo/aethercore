@@ -5,6 +5,12 @@ let client: Redis | null = null
 let initPromise: Promise<Redis | null> | null = null
 
 async function initRedis(): Promise<Redis | null> {
+  const redisDisabled = process.env.REDIS_DISABLED === 'true'
+  const nodeEnv = process.env.NODE_ENV ?? 'development'
+  if (redisDisabled || nodeEnv !== 'production') {
+    return null
+  }
+
   let redis: Redis | null = null
 
   try {
