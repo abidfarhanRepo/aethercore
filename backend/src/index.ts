@@ -32,6 +32,11 @@ import { setupErrorHandler } from './middleware/errorHandler'
 import { logger } from './utils/logger'
 import { getRedisClient, closeRedisClient } from './lib/redis'
 import { registerGlobalValidationHook } from './lib/validation'
+import { isStrictAuthRateLimitedPath } from './lib/authRateLimit'
+import {
+  startExpiredHoldCleanupJob,
+  stopExpiredHoldCleanupJob,
+} from './jobs/cleanupExpiredHolds'
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me'
 const RATE_LIMIT_GLOBAL_DEFAULT = Number(process.env.RATE_LIMIT_GLOBAL || 200)
@@ -161,7 +166,7 @@ const initializeSecurityAndRoutes = async () => {
     timeWindow: '1 minute',
     max: async (request) => {
       const path = request.url.split('?')[0]
-      if (path.startsWith('/api/v1/auth/')) {
+      if (isStrictAuthRateLimitedPath(path)) {
         return RATE_LIMIT_AUTH
       }
       return resolveGlobalRateLimit()
@@ -255,6 +260,7 @@ const start = async () => {
   try {
     // Initialize security and routes
     await initializeSecurityAndRoutes()
+    startExpiredHoldCleanupJob()
     
     // Start server
     await server.listen({ port: Number(process.env.PORT) || 4000, host: '0.0.0.0' })
@@ -282,6 +288,7 @@ const start = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   server.log.info('SIGTERM received, gracefully shutting down...')
+  stopExpiredHoldCleanupJob()
   await server.close()
   await closeRedisClient()
   await prisma.$disconnect()
@@ -290,6 +297,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   server.log.info('SIGINT received, gracefully shutting down...')
+  stopExpiredHoldCleanupJob()
   await server.close()
   await closeRedisClient()
   await prisma.$disconnect()

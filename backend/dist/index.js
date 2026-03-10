@@ -69,6 +69,8 @@ const errorHandler_1 = require("./middleware/errorHandler");
 const logger_1 = require("./utils/logger");
 const redis_1 = require("./lib/redis");
 const validation_1 = require("./lib/validation");
+const authRateLimit_1 = require("./lib/authRateLimit");
+const cleanupExpiredHolds_1 = require("./jobs/cleanupExpiredHolds");
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'change_me';
 const RATE_LIMIT_GLOBAL_DEFAULT = Number(process.env.RATE_LIMIT_GLOBAL || 200);
 const RATE_LIMIT_AUTH = Number(process.env.RATE_LIMIT_AUTH || 10);
@@ -171,7 +173,7 @@ const initializeSecurityAndRoutes = async () => {
         timeWindow: '1 minute',
         max: async (request) => {
             const path = request.url.split('?')[0];
-            if (path.startsWith('/api/v1/auth/')) {
+            if ((0, authRateLimit_1.isStrictAuthRateLimitedPath)(path)) {
                 return RATE_LIMIT_AUTH;
             }
             return resolveGlobalRateLimit();
@@ -260,6 +262,7 @@ const start = async () => {
     try {
         // Initialize security and routes
         await initializeSecurityAndRoutes();
+        (0, cleanupExpiredHolds_1.startExpiredHoldCleanupJob)();
         // Start server
         await server.listen({ port: Number(process.env.PORT) || 4000, host: '0.0.0.0' });
         logger_1.logger.info({
@@ -283,6 +286,7 @@ const start = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     server.log.info('SIGTERM received, gracefully shutting down...');
+    (0, cleanupExpiredHolds_1.stopExpiredHoldCleanupJob)();
     await server.close();
     await (0, redis_1.closeRedisClient)();
     await db_1.prisma.$disconnect();
@@ -290,6 +294,7 @@ process.on('SIGTERM', async () => {
 });
 process.on('SIGINT', async () => {
     server.log.info('SIGINT received, gracefully shutting down...');
+    (0, cleanupExpiredHolds_1.stopExpiredHoldCleanupJob)();
     await server.close();
     await (0, redis_1.closeRedisClient)();
     await db_1.prisma.$disconnect();

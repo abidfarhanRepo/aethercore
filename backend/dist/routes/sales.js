@@ -6,6 +6,7 @@ const discountEngine_1 = require("../utils/discountEngine");
 const paymentEngine_1 = require("../utils/paymentEngine");
 const hookBus_1 = require("../lib/hookBus");
 const idempotency_1 = require("../utils/idempotency");
+const inventoryHold_1 = require("../lib/inventoryHold");
 const sales_1 = require("../schemas/sales");
 async function salesRoutes(fastify) {
     // ============ POST /sales - Create Sale ============
@@ -78,6 +79,23 @@ async function salesRoutes(fastify) {
                     warehouse = await tx.warehouse.create({
                         data: { name: 'Default Warehouse', location: 'Default' },
                     });
+                }
+                const holdSessionId = body.sessionId ||
+                    body.terminalId ||
+                    body.offlineOpId ||
+                    req.id;
+                const tenantId = (req.user?.tenantId || 'global').trim() ||
+                    'global';
+                const holdIds = [];
+                for (const item of itemsToCreate) {
+                    const reservation = await (0, inventoryHold_1.reserveInventoryHold)(tx, {
+                        productId: item.productId,
+                        warehouseId: warehouse.id,
+                        quantity: item.qty,
+                        sessionId: holdSessionId,
+                        tenantId,
+                    });
+                    holdIds.push(reservation.holdId);
                 }
                 // Calculate subtotal
                 let subtotalCents = itemsToCreate.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0);
@@ -282,6 +300,7 @@ async function salesRoutes(fastify) {
                         data: { loyaltyPoints: { increment: pointsEarned } },
                     });
                 }
+                await (0, inventoryHold_1.releaseInventoryHolds)(tx, holdIds);
                 return {
                     id: sale.id,
                     totalCents,
@@ -311,6 +330,13 @@ async function salesRoutes(fastify) {
         }
         catch (e) {
             fastify.log.error('Sale creation error:', e);
+            if (e instanceof inventoryHold_1.InventoryHoldConflictError || e?.code === 'HOLD_EXHAUSTED') {
+                return reply.status(409).send({
+                    error: e.message,
+                    code: 'HOLD_EXHAUSTED',
+                    statusCode: 409,
+                });
+            }
             // Differentiate error types for better debugging
             if (e.message.includes('not found')) {
                 return reply.status(404).send({

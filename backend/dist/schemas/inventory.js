@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.warehouseInitBodySchema = exports.recountInventoryBodySchema = exports.transferInventoryBodySchema = exports.adjustInventoryBodySchema = exports.inventoryProductParamsSchema = exports.inventoryListQuerySchema = void 0;
+exports.releaseInventoryHoldBodySchema = exports.warehouseInitBodySchema = exports.recountInventoryBodySchema = exports.transferInventoryBodySchema = exports.adjustInventoryBodySchema = exports.inventoryProductParamsSchema = exports.inventoryListQuerySchema = void 0;
 const zod_1 = require("zod");
 const common_1 = require("./common");
 exports.inventoryListQuerySchema = zod_1.z.object({
@@ -38,3 +38,10 @@ exports.warehouseInitBodySchema = zod_1.z.object({
     location: zod_1.z.string().trim().optional(),
     address: zod_1.z.string().trim().optional(),
 }).optional();
+exports.releaseInventoryHoldBodySchema = zod_1.z.object({
+    holdId: common_1.idSchema.optional(),
+    sessionId: zod_1.z.string().trim().min(1).optional(),
+    productId: common_1.idSchema.optional(),
+}).refine((value) => Boolean(value.holdId || value.sessionId || value.productId), {
+    message: 'holdId, sessionId, or productId is required',
+});

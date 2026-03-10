@@ -55,6 +55,49 @@ async function securityRoutes(fastify) {
             return reply.code(500).send({ error: 'Failed to fetch security events', details: message });
         }
     });
+    fastify.post('/api/v1/security/events', { preHandler: [authMiddleware_1.requireAuth] }, async (req, reply) => {
+        const body = (req.body || {});
+        if (!body.type || !body.severity || !body.timestamp || typeof body.context !== 'object') {
+            return reply.code(400).send({
+                error: 'Invalid payload. Required fields: type, severity, context, timestamp',
+            });
+        }
+        const severityMap = {
+            low: client_1.SecuritySeverity.LOW,
+            medium: client_1.SecuritySeverity.MEDIUM,
+            high: client_1.SecuritySeverity.HIGH,
+        };
+        if (!severityMap[body.severity]) {
+            return reply.code(400).send({ error: 'severity must be low, medium, or high' });
+        }
+        const eventTypeMap = {
+            'auth.login_failed': client_1.SecurityEventType.FAILED_LOGIN,
+            'auth.mfa_failed': client_1.SecurityEventType.MFA_FAILED,
+            'authz.capability_denied': client_1.SecurityEventType.CAPABILITY_DENIED,
+            'session.idle_lock': client_1.SecurityEventType.IDLE_LOCK,
+        };
+        const eventType = eventTypeMap[body.type] || client_1.SecurityEventType.UNKNOWN;
+        try {
+            const event = await (0, securityCompliance_1.logSecurityEventRecord)({
+                eventType,
+                severity: severityMap[body.severity],
+                source: `frontend/${body.type}`,
+                message: `Client security event: ${body.type}`,
+                details: {
+                    type: body.type,
+                    context: body.context,
+                    timestamp: body.timestamp,
+                },
+                actorId: req.user?.id,
+                ipAddress: req.ip,
+            });
+            return reply.code(201).send({ id: event.id, createdAt: event.createdAt });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            return reply.code(500).send({ error: 'Failed to persist security event', details: message });
+        }
+    });
     fastify.get('/api/v1/security/key-rotations', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN', 'MANAGER')] }, async (req, reply) => {
         const query = (req.query || {});
         const limit = Math.min(Math.max(Number(query.limit || 50), 1), 200);

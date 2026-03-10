@@ -292,6 +292,41 @@ async function userRoutes(server) {
             reply.code(500).send({ error: 'Failed to change password' });
         }
     });
+    // PUT /users/:id/pin - Set or update idle-lock PIN
+    server.put('/api/v1/users/:id/pin', { preHandler: authMiddleware_1.requireAuth }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { pin } = request.body;
+            const authUser = request.user;
+            if (authUser.id !== id && authUser.role !== 'ADMIN') {
+                return reply.code(403).send({ error: 'forbidden' });
+            }
+            if (!pin || !/^\d{4,8}$/.test(String(pin))) {
+                return reply.code(400).send({ error: 'PIN must be 4 to 8 digits' });
+            }
+            const user = await db_1.prisma.user.findUnique({ where: { id } });
+            if (!user)
+                return reply.code(404).send({ error: 'user not found' });
+            const pinHash = await bcrypt.hash(String(pin), 10);
+            await db_1.prisma.user.update({
+                where: { id },
+                data: { pinHash },
+            });
+            await db_1.prisma.auditLog.create({
+                data: {
+                    actorId: authUser.id,
+                    action: 'PIN_UPDATED',
+                    resource: 'USER',
+                    resourceId: id,
+                    details: `PIN updated for user ${user.email}`,
+                },
+            });
+            reply.send({ message: 'PIN updated successfully' });
+        }
+        catch (err) {
+            reply.code(500).send({ error: 'Failed to update PIN' });
+        }
+    });
     // POST /users/:id/reset-password - Admin reset (ADMIN only)
     server.post('/api/v1/users/:id/reset-password', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
         try {
@@ -356,6 +391,36 @@ async function userRoutes(server) {
         }
         catch (err) {
             reply.code(500).send({ error: 'Failed to unlock account' });
+        }
+    });
+    // POST /users/:id/mfa/reset - Admin reset MFA for a user
+    server.post('/api/v1/users/:id/mfa/reset', { preHandler: [authMiddleware_1.requireAuth, (0, authMiddleware_1.requireRole)('ADMIN')] }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const user = await db_1.prisma.user.findUnique({ where: { id } });
+            if (!user)
+                return reply.code(404).send({ error: 'user not found' });
+            await db_1.prisma.user.update({
+                where: { id },
+                data: {
+                    mfaEnabled: false,
+                    mfaSecret: null,
+                    mfaRecoveryCodes: [],
+                },
+            });
+            await db_1.prisma.auditLog.create({
+                data: {
+                    actorId: request.user.id,
+                    action: 'USER_MFA_RESET',
+                    resource: 'USER',
+                    resourceId: id,
+                    details: `MFA reset by admin for user ${user.email}`,
+                },
+            });
+            reply.send({ message: 'MFA reset successfully' });
+        }
+        catch (err) {
+            reply.code(500).send({ error: 'Failed to reset MFA' });
         }
     });
     // PUT /users/:id/roles - Update user roles (ADMIN only)

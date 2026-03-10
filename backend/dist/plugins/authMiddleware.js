@@ -116,10 +116,18 @@ async function requireAuth(req, reply) {
                 firstName: true,
                 lastName: true,
                 isActive: true,
+                mfaEnabled: true,
             },
         });
         if (!user || !user.isActive) {
             return reply.code(401).send({ error: 'user not found or inactive' });
+        }
+        const requestPath = req.url.split('?')[0];
+        const isMfaRoute = requestPath.startsWith('/api/v1/auth/mfa/');
+        if ((user.role === 'ADMIN' || user.role === 'MANAGER') &&
+            !user.mfaEnabled &&
+            !isMfaRoute) {
+            return reply.code(403).send({ error: 'MFA enrollment required' });
         }
         // attach user to request
         req.user = {
@@ -130,6 +138,7 @@ async function requireAuth(req, reply) {
             firstName: user.firstName,
             lastName: user.lastName,
             isActive: user.isActive,
+            mfaEnabled: user.mfaEnabled,
         };
     }
     catch (e) {

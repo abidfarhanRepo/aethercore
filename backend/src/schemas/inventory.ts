@@ -42,9 +42,21 @@ export const warehouseInitBodySchema = z.object({
   address: z.string().trim().optional(),
 }).optional()
 
+export const releaseInventoryHoldBodySchema = z.object({
+  holdId: idSchema.optional(),
+  sessionId: z.string().trim().min(1).optional(),
+  productId: idSchema.optional(),
+}).refine(
+  (value) => Boolean(value.holdId || value.sessionId || value.productId),
+  {
+    message: 'holdId, sessionId, or productId is required',
+  }
+)
+
 export type InventoryListQuery = z.infer<typeof inventoryListQuerySchema>
 export type InventoryProductParams = z.infer<typeof inventoryProductParamsSchema>
 export type AdjustInventoryBody = z.infer<typeof adjustInventoryBodySchema>
 export type TransferInventoryBody = z.infer<typeof transferInventoryBodySchema>
 export type RecountInventoryBody = z.infer<typeof recountInventoryBodySchema>
 export type WarehouseInitBody = z.infer<typeof warehouseInitBodySchema>
+export type ReleaseInventoryHoldBody = z.infer<typeof releaseInventoryHoldBodySchema>

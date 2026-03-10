@@ -11,6 +11,7 @@ export const createSaleBodySchema = z.object({
   userId: idSchema.optional(),
   receiptPublicId: z.string().trim().optional(),
   terminalId: z.string().trim().optional(),
+  sessionId: z.string().trim().optional(),
   offlineOpId: z.string().trim().optional(),
   syncState: z.string().trim().optional(),
   paymentMethod: z.string().trim().optional(),

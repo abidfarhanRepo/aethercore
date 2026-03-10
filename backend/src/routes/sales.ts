@@ -17,6 +17,11 @@ import {
 import { coreHookBus } from '../lib/hookBus'
 import { checkIdempotency, saveIdempotency } from '../utils/idempotency'
 import {
+  InventoryHoldConflictError,
+  releaseInventoryHolds,
+  reserveInventoryHold,
+} from '../lib/inventoryHold'
+import {
   createSaleBodySchema,
   CreateSaleBody,
   listSalesQuerySchema,
@@ -115,6 +120,27 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           warehouse = await tx.warehouse.create({
             data: { name: 'Default Warehouse', location: 'Default' },
           })
+        }
+
+        const holdSessionId =
+          body.sessionId ||
+          body.terminalId ||
+          body.offlineOpId ||
+          req.id
+        const tenantId =
+          ((req.user as { tenantId?: string } | undefined)?.tenantId || 'global').trim() ||
+          'global'
+        const holdIds: string[] = []
+
+        for (const item of itemsToCreate) {
+          const reservation = await reserveInventoryHold(tx, {
+            productId: item.productId,
+            warehouseId: warehouse.id,
+            quantity: item.qty,
+            sessionId: holdSessionId,
+            tenantId,
+          })
+          holdIds.push(reservation.holdId)
         }
 
         // Calculate subtotal
@@ -349,6 +375,8 @@ export default async function salesRoutes(fastify: FastifyInstance) {
           })
         }
 
+        await releaseInventoryHolds(tx, holdIds)
+
         return {
           id: sale.id,
           totalCents,
@@ -380,6 +408,14 @@ export default async function salesRoutes(fastify: FastifyInstance) {
       return reply.code(201).send(result)
     } catch (e: any) {
       fastify.log.error('Sale creation error:', e)
+
+      if (e instanceof InventoryHoldConflictError || e?.code === 'HOLD_EXHAUSTED') {
+        return reply.status(409).send({
+          error: e.message,
+          code: 'HOLD_EXHAUSTED',
+          statusCode: 409,
+        })
+      }
       
       // Differentiate error types for better debugging
       if (e.message.includes('not found')) {

@@ -11,6 +11,8 @@ import {
   RecountInventoryBody,
   transferInventoryBodySchema,
   TransferInventoryBody,
+  releaseInventoryHoldBodySchema,
+  ReleaseInventoryHoldBody,
   warehouseInitBodySchema,
   WarehouseInitBody,
 } from '../schemas/inventory'
@@ -622,6 +624,34 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     } catch (err) {
       fastify.log.error(err)
       return reply.status(500).send({ error: 'Failed to fetch warehouses' })
+    }
+  })
+
+  fastify.post<{ Body: ReleaseInventoryHoldBody }>('/api/v1/inventory/holds/release', {
+    config: { zod: { body: releaseInventoryHoldBodySchema } },
+  }, async (req, reply) => {
+    const tenantId = ((req.user as { tenantId?: string } | undefined)?.tenantId || 'global').trim() || 'global'
+
+    try {
+      const where = req.body.holdId
+        ? {
+            id: req.body.holdId,
+            tenantId,
+          }
+        : {
+            tenantId,
+            ...(req.body.sessionId ? { sessionId: req.body.sessionId } : {}),
+            ...(req.body.productId ? { productId: req.body.productId } : {}),
+          }
+
+      const result = await prisma.inventoryHold.deleteMany({ where })
+
+      return reply.status(200).send({
+        released: result.count,
+      })
+    } catch (err) {
+      fastify.log.error(err)
+      return reply.status(500).send({ error: 'Failed to release inventory hold(s)' })
     }
   })
 }

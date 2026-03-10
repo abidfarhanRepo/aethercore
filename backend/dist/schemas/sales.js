@@ -12,6 +12,7 @@ exports.createSaleBodySchema = zod_1.z.object({
     userId: common_1.idSchema.optional(),
     receiptPublicId: zod_1.z.string().trim().optional(),
     terminalId: zod_1.z.string().trim().optional(),
+    sessionId: zod_1.z.string().trim().optional(),
     offlineOpId: zod_1.z.string().trim().optional(),
     syncState: zod_1.z.string().trim().optional(),
     paymentMethod: zod_1.z.string().trim().optional(),

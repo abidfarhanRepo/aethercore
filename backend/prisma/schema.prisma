@@ -261,6 +261,7 @@ model Product {
 
   inventoryLocations    InventoryLocation[]
   inventoryTransactions InventoryTransaction[]
+  inventoryHolds        InventoryHold[]
   saleItems             SaleItem[]
   purchaseOrderItems    PurchaseOrderItem[]
   lotBatches            LotBatch[]
@@ -338,6 +339,22 @@ model InventoryTransaction {
   @@index([reason])
   @@index([createdAt])
   @@index([reference])
+}
+
+model InventoryHold {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  tenantId  String   @default("global")
+  quantity  Int
+  expiresAt DateTime
+  sessionId String
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@index([sessionId])
 }
 
 model InventoryAdjustmentSession {

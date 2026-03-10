@@ -251,7 +251,7 @@
 ---
 
 ### TICKET W1-10 — Implement Inventory Reservation / Hold Mechanism
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Files:**
 - `backend/prisma/schema.prisma` ← add `InventoryHold` model
