@@ -317,6 +317,50 @@ export const reportsAPI = {
   exportCSV: (type: string, query?: any) => api.get(`/api/v1/reports/export/csv?type=${type}`, { params: query, responseType: 'blob' }),
 }
 
+export interface CashSession {
+  id: string
+  tenantId: string
+  terminalId?: string | null
+  openedAt: string
+  closedAt?: string | null
+  openingFloatCents: number
+  declaredCashCents?: number | null
+  systemCashCents?: number | null
+  varianceCents?: number | null
+  openedBy: string
+  closedBy?: string | null
+  status: 'OPEN' | 'CLOSED'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OpenCashSessionPayload {
+  terminalId?: string
+  openingFloatCents: number
+}
+
+export interface CloseCashSessionPayload {
+  declaredCashCents: number
+}
+
+export interface ListCashSessionsQuery {
+  terminalId?: string
+  dateFrom?: string
+  dateTo?: string
+  limit?: number
+  offset?: number
+}
+
+export const cashSessionsAPI = {
+  open: (payload: OpenCashSessionPayload) => api.post<CashSession>('/api/v1/cash-sessions/open', payload),
+  close: (id: string, payload: CloseCashSessionPayload) =>
+    api.post<CashSession>(`/api/v1/cash-sessions/${id}/close`, payload),
+  list: (query?: ListCashSessionsQuery) =>
+    api.get<{ items: CashSession[]; total: number; limit: number; offset: number }>('/api/v1/cash-sessions', {
+      params: query,
+    }),
+}
+
 // Audit API
 export const auditAPI = {
   list: (query?: any) => api.get('/api/v1/audits', { params: query }),

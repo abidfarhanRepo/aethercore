@@ -311,7 +311,7 @@
 ---
 
 ### TICKET W1-12 — Add EOD Cash Reconciliation Workflow
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Files:**
 - `backend/prisma/schema.prisma` ← add `CashSession` model

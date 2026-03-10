@@ -1,27 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="1" failures="1" errors="0" time="10.941">
-  <testsuite name="Inventory hold reservation integration" errors="0" failures="1" skipped="0" timestamp="2026-03-09T23:13:31" time="10.719" tests="1">
-    <testcase classname="Inventory hold reservation integration" name="allows only one of two concurrent sale requests for the last unit" time="0.001">
-      <failure>PrismaClientInitializationError: 
-Invalid `prisma.inventoryHold.deleteMany()` invocation in
-C:\Users\User\Desktop\aethercore-main\backend\__tests__\integration\inventory-holds.integration.test.ts:10:30
-
-   7 const TEST_USER_EMAIL = &apos;hold-test-cashier@aether.local&apos;
-   8 
-   9 async function cleanupHoldTestData() {
-→ 10   await prisma.inventoryHold.deleteMany(
-Can&apos;t reach database server at `localhost:5432`
-
-Please make sure your database server is running at `localhost:5432`.
-    at $n.handleRequestError (C:\Users\User\Desktop\aethercore-main\backend\node_modules\@prisma\client\runtime\library.js:121:7615)
-    at $n.handleAndLogRequestError (C:\Users\User\Desktop\aethercore-main\backend\node_modules\@prisma\client\runtime\library.js:121:6623)
-    at $n.request (C:\Users\User\Desktop\aethercore-main\backend\node_modules\@prisma\client\runtime\library.js:121:6307)
-    at l (C:\Users\User\Desktop\aethercore-main\backend\node_modules\@prisma\client\runtime\library.js:130:9633)
-    at cleanupHoldTestData (C:\Users\User\Desktop\aethercore-main\backend\__tests__\integration\inventory-holds.integration.test.ts:10:3)
-    at Object.&lt;anonymous&gt; (C:\Users\User\Desktop\aethercore-main\backend\__tests__\integration\inventory-holds.integration.test.ts:66:5)</failure>
-    </testcase>
-    <testcase classname="" name="Test execution failure: could be caused by test hooks like &apos;afterAll&apos;." time="0">
-      <failure>{&quot;message&quot;:&quot;&quot;,&quot;stack&quot;:&quot;PrismaClientInitializationError: \nInvalid `prisma.inventoryHold.deleteMany()` invocation in\nC:\\Users\\User\\Desktop\\aethercore-main\\backend\\__tests__\\integration\\inventory-holds.integration.test.ts:10:30\n\n   7 const TEST_USER_EMAIL = &apos;hold-test-cashier@aether.local&apos;\n   8 \n   9 async function cleanupHoldTestData() {\n→ 10   await prisma.inventoryHold.deleteMany(\nCan&apos;t reach database server at `localhost:5432`\n\nPlease make sure your database server is running at `localhost:5432`.\n    at $n.handleRequestError (C:\\Users\\User\\Desktop\\aethercore-main\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:7615)\n    at $n.handleAndLogRequestError (C:\\Users\\User\\Desktop\\aethercore-main\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:6623)\n    at $n.request (C:\\Users\\User\\Desktop\\aethercore-main\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:6307)\n    at l (C:\\Users\\User\\Desktop\\aethercore-main\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:130:9633)\n    at cleanupHoldTestData (C:\\Users\\User\\Desktop\\aethercore-main\\backend\\__tests__\\integration\\inventory-holds.integration.test.ts:10:3)\n    at Object.&lt;anonymous&gt; (C:\\Users\\User\\Desktop\\aethercore-main\\backend\\__tests__\\integration\\inventory-holds.integration.test.ts:113:5)&quot;}</failure>
+<testsuites name="jest tests" tests="1" failures="0" errors="0" time="3.059">
+  <testsuite name="Cash sessions integration" errors="0" failures="0" skipped="0" timestamp="2026-03-10T16:50:31" time="2.834" tests="1">
+    <testcase classname="Cash sessions integration" name="opens, closes, and lists cash sessions with variance calculation" time="0.095">
     </testcase>
   </testsuite>
 </testsuites>

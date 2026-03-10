@@ -46,6 +46,8 @@ model User {
   notificationsReceived  Notification[]     @relation("NotificationRecipient")
   notificationsAuthored  Notification[]     @relation("NotificationActor")
   tenantFeatureFlagsUpdated TenantFeatureFlag[] @relation("TenantFeatureFlagUpdater")
+  cashSessionsOpened     CashSession[]      @relation("CashSessionOpenedBy")
+  cashSessionsClosed     CashSession[]      @relation("CashSessionClosedBy")
 
   @@index([email])
   @@index([role])
@@ -196,6 +198,11 @@ enum Role {
   CASHIER
   STOCK_CLERK
   SUPERVISOR
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
 }
 
 model CustomRole {
@@ -462,6 +469,31 @@ model SalePayment {
 
   @@index([saleId])
   @@index([method])
+}
+
+model CashSession {
+  id                String            @id @default(cuid())
+  tenantId          String            @default("global")
+  terminalId        String?
+  openedAt          DateTime          @default(now())
+  closedAt          DateTime?
+  openingFloatCents Int
+  declaredCashCents Int?
+  systemCashCents   Int?
+  varianceCents     Int?
+  openedByUser      User              @relation("CashSessionOpenedBy", fields: [openedBy], references: [id])
+  openedBy          String
+  closedByUser      User?             @relation("CashSessionClosedBy", fields: [closedBy], references: [id])
+  closedBy          String?
+  status            CashSessionStatus @default(OPEN)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([openedAt])
+  @@index([terminalId])
+  @@index([tenantId, terminalId, status])
 }
 
 model SaleDiscount {

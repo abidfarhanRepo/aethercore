@@ -64,6 +64,7 @@ const security_1 = __importDefault(require("./routes/security"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
 const health_1 = __importDefault(require("./routes/health"));
 const plugins_1 = __importDefault(require("./routes/plugins"));
+const cashSessions_1 = __importDefault(require("./routes/cashSessions"));
 const securityPlugin_1 = require("./plugins/securityPlugin");
 const errorHandler_1 = require("./middleware/errorHandler");
 const logger_1 = require("./utils/logger");
@@ -230,6 +231,7 @@ const initializeSecurityAndRoutes = async () => {
     server.register(notifications_1.default);
     server.register(health_1.default);
     server.register(plugins_1.default);
+    server.register(cashSessions_1.default);
     // Security audit endpoint (admin only)
     server.get('/api/v1/security/audit-summary', async (req, reply) => {
         // Check auth and admin role
