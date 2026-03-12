@@ -24,6 +24,16 @@
 
 ---
 
+## Code Verification Snapshot (2026-03-13)
+
+The following facts reflect the verified implementation boundary from code audit:
+
+- **Longest fully implemented contiguous sequence:** W1-01 through W2-04
+- **First not implemented ticket after that sequence:** W2-05
+- **Note on statuses beyond W2-03:** Statuses for tickets beyond W2-03 may include partial scaffolding. These should be treated as **not done** until their **Done When** criteria are met.
+
+---
+
 ## Wave 1 — Foundation Hardening
 > **Goal:** Eliminate all critical stubs, harden the API layer, and enforce security fundamentals. Nothing goes to production until this wave is done.
 
@@ -516,7 +526,7 @@ Write `deploy/scripts/deprovision-org.sh` that:
 ---
 
 ### TICKET W2-04 — Create Backup and Restore Scripts
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Depends on:** W2-03  
 **Files to create:**
