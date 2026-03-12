@@ -13,6 +13,13 @@ This folder contains organization provisioning and disaster-recovery helper scri
 - scripts/simulate-restore-drill.sh
   - Validates latest backups per org by restoring into temporary drill stacks and running smoke checks.
 
+## Update Workflows
+
+- scripts/update-org.sh <ORG_NAME>
+  - Runs backup, pre-gates, image pull, rolling restart, migrations, health polling, rollback-on-failure, and post-gate evidence.
+- scripts/update-all.sh [--continue-on-error]
+  - Iterates org updates using update-org.sh, stops on first failure by default, or continues and summarizes failures.
+
 ## Cron Example
 
 Use this example to run full backups every day at 02:00:

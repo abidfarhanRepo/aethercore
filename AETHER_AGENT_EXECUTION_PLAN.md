@@ -573,7 +573,7 @@ Write `deploy/scripts/deprovision-org.sh` that:
 ---
 
 ### TICKET W2-05 — Create Organisation Update Script
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Depends on:** W2-03  
 **Files to create:**
