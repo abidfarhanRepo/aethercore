@@ -602,7 +602,7 @@ Write `deploy/scripts/update-all.sh`:
 ---
 
 ### TICKET W2-06 — Build Organisation Admin Portal
-**Status:** `[ ]`  
+**Status:** `[x]`  
 **Priority:** HIGH  
 **Depends on:** W2-03  
 **Files to create:**
@@ -624,6 +624,11 @@ Build a lightweight React admin portal (separate from the main POS app) running 
 - A new org can be provisioned entirely from the admin portal UI.
 - Container health status is visible and updates in real time.
 - MFA is required for every login.
+
+**Implementation Notes (2026-03-14):**
+- Provision form now captures POS admin email + password and sends `adminPassword` to `POST /api/orgs`.
+- Admin portal backend validates admin email/password and performs API-side admin ensure using a one-off backend container command (`Prisma upsert` + `bcryptjs`).
+- Provisioning script remains backward-compatible with best-effort legacy seeding and non-fatal seed fallback.
 
 ---
 

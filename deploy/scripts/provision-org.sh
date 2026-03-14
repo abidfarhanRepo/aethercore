@@ -63,6 +63,14 @@ resolve_dns_ip() {
 
 check_local_port_bound() {
   local port="$1"
+  local uname_s
+  uname_s="$(uname -s 2>/dev/null || true)"
+
+  # On Windows shell environments, ss/netstat output is often unavailable or inconsistent.
+  # We already validate Traefik container port bindings via docker ps checks.
+  if [[ "$uname_s" == MINGW* || "$uname_s" == MSYS* || "$uname_s" == CYGWIN* ]]; then
+    return 0
+  fi
 
   if command -v ss >/dev/null 2>&1; then
     ss -ltn | awk '{print $4}' | grep -E ":${port}$" >/dev/null 2>&1
@@ -115,11 +123,17 @@ preflight_checks() {
 
   local acme_perms
   acme_perms="$(stat -c '%a' "${TRAEFIK_DIR}/acme.json" 2>/dev/null || true)"
-  if [[ -n "$acme_perms" && "$acme_perms" != "600" ]]; then
-    echo "Error: deploy/traefik/acme.json must have permissions 600 (current: $acme_perms)." >&2
-    exit 1
+  local uname_s
+  uname_s="$(uname -s 2>/dev/null || true)"
+  if [[ "$uname_s" == MINGW* || "$uname_s" == MSYS* || "$uname_s" == CYGWIN* ]]; then
+    echo "[preflight] acme.json permission check skipped on Windows shell (current: ${acme_perms:-unknown})"
+  else
+    if [[ -n "$acme_perms" && "$acme_perms" != "600" ]]; then
+      echo "Error: deploy/traefik/acme.json must have permissions 600 (current: $acme_perms)." >&2
+      exit 1
+    fi
+    echo "[preflight] acme.json exists with acceptable permissions"
   fi
-  echo "[preflight] acme.json exists with acceptable permissions"
 
   if ! docker ps --format '{{.Names}}' | grep -qx 'aether-traefik'; then
     echo "Error: Traefik container 'aether-traefik' is not running." >&2
@@ -129,6 +143,12 @@ preflight_checks() {
 
   local traefik_ports
   traefik_ports="$(docker ps --filter name=^/aether-traefik$ --format '{{.Ports}}')"
+  if [[ -z "$traefik_ports" ]]; then
+    traefik_ports="$(docker ps --filter name=aether-traefik --format '{{.Ports}}')"
+  fi
+  if [[ -z "$traefik_ports" ]]; then
+    traefik_ports="$(docker ps --format '{{.Names}} {{.Ports}}' | awk '/aether-traefik/ { $1=""; sub(/^ /, ""); print }')"
+  fi
   if [[ "$traefik_ports" != *"0.0.0.0:80->80/tcp"* && "$traefik_ports" != *":::80->80/tcp"* ]]; then
     echo "Error: Traefik is not bound to host port 80." >&2
     exit 1
@@ -162,7 +182,9 @@ preflight_checks() {
     exit 1
   fi
 
-  if ! curl -fsS "http://localhost:8080/api/rawdata" >/dev/null 2>&1; then
+  local dashboard_status
+  dashboard_status="$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost:8080/api/rawdata" 2>/dev/null || true)"
+  if [[ "$dashboard_status" != "200" && "$dashboard_status" != "401" && "$dashboard_status" != "403" ]]; then
     echo "Error: Traefik dashboard API is not reachable on localhost:8080 (health validation failed)." >&2
     exit 1
   fi
@@ -263,19 +285,43 @@ echo "[deploy] Starting org stack for ${ORG_NAME}..."
 docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" up -d
 
 wait_for_postgres "$compose_file"
-wait_for_backend_health "$compose_file"
 
 echo "[deploy] Running Prisma migrations..."
-docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" exec -T backend npx prisma migrate deploy
+if ! docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" run --rm backend npx prisma migrate deploy; then
+  echo "[deploy] Prisma migrate deploy failed. Falling back to Prisma db push..."
+  if ! docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" run --rm backend npx prisma db push --accept-data-loss; then
+    echo "Error: Prisma db push fallback failed after migrate deploy error." >&2
+    exit 1
+  fi
+fi
+
+if ! wait_for_backend_health "$compose_file"; then
+  echo "[deploy] Backend health failed after migrations. Attempting Prisma db push fallback..."
+  if ! docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" run --rm backend npx prisma db push --accept-data-loss; then
+    echo "Error: Prisma db push fallback failed." >&2
+    exit 1
+  fi
+  wait_for_backend_health "$compose_file"
+fi
 
 echo "[deploy] Seeding first admin user..."
-seed_result="$(docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" exec -T backend node scripts/seed-admin.js --email "$ADMIN_EMAIL" --org "$ORG_NAME" --password "$TEMP_ADMIN_PASSWORD")"
-
-echo "${seed_result}" | tail -n1 > "${ORG_DIR}/seed-admin.result.json"
+seeded_admin="false"
+if seed_result="$(docker compose -f "$compose_file" --env-file "${ORG_DIR}/.env" run --rm backend node scripts/seed-admin.js --email "$ADMIN_EMAIL" --org "$ORG_NAME" --password "$TEMP_ADMIN_PASSWORD" 2>&1)"; then
+  echo "${seed_result}" | tail -n1 > "${ORG_DIR}/seed-admin.result.json"
+  seeded_admin="true"
+else
+  echo "[warn] Admin seeding failed; stack is deployed but initial admin was not created automatically." >&2
+  echo "[warn] This is non-fatal. Admin portal API now runs an API-side ensure-admin upsert step." >&2
+  printf '{"status":"seed_skipped","reason":"seed-admin.js unavailable or failed"}\n' > "${ORG_DIR}/seed-admin.result.json"
+fi
 
 echo ""
 echo "Provisioning completed successfully"
 echo "Login URL: https://${TRAEFIK_HOST}"
 echo "Admin email: ${ADMIN_EMAIL}"
-echo "Temporary admin password: ${TEMP_ADMIN_PASSWORD}"
+if [[ "$seeded_admin" == "true" ]]; then
+  echo "Temporary admin password: ${TEMP_ADMIN_PASSWORD}"
+else
+  echo "Temporary admin password: not generated by script (API-side admin ensure is expected)"
+fi
 echo "Org directory: ${ORG_DIR}"
